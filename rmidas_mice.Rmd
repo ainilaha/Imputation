@@ -1,0 +1,72 @@
+---
+title: "rMIDAS vs MICE"
+author: "Laha Ale,"
+date: "2/10/2022"
+output:
+  html_document: default
+  pdf_document: default
+  beamer_presentation: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## rMIDAS vs MICE Updates
+
+- Bullet 1
+- Bullet 2
+- Bullet 3
+
+
+## Read Data
+
+This data set is from rMIDAs
+```{r load_data}
+adult_df = read.csv("https://raw.githubusercontent.com/MIDASverse/MIDASpy/master/Examples/adult_data.csv",
+                    # colClasses=c("NULL",NA,NA,NA),
+                    row.names = 1
+                    )
+head(adult_df)
+```
+
+## Data Summaries
+
+```{r load_sum}
+# dim(adult_df)
+str(adult_df)
+```
+
+## Load libs for rMIDAS
+
+rMIDAS is implemented based on [MIDASpy](https://github.com/MIDASverse/MIDASpy),  and it requires Python configuration as the following.
+
+
+```{r rmidas_lib, echo = TRUE, message=FALSE}
+library(rMIDAS)
+set_python_env(python ="/opt/anaconda3/bin/python")
+# or
+# set_python_env(python = "base", type = "conda")
+# or, the following one seems not work well on R Markdown
+# Sys.setenv(RETICULATE_PYTHON = "/opt/anaconda3/bin/python")
+# reticulate::py_config()
+```
+Note: It would install an Miniconda and other libs such Tensorflow for you if the Python is not specified.
+
+
+## Create Missing Data
+
+```{r cars, echo = TRUE}
+set.seed(89)
+
+adult_miss_df <- add_missingness(adult_df, prop = 0.1)
+sapply(adult_miss_df, function(x) sum(is.na(x)))
+```
+
+## Slide with Plot
+
+```{r pressure}
+plot(pressure)
+```
+
