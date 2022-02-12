@@ -6,7 +6,6 @@ output:
   html_document: default
   pdf_document: default
   beamer_presentation: default
-  html_notebook: default
 ---
 
 ```{r setup, include=FALSE}
@@ -16,30 +15,32 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## rMIDAS vs MICE Updates
 
-- Bullet 1
-- Bullet 2
-- Bullet 3
+- Getting Data 
+- rMIDAS
+- MICE
 
 
-## Read Data
+## 1. Getting Data
 
 This data set is from rMIDAs
 ```{r load_data}
 adult_df = read.csv("https://raw.githubusercontent.com/MIDASverse/MIDASpy/master/Examples/adult_data.csv",
                     # colClasses=c("NULL",NA,NA,NA),
                     row.names = 1
-                    )
+                    )[1:500, ]
 head(adult_df)
 ```
 
-## Data Summaries
+#### Data Summaries
 
 ```{r load_sum}
 # dim(adult_df)
 str(adult_df)
 ```
 
-## Load libs for rMIDAS
+## 2. rMIDAS
+
+#### Load libs for rMIDAS
 
 rMIDAS is implemented based on [MIDASpy](https://github.com/MIDASverse/MIDASpy),  and it requires Python configuration as the following.
 
@@ -56,18 +57,85 @@ set_python_env(python ="/opt/anaconda3/bin/python")
 Note: It would install an Miniconda and other libs such Tensorflow for you if the Python is not specified.
 
 
-## Create Missing Data
+#### Create Missing Data
 
 ```{r cars, echo = TRUE}
 set.seed(89)
-
 adult_miss_df <- add_missingness(adult_df, prop = 0.1)
+# view miss number of miss data by colunms
 sapply(adult_miss_df, function(x) sum(is.na(x)))
 ```
 
-## Slide with Plot
 
-```{r pressure}
-plot(pressure)
+#### Preprocessing for rMIDAS
+
+```{r prepro, echo = TRUE}
+adult_cat <- c('workclass','marital_status','relationship','race','education','occupation','native_country')
+adult_bin <- c('sex','class_labels')
+
+# Apply rMIDAS preprocessing steps
+adult_conv <- convert(adult_miss_df, 
+                      bin_cols = adult_bin, 
+                      cat_cols = adult_cat,
+                      minmax_scale = TRUE)
+# str(adult_conv)
 ```
+
+#### Training rMIDAS models
+
+```{r train_midas, echo = TRUE,eval=FALSE}
+# Train the model for 20 epochs
+adult_train <- train(adult_conv,
+                       training_epochs = 20,
+                       layer_structure = c(128,128),
+                       input_drop = 0.75,
+                       seed = 89)
+```
+
+#### Generate 10 imputed datasets
+```{r gen_midas, echo = TRUE,eval=FALSE}
+adult_complete <- complete(adult_train, m = 10,fast = TRUE)
+```
+#### Inspect first imputed dataset:
+```{r  inspc_midas, echo = TRUE,eval=FALSE}
+head(adult_complete[[1]])
+```
+
+#### Estimate logit model on 10 completed datasets (using Rubin's combination rules)
+```{r est_midas, echo = TRUE,eval=FALSE}
+adult_model <- combine("class_labels ~ hours_per_week + sex", 
+                       adult_complete,
+                       family = stats::binomial)
+```
+
+
+## 3.MICE
+
+#### Load MICE libs
+
+```{r load_mice, echo = TRUE,message=FALSE}
+require(mice)
+require(lattice)
+```
+
+
+#### Assign impution methods in MICE
+
+We have to asssign the [imputation methods](https://www.rdocumentation.org/packages/mice/versions/3.14.0/topics/mice) according to the data types 
+```{r mice_method, echo = TRUE}
+imp =  mice(adult_miss_df, print=F)
+meth = imp$meth
+meth
+
+
+meth[adult_cat] = "rf" 	# Random forest imputations
+meth[adult_bin] = "logreg"
+meth[c('fnlwgt','education_num','capital_gain','capital_loss','hours_per_week')] <- "norm"
+meth
+
+```
+
+
+
+
 
