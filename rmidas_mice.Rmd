@@ -1,11 +1,12 @@
 ---
 title: "rMIDAS vs MICE"
-author: "Laha Ale,"
+# author: "Laha Ale,"
 date: "2/10/2022"
 output:
   html_document: default
   pdf_document: default
   beamer_presentation: default
+  html_notebook: default
 ---
 
 ```{r setup, include=FALSE}
