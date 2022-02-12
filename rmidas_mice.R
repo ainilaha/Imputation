@@ -62,3 +62,15 @@ meth
 
 meth[c('fnlwgt','education_num','capital_gain','capital_loss','hours_per_week')] <- "norm"
 meth
+
+
+### Run imputation
+imp = mice(adult_miss_df, m=20, meth = meth, print=F)
+plot(imp)
+
+
+## Extend Iteration
+
+imp20 =  mice.mids(imp, maxit=15, print=F)
+plot(imp20)
+

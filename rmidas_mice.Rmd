@@ -135,7 +135,19 @@ meth
 
 ```
 
+### Run imputation
 
+```{r mice_imput, echo = TRUE}
+imp = mice(adult_miss_df, m=10, meth = meth, print=F)
+plot(imp)
+```
+
+## Extend Iteration
+
+```{r mice_iter, echo = TRUE}
+imp20 =  mice.mids(imp, maxit=15, print=F)
+plot(imp20)
+```
 
 
 
