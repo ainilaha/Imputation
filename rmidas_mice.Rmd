@@ -17,6 +17,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 - Getting Data 
 - rMIDAS
+-- papers
 - MICE
 
 
@@ -69,12 +70,14 @@ sapply(adult_miss_df, function(x) sum(is.na(x)))
 
 #### Preprocessing for rMIDAS
 
+The categorical variable are converted to factors and then encoded with  one-hot encoding.
+
 ```{r prepro, echo = TRUE}
 adult_cat <- c('workclass','marital_status','relationship','race','education','occupation','native_country')
 adult_bin <- c('sex','class_labels')
 
 # Apply rMIDAS preprocessing steps
-adult_conv <- convert(adult_miss_df, 
+adult_conv <- rMIDAS::convert(adult_miss_df, 
                       bin_cols = adult_bin, 
                       cat_cols = adult_cat,
                       minmax_scale = TRUE)
@@ -85,7 +88,7 @@ adult_conv <- convert(adult_miss_df,
 
 ```{r train_midas, echo = TRUE,eval=FALSE}
 # Train the model for 20 epochs
-adult_train <- train(adult_conv,
+adult_train <- rMIDAS::train(adult_conv,
                        training_epochs = 20,
                        layer_structure = c(128,128),
                        input_drop = 0.75,
@@ -94,7 +97,7 @@ adult_train <- train(adult_conv,
 
 #### Generate 10 imputed datasets
 ```{r gen_midas, echo = TRUE,eval=FALSE}
-adult_complete <- complete(adult_train, m = 10,fast = TRUE)
+adult_complete <- rMIDAS::complete(adult_train, m = 10,fast = TRUE)
 ```
 #### Inspect first imputed dataset:
 ```{r  inspc_midas, echo = TRUE,eval=FALSE}
@@ -103,9 +106,10 @@ head(adult_complete[[1]])
 
 #### Estimate logit model on 10 completed datasets (using Rubin's combination rules)
 ```{r est_midas, echo = TRUE,eval=FALSE}
-adult_model <- combine("class_labels ~ hours_per_week + sex", 
+adult_model <- rMIDAS::combine("class_labels ~ hours_per_week + sex", 
                        adult_complete,
                        family = stats::binomial)
+print(adult_model)
 ```
 
 
@@ -123,8 +127,8 @@ require(lattice)
 
 We have to asssign the [imputation methods](https://www.rdocumentation.org/packages/mice/versions/3.14.0/topics/mice) according to the data types 
 ```{r mice_method, echo = TRUE}
-imp =  mice(adult_miss_df, print=F)
-meth = imp$meth
+imp <-  mice(adult_miss_df, print=F)
+meth <- imp$meth
 meth
 
 
@@ -135,19 +139,40 @@ meth
 
 ```
 
+#### The predictor matrix
+
+```{r mice_pred_mtrx, echo = TRUE}
+imp <- mice(adult_miss_df, m=10, meth = meth, print=F)
+imp$pred
+```
+
+
 #### Run imputation
 
 ```{r mice_imput, echo = TRUE}
-imp = mice(adult_miss_df, m=10, meth = meth, print=F)
+imp <- mice(adult_miss_df, m=10, meth = meth, print=F)
 plot(imp)
 ```
 
 #### Extend Iteration
 
 ```{r mice_iter, echo = TRUE}
-imp20 =  mice.mids(imp, maxit=15, print=F)
+imp20 <-  mice.mids(imp, maxit=15, print=F)
 plot(imp20)
 ```
 
+
+## 4. Matrices
+
+```{r matrix, echo = TRUE}
+#library(dbplyr)
+library(tensorflow)
+#  library(keras)
+
+y_true <- c(2, 1)
+y_pred <- rbind(c(0.1, 0.9, 0.8), c(0.05, 0.95, 0))
+# loss = tf$keras$losses$sparse_categorical_crossentropy(y_true,y_pred)
+# loss
+```
 
 

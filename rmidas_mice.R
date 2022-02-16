@@ -22,28 +22,28 @@ adult_cat <- c('workclass','marital_status','relationship','race','education','o
 adult_bin <- c('sex','class_labels')
 
 # Apply rMIDAS preprocessing steps
-adult_conv <- convert(adult_miss_df, 
+adult_conv <- rMIDAS::convert(adult_miss_df, 
                       bin_cols = adult_bin, 
                       cat_cols = adult_cat,
                       minmax_scale = TRUE)
 
 
 # Train the model for 20 epochs
-adult_train <- train(adult_conv,
+adult_train <- rMIDAS::train(adult_conv,
                      training_epochs = 20,
                      layer_structure = c(128,128),
                      input_drop = 0.75,
                      seed = 89)
 
 # Generate 10 imputed datasets
-adult_complete <- complete(adult_train, m = 10,fast = TRUE)
+adult_complete <- rMIDAS::complete(adult_train, m = 10,fast = TRUE)
 
 # Inspect first imputed dataset:
 head(adult_complete[[1]])
 
 
 # Estimate logit model on 10 completed datasets (using Rubin's combination rules)
-adult_model <- combine("class_labels ~ hours_per_week + sex", 
+adult_model <- rMIDAS::combine("class_labels ~ hours_per_week + sex", 
                        adult_complete,
                        family = stats::binomial)
 
@@ -55,8 +55,8 @@ require(lattice)
 
 # md.pattern(adult_miss_df)
 
-imp =  mice(adult_miss_df, print=F)
-meth = imp$meth
+imp <- mice(adult_miss_df, print=F)
+meth <- imp$meth
 meth
 
 
@@ -65,12 +65,12 @@ meth
 
 
 ### Run imputation
-imp = mice(adult_miss_df, m=20, meth = meth, print=F)
+imp <- mice(adult_miss_df, m=20, meth = meth, print=F)
 plot(imp)
 
 
 ## Extend Iteration
 
-imp20 =  mice.mids(imp, maxit=15, print=F)
+imp20 <-  mice.mids(imp, maxit=15, print=F)
 plot(imp20)
 
