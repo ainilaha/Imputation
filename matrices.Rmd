@@ -1,0 +1,105 @@
+---
+title: "matrices"
+author: "Laha Ale"
+date: "2/17/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Implement Matrices
+#### Categorical Cross Entropy
+
+
+$$\begin{equation}
+L_{\mathrm{CE}}=-\sum_{i=1}^{n} t_{i} \log \left(p_{i}\right), \text { for } \mathrm{n} \text { classes }
+\end{equation}$$
+
+
+Where $t_i$ the true label and $p_i$ is the [softmax](https://en.wikipedia.org/wiki/Softmax_function) probability for the $i^{th}$ class
+
+More details about [Categorical Cross Entropy](https://towardsdatascience.com/cross-entropy-loss-function-f38c4ec8643e)
+
+```{r softmax}
+eplison_loss <- 1e-7 # to avoid issue raise by log(0):-Inf
+cat_cross_entropy <- function(y_true, y_pred){
+  loss <- rowMeans(y_true * log(y_pred + eplison_loss))
+  sum(-loss)
+}
+```
+
+#### Binary Cross-Entropy Loss
+
+$$\begin{equation}
+L=-\frac{1}{N}\left[\sum_{j=1}^{N}\left[t_{j} \log \left(p_{j}\right)+\left(1-t_{j}\right) \log \left(1-p_{j}\right)\right]\right]
+\end{equation}$$
+
+
+Where $t_i$ the true label and $p_i$ is the [sigmoid](https://en.wikipedia.org/wiki/Sigmoid_function) probability for the $i^{th}$ class
+
+```{r binary_corss}
+bin_cross_entropy <- function(y_true, y_pred){
+  loss  <- y_true * log(y_pred)  + (1 - y_true) * log(1-y_pred + eplison_loss)  
+  sum(-loss)
+}
+```
+
+#### Mean squared error
+
+$$\begin{equation}
+\mathrm{MSE}=\frac{1}{n} \sum_{i=1}^{n}\left(Y_{i}-\hat{Y}_{i}\right)^{2}
+\end{equation}$$
+
+
+```{r binary_mse}
+mean_square_error <- function(y_true, y_pred){
+    mean((y_true - y_pred)^2)
+}
+```
+
+### Load Mice
+```{r load_mice, echo = TRUE,message=FALSE}
+require(mice)
+require(lattice)
+library(dplyr)
+
+library(rMIDAS)
+set_python_env(python ="/opt/anaconda3/bin/python")
+```
+
+### Load Data
+
+```{r load_data, echo = TRUE}
+head(fdgs)
+```
+#### drop colunms
+```{r load_drop_cols, echo = TRUE}
+data <- fdgs %>% select(-c(id,wgt.z,hgt.z)) %>% na.omit()
+head(data)
+```
+
+#### Create Missing Data
+```{r create_miss, echo = TRUE}
+miss_data <- add_missingness(data, prop = 0.1)
+# view miss number of miss data by columns
+print(sapply(miss_data, function(x) sum(is.na(x))))
+# md.pattern(miss_data)
+```
+
+#### Imputing Data with MICE
+```{r imputed_mice, echo = TRUE}
+miss_data <- add_missingness(data, prop = 0.1)
+imp <-  mice(miss_data, print=F)
+meth <- imp$meth
+meth[c('sex','reg')] <- "rf"
+meth[c('age','hgt','wgt')] <- 'norm'
+
+imp <- mice(miss_data, m=10, meth = meth, print=F)
+imp20  <-  mice.mids(imp, maxit=25, print=F)
+plot(imp20)
+```
+
+
+

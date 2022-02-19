@@ -1,6 +1,7 @@
-library(tensorflow)
-library(keras)
+# library(tensorflow)
+# library(keras)
 # library(dbplyr)
+
 
 
 y_true <- c(2, 1)

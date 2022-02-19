@@ -2,7 +2,7 @@
 adult_df = read.csv("https://raw.githubusercontent.com/MIDASverse/MIDASpy/master/Examples/adult_data.csv",
                     # colClasses=c("NULL",NA,NA,NA),
                     row.names = 1
-)[1:500, ]
+)[1:1500, ]
 head(adult_df)
 
 str(adult_df)
@@ -65,12 +65,12 @@ meth
 
 
 ### Run imputation
-imp <- mice(adult_miss_df, m=20, meth = meth, print=F)
+imp <- mice(adult_miss_df, m=5, meth = meth, print=F)
 plot(imp)
 
 
 ## Extend Iteration
 
-imp20 <-  mice.mids(imp, maxit=15, print=F)
+imp20 <-  mice.mids(imp, maxit=100, print=F)
 plot(imp20)
 
