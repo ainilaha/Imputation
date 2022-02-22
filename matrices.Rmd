@@ -68,7 +68,7 @@ mean_square_error <- function(y_true, y_pred){
 #### Mean Absolute Percentage Error (MAPE)
 
 $$\begin{equation}
-\mathrm{MAPE}=\frac{1}{n} \sum_{i=1}^{n}\left|\frac{\hat{Y}_{i}-Y_i}{y_i}\right|
+\mathrm{MAPE}=\frac{1}{n} \sum_{i=1}^{n}\left|\frac{\hat{Y}_{i}-Y_i}{Y_i}\right|
 \end{equation}$$
 
 
@@ -180,8 +180,8 @@ categorical_entropy_matrix <- function(df,miss_df, impt_df,cols,impt_meth="MICE"
     impt_col <-  model.matrix(~0+impt_col)
     cross_entropy <- categorical_cross_entropy(true_col[miss_index,],impt_col[miss_index,])
     entory_list <- c(entory_list,cross_entropy)
-    result <- paste(col,":","categorical cross entropy=",cross_entropy,
-                    "categorical cross accuracy=",acc,
+    result <- paste(col,":","categorical cross entropy=",round(cross_entropy,2),
+                    "categorical cross accuracy=",round(acc,2),
                     "method=",impt_meth)
     print(result)
     
@@ -243,7 +243,7 @@ numerical_matrice <- function(df,miss_df, impt_df,cols,impt_meth="MICE")
     miss_index <- which(is.na(miss_df[,col]))
     mse <- mean_square_error(df[miss_index,col],impt_df[miss_index,col])
     mape <- mean_prect_error(df[miss_index,col],impt_df[miss_index,col])
-    rs <- paste(col,":","MSE=",mse,"MAPE=",mape,"method=",impt_meth)
+    rs <- paste(col,":","MSE=",round(mse,2),"MAPE=",round(mape,2),"method=",impt_meth)
     print(rs)
   }
   matrix_df <- data.frame(num=cols, mse=mse, mape=mape,
