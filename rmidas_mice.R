@@ -9,7 +9,8 @@ str(adult_df)
 
 
 library(rMIDAS)
-set_python_env(python ="/opt/anaconda3/bin/python")
+# set_python_env(python ="/opt/anaconda3/bin/python")
+set_python_env(x ="C:\\ProgramData\\Anaconda3\\",type = "conda")
 
 
 set.seed(89)
@@ -71,6 +72,6 @@ plot(imp)
 
 ## Extend Iteration
 
-imp20 <-  mice.mids(imp, maxit=100, print=F)
+imp20 <-  mice.mids(imp, maxit=10, print=F)
 plot(imp20)
 
