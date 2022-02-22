@@ -4,18 +4,24 @@
 ### Implement Matrices
 #### Categorical Cross Entropy
 
-eplison_loss <- 1e-7 # to avoid issue raise by log(0):-Inf
-cat_cross_entropy <- function(y_true, y_pred){
-  loss <- rowMeans(y_true * log(y_pred + eplison_loss))
+
+categorical_cross_entropy <- function(y_true, pred_prob,epsilon=1e-7){
+  loss <- rowMeans(y_true * log(pred_prob + epsilon))
   sum(-loss)
 }
+
+
+categorical_cross_accuracy <- function(y_true, y_imput){
+  sum(y_true == y_imput)/length(y_true)
+}
+
 
 
 #### Binary Cross-Entropy Loss
 
 
-bin_cross_entropy <- function(y_true, y_pred){
-  loss  <- y_true * log(y_pred)  + (1 - y_true) * log(1-y_pred + eplison_loss)  
+binary_cross_entropy <- function(y_true, pred_prob, epsilon= 1e-7){
+  loss  <- y_true * log(y_pred)  + (1 - y_true) * log(1-pred_prob + epsilon)  
   sum(-loss)
 }
 
@@ -66,7 +72,7 @@ meth[c('sex','reg')] <- "rf"
 meth[c('age','hgt','wgt')] <- 'norm'
 
 imp <- mice(miss_data, m=10, meth = meth, print=F)
-imp20  <-  mice.mids(imp, maxit=45, print=F)
+imp20  <-  mice.mids(imp, maxit=1, print=F)
 plot(imp20)
 impt_mice_data <- mice::complete(imp20)
 
@@ -101,40 +107,46 @@ impt_ranger_data <- missRanger(miss_data, num.trees = 100, verbose = 0)
 
 
 
-
 #### plot categorical loss
 
 library(ggplot2)
+library(gridExtra)
 
-cat_matrix <- function(df,miss_df, impt_df,cols,impt_meth="MICE") 
+categorical_entropy_matrix <- function(df,miss_df, impt_df,cols,impt_meth="MICE") 
 {
   entory_list <- c()
+  accuracy_list <- c()
   
   
   for (col in cols)
   {
     # we only need to compare the missing values
     miss_index <- which(is.na(miss_df[,col]))
-    
-    
     true_col <- as.factor(df[,col])
     impt_col <- as.factor(impt_df[,col])
-    # print(impt_col)
+    
+
+    acc <- categorical_cross_accuracy(as.numeric(true_col[miss_index]),
+                                      as.numeric(impt_col[miss_index]))
+
+    accuracy_list <- c(accuracy_list,acc)
+
+    
     # NOTE: the imputed data set may have less  levels than the original data
     true_col <-  model.matrix(~0+true_col)
     impt_col <-  model.matrix(~0+impt_col)
-    print(dim(true_col))
-    print(dim(impt_col))
-    cross_entropy <- cat_cross_entropy(true_col[miss_index,],impt_col[miss_index,])
+    cross_entropy <- categorical_cross_entropy(true_col[miss_index,],impt_col[miss_index,])
     entory_list <- c(entory_list,cross_entropy)
-    rs <- paste(col,":","categorical crossentropy=",cross_entropy,"method=",impt_meth)
-    print(rs)
+    result <- paste(col,":","categorical cross entropy=",cross_entropy,
+                    "categorical cross accuracy=",acc,
+                    "method=",impt_meth)
+    print(result)
     
   }
   
-  
   matrix_df <- data.frame(categorical=cols, 
-                          cross_entropy=cross_entropy,
+                          cross_entropy=entory_list,
+                          cross_accuracy=accuracy_list,
                           methods=c(rep(impt_meth , length(cols)))
   )
   
@@ -142,28 +154,35 @@ cat_matrix <- function(df,miss_df, impt_df,cols,impt_meth="MICE")
 }
 
 
-comp_cat <- function(data,miss_data,impt_list,cols,methods){
+compare_cross_entropy <- function(data,miss_data,impt_list,cols,methods){
   cat_df <- data.frame(categorical=c(), 
                        cross_entropy=c(),
                        methods=c()
   )
   for (i in 1:length(methods)){
-    df <- cat_matrix(data,miss_data,impt_list[[i]],cols,methods[i])
+    df <- categorical_entropy_matrix(data,miss_data,impt_list[[i]],cols,methods[i])
     cat_df <- rbind(cat_df,df)
   }
   
-  ggplot(cat_df, aes(fill=methods, y=cross_entropy, x=categorical)) +
+  plot1 <- ggplot(cat_df, aes(fill=methods, y=cross_entropy, x=categorical)) +
     geom_bar(position="dodge", stat="identity")+
     xlab("categorical colunms")+ylab("cross entropy loss")
+  
+  
+  plot2 <- ggplot(cat_df, aes(fill=methods, y=cross_accuracy, x=categorical)) +
+    geom_bar(position="dodge", stat="identity")+
+    xlab("categorical colunms")+ylab("cross accuracy")
+  grid.arrange(plot1, plot2, ncol=2)
   
 }
 
 
 impt_ranger_data$reg <- as.integer(impt_ranger_data$reg)
 impt_ranger_data$sex <- as.integer(impt_ranger_data$sex)
+impt_ranger_data <- as.data.frame(impt_ranger_data)
 imputed_dataframes <- list(impt_mice_data,impt_rmidas_data[[1]],impt_ranger_data)
 miss_data <- as.data.frame(miss_data)
-comp_cat(data,miss_data,imputed_dataframes,cols=c("sex","reg"),methods = c("MICE","MIDAS","Ranger"))
+compare_cross_entropy(data,miss_data,imputed_dataframes,cols=c("sex","reg"),methods = c("MICE","MIDAS","Ranger"))
 
 
 

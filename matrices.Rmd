@@ -23,11 +23,16 @@ Where $t_i$ the true label and $p_i$ is the [softmax](https://en.wikipedia.org/w
 More details about [Categorical Cross Entropy](https://towardsdatascience.com/cross-entropy-loss-function-f38c4ec8643e)
 
 ```{r softmax}
-eplison_loss <- 1e-7 # to avoid issue raise by log(0):-Inf
-cat_cross_entropy <- function(y_true, y_pred){
-  loss <- rowMeans(y_true * log(y_pred + eplison_loss))
+categorical_cross_entropy <- function(y_true, pred_prob,epsilon=1e-7){
+  loss <- rowMeans(y_true * log(pred_prob + epsilon))
   sum(-loss)
 }
+
+
+categorical_cross_accuracy <- function(y_true, y_imput){
+  sum(y_true == y_imput)/length(y_true)
+}
+
 ```
 
 #### Binary Cross-Entropy Loss
@@ -40,10 +45,11 @@ L=-\frac{1}{N}\left[\sum_{j=1}^{N}\left[t_{j} \log \left(p_{j}\right)+\left(1-t_
 Where $t_i$ the true label and $p_i$ is the [sigmoid](https://en.wikipedia.org/wiki/Sigmoid_function) probability for the $i^{th}$ class
 
 ```{r binary_corss}
-bin_cross_entropy <- function(y_true, y_pred){
-  loss  <- y_true * log(y_pred)  + (1 - y_true) * log(1-y_pred + eplison_loss)  
+binary_cross_entropy <- function(y_true, pred_prob, epsilon= 1e-7){
+  loss  <- y_true * log(y_pred)  + (1 - y_true) * log(1-pred_prob + epsilon)  
   sum(-loss)
 }
+
 ```
 
 #### Mean squared error
@@ -53,9 +59,22 @@ $$\begin{equation}
 \end{equation}$$
 
 
-```{r binary_mse}
+```{r num_mse}
 mean_square_error <- function(y_true, y_pred){
     mean((y_true - y_pred)^2)
+}
+```
+
+#### Mean Absolute Percentage Error (MAPE)
+
+$$\begin{equation}
+\mathrm{MAPE}=\frac{1}{n} \sum_{i=1}^{n}\left|\frac{\hat{Y}_{i}-Y_i}{y_i}\right|
+\end{equation}$$
+
+
+```{r num_mape}
+mean_prect_error <- function(y_true, y_pred){
+    mean(abs((y_pred-y_true)/y_true))
 }
 ```
 
@@ -107,7 +126,7 @@ meth[c('sex','reg')] <- "rf"
 meth[c('age','hgt','wgt')] <- 'norm'
 
 imp <- mice(miss_data, m=10, meth = meth, print=F)
-imp20  <-  mice.mids(imp, maxit=45, print=F)
+imp20  <-  mice.mids(imp, maxit=1, print=F)
 plot(imp20)
 impt_mice_data <- mice::complete(imp20)
 ```
@@ -125,7 +144,7 @@ data_conv <- rMIDAS::convert(miss_data,
 # Train the model for 20 epochs
 rmidas_train <- rMIDAS::train(data_conv,
                      training_epochs = 50,
-                     layer_structure = c(128,128),
+                     layer_structure = c(128,256,128),
                      input_drop = 0.75,
                      seed = 89)
 
@@ -140,54 +159,61 @@ impt_rmidas_data <- rMIDAS::complete(rmidas_train, m = 10,fast = TRUE)
 ```{r plot_categorical, echo = TRUE}
 
 library(ggplot2)
+library(gridExtra)
 
-cat_matrix <- function(df,miss_df, impt_df,cols,impt_meth="MICE") 
+categorical_entropy_matrix <- function(df,miss_df, impt_df,cols,impt_meth="MICE") 
 {
   entory_list <- c()
-  
-  
+  accuracy_list <- c()
   for (col in cols)
   {
     # we only need to compare the missing values
     miss_index <- which(is.na(miss_df[,col]))
-    
-    
     true_col <- as.factor(df[,col])
     impt_col <- as.factor(impt_df[,col])
-    # print(impt_col)
+    acc <- categorical_cross_accuracy(as.numeric(true_col[miss_index]),
+                                      as.numeric(impt_col[miss_index]))
+
+    accuracy_list <- c(accuracy_list,acc)
     # NOTE: the imputed data set may have less  levels than the original data
     true_col <-  model.matrix(~0+true_col)
     impt_col <-  model.matrix(~0+impt_col)
-    cross_entropy <- cat_cross_entropy(true_col[miss_index,],impt_col[miss_index,])
+    cross_entropy <- categorical_cross_entropy(true_col[miss_index,],impt_col[miss_index,])
     entory_list <- c(entory_list,cross_entropy)
-    rs <- paste(col,":","categorical crossentropy=",cross_entropy,"method=",impt_meth)
-    print(rs)
+    result <- paste(col,":","categorical cross entropy=",cross_entropy,
+                    "categorical cross accuracy=",acc,
+                    "method=",impt_meth)
+    print(result)
     
   }
-  
-  
   matrix_df <- data.frame(categorical=cols, 
-                          cross_entropy=cross_entropy,
+                          cross_entropy=entory_list,
+                          cross_accuracy=accuracy_list,
                           methods=c(rep(impt_meth , length(cols)))
   )
-  
   matrix_df
 }
 
 
-comp_cat <- function(data,miss_data,impt_list,cols,methods){
+compare_cross_entropy <- function(data,miss_data,impt_list,cols,methods){
   cat_df <- data.frame(categorical=c(), 
                        cross_entropy=c(),
                        methods=c()
   )
   for (i in 1:length(methods)){
-    df <- cat_matrix(data,miss_data,impt_list[[i]],cols,methods[i])
+    df <- categorical_entropy_matrix(data,miss_data,impt_list[[i]],cols,methods[i])
     cat_df <- rbind(cat_df,df)
   }
   
-  ggplot(cat_df, aes(fill=methods, y=cross_entropy, x=categorical)) +
+  g_en <- ggplot(cat_df, aes(fill=methods, y=cross_entropy, x=categorical)) +
     geom_bar(position="dodge", stat="identity")+
     xlab("categorical colunms")+ylab("cross entropy loss")
+  
+  g_cc <- ggplot(cat_df, aes(fill=methods, y=cross_accuracy, x=categorical)) +
+    geom_bar(position="dodge", stat="identity")+
+    xlab("categorical colunms")+ylab("cross accuracy")
+  
+  grid.arrange(g_en, gcc, ncol=2)
   
 }
 
@@ -196,51 +222,61 @@ comp_cat <- function(data,miss_data,impt_list,cols,methods){
 
 ```{r plot_categorical1, echo = TRUE}
 
+impt_ranger_data$reg <- as.integer(impt_ranger_data$reg)
+impt_ranger_data$sex <- as.integer(impt_ranger_data$sex)
+impt_ranger_data <- as.data.frame(impt_ranger_data)
 imputed_dataframes <- list(impt_mice_data,impt_rmidas_data[[1]],impt_ranger_data)
 miss_data <- as.data.frame(miss_data)
-comp_cat(data,miss_data,imputed_dataframes,cols=c("sex","reg"),methods = c("MICE","MIDAS","missRanger"))
+compare_cross_entropy(data,miss_data,imputed_dataframes,cols=c("sex","reg"),methods = c("MICE","MIDAS","Ranger"))
 
 ```
 
 #### plot numerical loss
 ```{r plot_mse, echo = TRUE}
-num_matrix <- function(df,miss_df, impt_df,cols,impt_meth="MICE") 
+numerical_matrice <- function(df,miss_df, impt_df,cols,impt_meth="MICE") 
 {
-  entory_list <- c()
+  mse_list <- c()
+  mape_list <- c()
   for (col in cols)
   {
     # we only need to compare the missing values
     miss_index <- which(is.na(miss_df[,col]))
     mse <- mean_square_error(df[miss_index,col],impt_df[miss_index,col])
+    mape <- mean_prect_error(df[miss_index,col],impt_df[miss_index,col])
     rs <- paste(col,":","Mean Square Error=",mse,"method=",impt_meth)
     print(rs)
   }
-  matrix_df <- data.frame(num=cols, mse=mse, methods=c(rep(impt_meth , length(cols))))
+  matrix_df <- data.frame(num=cols, mse=mse, mape=mape,
+                          methods=c(rep(impt_meth , length(cols))))
   matrix_df
 }
 
 
-comp_num <- function(data,miss_data,impt_list,cols,methods){
+comp_numerical_matrices <- function(data,miss_data,impt_list,cols,methods){
   num_df <- data.frame(num=c(), 
                        mse=c(),
                        methods=c()
   )
   for (i in 1:length(methods)){
-    df <- num_matrix(data,miss_data,impt_list[[i]],cols,methods[i])
+    df <- numerical_matrice(data,miss_data,impt_list[[i]],cols,methods[i])
     num_df <- rbind(num_df,df)
   }
   
-  ggplot(num_df, aes(fill=methods, y=mse, x=num)) +
+  g_mse <- ggplot(num_df, aes(fill=methods, y=mse, x=num)) +
     geom_bar(position="dodge", stat="identity")+
     xlab("Numerical Colunms")+ylab("Mean Square Error")
   
+  g_mpae <- ggplot(num_df, aes(fill=methods, y=mape, x=num)) +
+    geom_bar(position="dodge", stat="identity")+
+    xlab("Numerical Colunms")+ylab("Mean Absolute Percentage Error")
+  grid.arrange(g_mse, g_mpae, ncol=2)
 }
 
 
 ```
 
 ```{r plot_mse1, echo = TRUE}
-comp_num(data,miss_data,imputed_dataframes,cols=c( "age", "hgt","wgt"),methods = c("MICE","MIDAS","missRanger"))
+comp_numerical_matrices(data,miss_data,imputed_dataframes,cols=c( "age", "hgt","wgt"),methods = c("MICE","MIDAS","missRanger"))
 
 ```
 
