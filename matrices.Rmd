@@ -125,8 +125,8 @@ meth <- imp$meth
 meth[c('sex','reg')] <- "rf"
 meth[c('age','hgt','wgt')] <- 'norm'
 
-imp <- mice(miss_data, m=10, meth = meth, print=F)
-imp20  <-  mice.mids(imp, maxit=1, print=F)
+imp <- mice(miss_data, m=5, meth = meth, print=F)
+imp20  <-  mice.mids(imp, maxit=45, print=F)
 plot(imp20)
 impt_mice_data <- mice::complete(imp20)
 ```
@@ -213,7 +213,7 @@ compare_cross_entropy <- function(data,miss_data,impt_list,cols,methods){
     geom_bar(position="dodge", stat="identity")+
     xlab("categorical colunms")+ylab("cross accuracy")
   
-  grid.arrange(g_en, gcc, ncol=2)
+  grid.arrange(g_en, g_cc, ncol=2)
   
 }
 
@@ -243,7 +243,7 @@ numerical_matrice <- function(df,miss_df, impt_df,cols,impt_meth="MICE")
     miss_index <- which(is.na(miss_df[,col]))
     mse <- mean_square_error(df[miss_index,col],impt_df[miss_index,col])
     mape <- mean_prect_error(df[miss_index,col],impt_df[miss_index,col])
-    rs <- paste(col,":","Mean Square Error=",mse,"method=",impt_meth)
+    rs <- paste(col,":","MSE=",mse,"MAPE=",mape,"method=",impt_meth)
     print(rs)
   }
   matrix_df <- data.frame(num=cols, mse=mse, mape=mape,
