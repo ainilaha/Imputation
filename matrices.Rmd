@@ -123,10 +123,10 @@ miss_data <- add_missingness(data, prop = 0.1)
 imp <-  mice(miss_data, print=F)
 meth <- imp$meth
 meth[c('sex','reg')] <- "rf"
-meth[c('age','hgt','wgt')] <- 'norm'
+meth[c('age','hgt','wgt')] <- 'rf'
 
-imp <- mice(miss_data, m=5, meth = meth, print=F)
-imp20  <-  mice.mids(imp, maxit=45, print=F)
+imp <- mice(miss_data, m=5, method = meth, print=F)
+imp20  <-  mice.mids(imp, maxit=5, print=F)
 plot(imp20)
 impt_mice_data <- mice::complete(imp20)
 ```
@@ -143,7 +143,7 @@ data_conv <- rMIDAS::convert(miss_data,
 
 # Train the model for 20 epochs
 rmidas_train <- rMIDAS::train(data_conv,
-                     training_epochs = 50,
+                     training_epochs = 20,
                      layer_structure = c(128,256,128),
                      input_drop = 0.75,
                      seed = 89)
@@ -245,8 +245,10 @@ numerical_matrice <- function(df,miss_df, impt_df,cols,impt_meth="MICE")
     mape <- mean_prect_error(df[miss_index,col],impt_df[miss_index,col])
     rs <- paste(col,":","MSE=",round(mse,2),"MAPE=",round(mape,2),"method=",impt_meth)
     print(rs)
+    mse_list <- c(mse_list, mse)
+    mape_list <- c(mape_list,mape)
   }
-  matrix_df <- data.frame(num=cols, mse=mse, mape=mape,
+  matrix_df <- data.frame(num=cols, mse=mse_list, mape=mape_list,
                           methods=c(rep(impt_meth , length(cols))))
   matrix_df
 }
