@@ -112,14 +112,13 @@ print(sapply(miss_data, function(x) sum(is.na(x))))
 ```{r imputed_ranger, echo = TRUE}
 library(missRanger)
 impt_ranger_data <- missRanger(miss_data, num.trees = 100, verbose = 0)
-impt_ranger_data$reg <- as.integer(impt_ranger_data$reg) # ranger produce float number of categorical 
+impt_ranger_data$reg <- as.integer(impt_ranger_data$reg) # ranger produce float number of categorical
 impt_ranger_data$sex <- as.integer(impt_ranger_data$sex)
 
 ```
 
 #### Imputing Data with MICE
 ```{r imputed_mice, echo = TRUE}
-miss_data <- add_missingness(data, prop = 0.1)
 imp <-  mice(miss_data, print=F)
 meth <- imp$meth
 meth[c('sex','reg')] <- "rf"
