@@ -74,7 +74,10 @@ meth[c('age','hgt','wgt')] <- 'norm'
 imp <- mice(miss_data, m=10, meth = meth, print=F)
 imp20  <-  mice.mids(imp, maxit=1, print=F)
 plot(imp20)
-impt_mice_data <- mice::complete(imp20)
+
+impt_mice_data = append(impt_mice_data,(mice::complete(imp20,action=i)))
+
+
 
 
 #### Imputing Data with RMIDAS
@@ -96,6 +99,8 @@ rmidas_train <- rMIDAS::train(data_conv,
 
 # Generate 10 imputed datasets
 impt_rmidas_data <- rMIDAS::complete(rmidas_train, m = 10,fast = TRUE)
+
+
 
 
 
@@ -166,7 +171,7 @@ compare_cross_entropy <- function(data,miss_data,impt_list,cols,methods){
   
   plot1 <- ggplot(cat_df, aes(fill=methods, y=cross_entropy, x=categorical)) +
     geom_bar(position="dodge", stat="identity")+
-    xlab("categorical colunms")+ylab("cross entropy loss")
+    xlab("categorical colunms")+ylab("cross entropy loss")+theme(legend.position="none")
   
   
   plot2 <- ggplot(cat_df, aes(fill=methods, y=cross_accuracy, x=categorical)) +
@@ -247,4 +252,90 @@ for (col in c("sex","reg")){
 # 
 # bin_cross_entropy(y_true, y_pred)
 # mean_square_error(y_true, y_pred)
+library("GGally")  
+qplot(age,hgt,data=data,col=sex,geom = c("point","smooth"))
+ggpairs(data)
+pairs(data)
+
+df <- data%>% mutate(log_hgt=sqrt(hgt),sq=sqrt(age))
+ggpairs(df[,c("age","hgt","wgt","sex")], aes(colour = sex, alpha = 0.4))
+
+qplot(age,hgt,data = data,color=sex)
+
+df1 <- data[miss_index,]
+df1["source"] <- rep("True",length(miss_index))
+df2 <- impt_rmidas_data[[1]]
+df2 <- df2[miss_index,]
+df2["source"] <- rep("midas",length(miss_index))
+df2 <- df2[df2$age>=0,]
+
+df3 <- impt_ranger_data[miss_index,]
+df3 <- df3[df3$age>=0]
+df3["source"] <- rep("ranger",length(miss_index))
+
+df <- df %>% mutate(log_hgt=log2(hgt))
+
+df <- rbind(df1,df2,df3)
+# qplot(age,hgt,data = df,color=source, geom = c("point","smooth"))
+ggplot(df, aes(age, hgt, colour = source))+geom_point()+stat_smooth()+
+  scale_color_manual(values = c("True" = "purple",
+                                   "midas"="orange",
+                                "ranger"="steelblue")) 
+
+
+create_compare_data <- function(df,miss_df,impt_df_list,col="wgt",m=10,method="mice"){
+  # we only need to compare the missing values
+  miss_index <- which(is.na(miss_df[,col]))
+  
+  df <- data[miss_index,]
+  df["source"] <- rep("True",length(miss_index))
+  for(i in 1:m){
+    df2 <- impt_df_list[[i]]
+    df2 <- df2[miss_index,]
+    df2["source"] <- rep(method,length(miss_index))
+    # df2 <- df2[df2$age>=0,]
+    df <- rbind(df2,df)
+  }
+  df
+}
+
+df_midas <- create_compare_data(data,miss_data,impt_rmidas_data,method = "midas")
+
+ggplot(df_midas, aes(age,wgt, colour = source))+geom_point(alpha=0.4)+stat_smooth()
+
+ggpairs(df[,c("age","hgt","wgt","source")], aes(colour = source, alpha = 0.2))
+
+
+
+
+
+
+ggplot() + 
+  geom_confmat(aes(x = as.integer(impt_ranger_data$reg), y = as.numeric(as.factor(data$reg))))+scale_x_discrete(labels=c("Class_1","Class_2","Class_3","Class_4")) +
+  scale_y_discrete(labels=c("Class_4","Class_3","Class_2","Class_1"))
+
+
+ggplot() + 
+  geom_confmat(aes(x= , y =)
+                   +scale_x_discrete(labels=c("Class_1","Class_2","Class_3","Class_4")) +
+  scale_y_discrete(labels=c("Class_4","Class_3","Class_2","Class_1"))
+
+
+
+
+
+# miss_index <- which(is.na(miss_data[,"hgt"]))
+# ggplot(show.legend=TRUE)+geom_point( data=data[miss_index,], aes(x=age, y=hgt), color="red")+
+#   geom_point(data=impt_ranger_data[miss_index,], aes(x=age, y=hgt), color="blue")+
+#   scale_color_manual(values = c("red", "blue"),
+#                      labels = c(expression("Delta 18"^"O"), expression("Delta 13"^"C"))) 
+# 
+# ggplot(data) +
+#   geom_point(mapping= aes(x=age, y=hgt, color=source)) +
+#   geom_point(mapping = aes(age, hgt), data = data[miss_index,], size = 1, color = "red") +
+#   geom_line(mapping = aes(age, hgt), data = impt_ranger_data[miss_index,], size = 1, color = "purple") +
+#   scale_color_manual(values = c("red", "blue"),
+#                      labels = c(expression("Delta 18"^"O"), expression("Delta 13"^"C"))) 
+
+
 
