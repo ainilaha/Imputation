@@ -144,7 +144,7 @@ create_compare_data <- function(df,miss_df,impt_df_list,col,m=10,method="mice"){
   miss_df <- as.data.frame(miss_df)
   miss_index <- which(is.na(miss_df[,col]))
   
-  df <- data[miss_index,]
+  df <- df[miss_index,]
   df["source"] <- rep("True",length(miss_index))
   for(i in 1:m){
     df2 <- impt_df_list[[i]]

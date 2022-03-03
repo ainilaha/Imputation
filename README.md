@@ -15,3 +15,7 @@ Imputation methods for biomedical data
 #### Plot Imputation Results
   - [Notebook](https://ccb-hms.github.io/Imputation/compare_preds.html)
   - [rMarkdown](https://github.com/ccb-hms/Imputation/blob/main/compare_preds.Rmd)
+  
+#### Compare More
+  - [Notebook](https://ccb-hms.github.io/Imputation/more_compare.html)
+  - [rMarkdown](https://github.com/ccb-hms/Imputation/blob/main/more_compare.Rmd)
