@@ -24,13 +24,14 @@ df_mice_wgt <- create_compare_data(data,miss_data,impt_mice_data,col = "wgt",met
 ggplot(df_mice_wgt, aes(age,wgt, colour = source))+geom_point(alpha=0.4)+stat_smooth()
 ggplot(df_mice_wgt, aes(source,wgt, colour = source))+geom_boxplot()
 ggplot(df_mice_wgt, aes(source,wgt, colour = source))+geom_boxplot(aes(colour=sex))
+ggplot(df_mice_wgt, aes(as.integer(age),wgt, colour = source))+geom_boxplot()
 ```
 
 
 #### MICE:compare split with Sex
 
 ```{r mice_sex,message=FALSE}
-df_mice_wgt <- create_compare_data(data,miss_data,impt_mice_data,col = "wgt",method = "mice",sp_impt="method")
+df_mice_wgt <- create_compare_data(data,miss_data,impt_mice_data,col = "wgt",method = "mice",sp_impt="sex")
 ggplot(df_mice_wgt, aes(age,wgt, colour = source))+geom_point(alpha=0.4)+stat_smooth()
 ggplot(df_mice_wgt, aes(source,wgt, colour = source))+geom_boxplot()
 
@@ -61,7 +62,7 @@ ggplot(df_mice_wgt[df_mice_wgt$age <14,], aes(age,wgt, colour = source))+geom_po
 #### Ranger:compare the imputed datasets with orignal dataset
 
 ```{r Ranger_method,message=FALSE}
-df_ranger_wgt <- create_compare_data(data,miss_data,impt_ranger_data,col = "wgt",method = "mice",sp_impt="method")
+df_ranger_wgt <- create_compare_data(data,miss_data,impt_ranger_data,col = "wgt",method = "ranger",sp_impt="method")
 ggplot(df_ranger_wgt, aes(age,wgt, colour = source))+geom_point(alpha=0.4)+stat_smooth()
 ggplot(df_ranger_wgt, aes(source,wgt, colour = source))+geom_boxplot()
 ggplot(df_ranger_wgt, aes(source,wgt, colour = source))+geom_boxplot(aes(colour=sex))
@@ -71,7 +72,7 @@ ggplot(df_ranger_wgt, aes(source,wgt, colour = source))+geom_boxplot(aes(colour=
 #### Ranger:compare split with Sex
 
 ```{r ranger_sex,message=FALSE}
-df_ranger_wgt <- create_compare_data(data,miss_data,impt_ranger_data,col = "wgt",method = "ranger",sp_impt="method")
+df_ranger_wgt <- create_compare_data(data,miss_data,impt_ranger_data,col = "wgt",method = "ranger",sp_impt="sex")
 ggplot(df_ranger_wgt, aes(age,wgt, colour = source))+geom_point(alpha=0.4)+stat_smooth()
 ggplot(df_ranger_wgt, aes(source,wgt, colour = source))+geom_boxplot()
 
@@ -113,7 +114,7 @@ ggplot(df_midas_wgt, aes(source,wgt, colour = source))+geom_boxplot(aes(colour=s
 #### MIDAS:compare split with Sex
 
 ```{r midas_sex,message=FALSE}
-df_midas_wgt <- create_compare_data(data,miss_data,impt_rmidas_data,col = "wgt",method = "midas",sp_impt="method")
+df_midas_wgt <- create_compare_data(data,miss_data,impt_rmidas_data,col = "wgt",method = "midas",sp_impt="sex")
 ggplot(df_midas_wgt, aes(age,wgt, colour = source))+geom_point(alpha=0.4)+stat_smooth()
 ggplot(df_midas_wgt, aes(source,wgt, colour = source))+geom_boxplot()
 
@@ -157,7 +158,7 @@ ggplot(df_mice_hgt, aes(source,hgt, colour = source))+geom_boxplot(aes(colour=se
 #### MICE:compare split with Sex
 
 ```{r hgt_mice_sex,message=FALSE}
-df_mice_hgt <- create_compare_data(data,miss_data,impt_mice_data,col = "hgt",method = "mice",sp_impt="method")
+df_mice_hgt <- create_compare_data(data,miss_data,impt_mice_data,col = "hgt",method = "mice",sp_impt="sex")
 ggplot(df_mice_hgt, aes(age,hgt, colour = source))+geom_point(alpha=0.4)+stat_smooth()
 ggplot(df_mice_hgt, aes(source,hgt, colour = source))+geom_boxplot()
 
@@ -199,7 +200,7 @@ ggplot(df_ranger_hgt, aes(source,hgt, colour = source))+geom_boxplot(aes(colour=
 #### Ranger:compare split with Sex
 
 ```{r hgt_ranger_sex,message=FALSE}
-df_ranger_hgt <- create_compare_data(data,miss_data,impt_ranger_data,col = "hgt",method = "ranger",sp_impt="method")
+df_ranger_hgt <- create_compare_data(data,miss_data,impt_ranger_data,col = "hgt",method = "ranger",sp_impt="sex")
 ggplot(df_ranger_hgt, aes(age,hgt, colour = source))+geom_point(alpha=0.4)+stat_smooth()
 ggplot(df_ranger_hgt, aes(source,hgt, colour = source))+geom_boxplot()
 
@@ -239,9 +240,12 @@ ggplot(df_midas_hgt, aes(source,hgt, colour = source))+geom_boxplot(aes(colour=s
 #### MIDAS:compare split with Sex
 
 ```{r hgt_midas_sex,message=FALSE}
-df_midas_hgt <- create_compare_data(data,miss_data,impt_rmidas_data,col = "hgt",method = "midas",sp_impt="method")
+df_midas_hgt <- create_compare_data(data,miss_data,impt_rmidas_data,col = "hgt",method = "midas",sp_impt="sex")
 ggplot(df_midas_hgt, aes(age,hgt, colour = source))+geom_point(alpha=0.4)+stat_smooth()
 ggplot(df_midas_hgt, aes(source,hgt, colour = source))+geom_boxplot()
+
+
+ggplot(df_midas_hgt, aes(as.integer(age),hgt, colour = source))+geom_boxplot()
 
 ```
 
@@ -263,7 +267,24 @@ ggplot(df_midas_hgt[df_midas_hgt$age <14,], aes(age,hgt, colour = source))+geom_
 
 ```
 
+# compare miss to true data:wgt
 
+```{r wgt_miss_true_wgt,messwgt=FALSE}
+miss_index <- which(is.na(miss_data$wgt))
+for (i in 1:10){
+  sex <- factor(data$sex[miss_index])
+  g1 <- qplot(data$wgt[miss_index],impt_mice_data[[3]]$wgt[miss_index],col=sex)+
+    ylab("mice wgt") + xlab("data wgt")+theme(legend.position = "top")
+  
+  g2 <- qplot(data$wgt[miss_index],impt_ranger_data[[3]]$wgt[miss_index],col=sex)+
+    ylab("ranger wgt") + xlab("data wgt")+theme(legend.position = "top")
+  
+  g3 <- qplot(data$wgt[miss_index],impt_rmidas_data[[3]]$wgt[miss_index],col=sex)+
+    ylab("midas wgt") + xlab("data wgt")+theme(legend.position = "top")
+  grid.arrange(g1, g2,g3, ncol=3)
+  
+}
+```
 
 # compare miss to true data:hgt
 

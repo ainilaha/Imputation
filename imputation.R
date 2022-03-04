@@ -98,7 +98,6 @@ create_compare_data <- function(df,miss_df,impt_df_list,col,m=10,
   miss_df <- as.data.frame(miss_df)
   miss_index <- which(is.na(miss_df[,col]))
   
-  
   na_count <- apply(miss_df[miss_index,], 1, function(x) sum(is.na(x)))
   
   df <- df[miss_index,]
@@ -114,15 +113,14 @@ create_compare_data <- function(df,miss_df,impt_df_list,col,m=10,
     }
     df <- rbind(df2,df)
   }
-  
   # convert integer to boys and girls
+  int <- as.integer(df$sex)
+  mapLevels(x=int) <- map
+  df$sex <- int
   if (sp_impt=="sex"){
-    int <- as.integer(df$sex)
-    mapLevels(x=int) <- map
-    df$sex <- int
     df$source <- apply( df[ ,c("sex","source")] , 1 , paste , collapse = "-" )
   }
   
-  
+  # print(head(df))
   df
 }
