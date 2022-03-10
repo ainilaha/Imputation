@@ -54,6 +54,7 @@ ggplot(df_mice_wgt, aes(source,wgt, colour = source))+geom_boxplot()
 ```{r mice_NAs_wgt,message=FALSE}
 ggplot(df_mice_wgt, aes(age,wgt, colour = na_count))+geom_point(alpha=0.4)+stat_smooth()
 ggplot(df_mice_wgt, aes(na_count,wgt, colour = sex))+geom_boxplot()
+ggplot(df_mice_wgt[df_mice_wgt$na_count==4 |df_mice_wgt$na_count=="True(0 na)",], aes(age,wgt, colour = na_count))+geom_point(alpha=0.4)+stat_smooth()
 
 ```
 
@@ -97,6 +98,8 @@ ggplot(df_ranger_wgt, aes(source,wgt, colour = source))+geom_boxplot()
 ```{r ranger_NAs_wgt}
 ggplot(df_ranger_wgt, aes(age,wgt, colour = na_count))+geom_point(alpha=0.4)+stat_smooth()
 ggplot(df_ranger_wgt, aes(na_count,wgt, colour = sex))+geom_boxplot()
+ggplot(df_ranger_wgt[df_ranger_wgt$na_count==4 |df_ranger_wgt$na_count=="True(0 na)",], aes(age,wgt, colour = na_count))+geom_point(alpha=0.4)+stat_smooth()
+
 
 ```
 
@@ -142,6 +145,7 @@ ggplot(df_midas_wgt, aes(source,wgt, colour = source))+geom_boxplot()
 ```{r midas_NAs_wgt,message=FALSE}
 ggplot(df_midas_wgt, aes(age,wgt, colour = na_count))+geom_point(alpha=0.4)+stat_smooth()
 ggplot(df_midas_wgt, aes(na_count,wgt, colour = sex))+geom_boxplot()
+ggplot(df_midas_wgt[df_midas_wgt$na_count==4 |df_midas_wgt$na_count=="True(0 na)",], aes(age,wgt, colour = na_count))+geom_point(alpha=0.4)+stat_smooth()
 
 ```
 
@@ -185,6 +189,7 @@ ggplot(df_mice_hgt, aes(source,hgt, colour = source))+geom_boxplot()
 ```{r mice_NAs_ght,message=FALSE}
 ggplot(df_mice_hgt, aes(age,hgt, colour = na_count))+geom_point(alpha=0.4)+stat_smooth()
 ggplot(df_mice_hgt, aes(na_count,hgt, colour = source))+geom_boxplot()
+ggplot(df_mice_hgt[df_mice_hgt$na_count==4 |df_mice_hgt$na_count=="True(0 na)",], aes(age,hgt, colour = na_count))+geom_point(alpha=0.4)+stat_smooth()
 
 ```
 
@@ -227,6 +232,8 @@ ggplot(df_ranger_hgt, aes(source,hgt, colour = source))+geom_boxplot()
 ```{r ranger_NAs_ght,message=FALSE}
 ggplot(df_ranger_hgt, aes(age,hgt, colour = na_count))+geom_point(alpha=0.4)+stat_smooth()
 ggplot(df_ranger_hgt, aes(na_count,hgt, colour = sex))+geom_boxplot()
+ggplot(df_ranger_hgt[df_ranger_hgt$na_count==4 |df_ranger_hgt$na_count=="True(0 na)",], aes(age,hgt, colour = na_count))+geom_point(alpha=0.4)+stat_smooth()
+
 
 
 ```
@@ -270,6 +277,9 @@ ggplot(df_midas_hgt, aes(source,hgt, colour = source))+geom_boxplot()
 ```{r midas_NAs_ght,message=FALSE}
 ggplot(df_midas_hgt, aes(age,hgt, colour = na_count))+geom_point(alpha=0.4)+stat_smooth()
 ggplot(df_midas_hgt, aes(na_count,hgt, colour = sex))+geom_boxplot()
+
+ggplot(df_midas_hgt[df_midas_hgt$na_count==4 |df_midas_hgt$na_count=="True(0 na)",], aes(age,hgt, colour = na_count))+geom_point(alpha=0.4)+stat_smooth()
+
 
 ```
 
