@@ -15,6 +15,18 @@ source("imputation.R", local = knitr::knit_global())
 ```
 
 
+
+#### NAs stats in missing dataset
+
+```{r na_stats,message=FALSE}
+plot_na_pie("wgt")
+plot_na_pie("hgt")
+plot_na_pie("age")
+
+```
+
+
+
 ## MICE: Wight
 
 #### MICE:compare the imputed datasets with orignal dataset
@@ -24,7 +36,7 @@ df_mice_wgt <- create_compare_data(data,miss_data,impt_mice_data,col = "wgt",met
 ggplot(df_mice_wgt, aes(age,wgt, colour = source))+geom_point(alpha=0.4)+stat_smooth()
 ggplot(df_mice_wgt, aes(source,wgt, colour = source))+geom_boxplot()
 ggplot(df_mice_wgt, aes(source,wgt, colour = source))+geom_boxplot(aes(colour=sex))
-ggplot(df_mice_wgt, aes(as.integer(age),wgt, colour = source))+geom_boxplot()
+
 ```
 
 
@@ -41,6 +53,7 @@ ggplot(df_mice_wgt, aes(source,wgt, colour = source))+geom_boxplot()
 
 ```{r mice_NAs_wgt,message=FALSE}
 ggplot(df_mice_wgt, aes(age,wgt, colour = na_count))+geom_point(alpha=0.4)+stat_smooth()
+ggplot(df_mice_wgt, aes(na_count,wgt, colour = sex))+geom_boxplot()
 
 ```
 
@@ -83,6 +96,7 @@ ggplot(df_ranger_wgt, aes(source,wgt, colour = source))+geom_boxplot()
 
 ```{r ranger_NAs_wgt}
 ggplot(df_ranger_wgt, aes(age,wgt, colour = na_count))+geom_point(alpha=0.4)+stat_smooth()
+ggplot(df_ranger_wgt, aes(na_count,wgt, colour = sex))+geom_boxplot()
 
 ```
 
@@ -127,6 +141,7 @@ ggplot(df_midas_wgt, aes(source,wgt, colour = source))+geom_boxplot()
 
 ```{r midas_NAs_wgt,message=FALSE}
 ggplot(df_midas_wgt, aes(age,wgt, colour = na_count))+geom_point(alpha=0.4)+stat_smooth()
+ggplot(df_midas_wgt, aes(na_count,wgt, colour = sex))+geom_boxplot()
 
 ```
 
@@ -169,6 +184,7 @@ ggplot(df_mice_hgt, aes(source,hgt, colour = source))+geom_boxplot()
 
 ```{r mice_NAs_ght,message=FALSE}
 ggplot(df_mice_hgt, aes(age,hgt, colour = na_count))+geom_point(alpha=0.4)+stat_smooth()
+ggplot(df_mice_hgt, aes(na_count,hgt, colour = source))+geom_boxplot()
 
 ```
 
@@ -210,6 +226,8 @@ ggplot(df_ranger_hgt, aes(source,hgt, colour = source))+geom_boxplot()
 
 ```{r ranger_NAs_ght,message=FALSE}
 ggplot(df_ranger_hgt, aes(age,hgt, colour = na_count))+geom_point(alpha=0.4)+stat_smooth()
+ggplot(df_ranger_hgt, aes(na_count,hgt, colour = sex))+geom_boxplot()
+
 
 ```
 
@@ -245,14 +263,13 @@ ggplot(df_midas_hgt, aes(age,hgt, colour = source))+geom_point(alpha=0.4)+stat_s
 ggplot(df_midas_hgt, aes(source,hgt, colour = source))+geom_boxplot()
 
 
-ggplot(df_midas_hgt, aes(as.integer(age),hgt, colour = source))+geom_boxplot()
-
 ```
 
 #### MIDAS:compare by NA counts
 
 ```{r midas_NAs_ght,message=FALSE}
 ggplot(df_midas_hgt, aes(age,hgt, colour = na_count))+geom_point(alpha=0.4)+stat_smooth()
+ggplot(df_midas_hgt, aes(na_count,hgt, colour = sex))+geom_boxplot()
 
 ```
 
@@ -273,13 +290,13 @@ ggplot(df_midas_hgt[df_midas_hgt$age <14,], aes(age,hgt, colour = source))+geom_
 miss_index <- which(is.na(miss_data$wgt))
 for (i in 1:10){
   sex <- factor(data$sex[miss_index])
-  g1 <- qplot(data$wgt[miss_index],impt_mice_data[[3]]$wgt[miss_index],col=sex)+
+  g1 <- qplot(data$wgt[miss_index],impt_mice_data[[3]]$wgt[miss_index],col=sex)+stat_smooth()+
     ylab("mice wgt") + xlab("data wgt")+theme(legend.position = "top")
   
-  g2 <- qplot(data$wgt[miss_index],impt_ranger_data[[3]]$wgt[miss_index],col=sex)+
+  g2 <- qplot(data$wgt[miss_index],impt_ranger_data[[3]]$wgt[miss_index],col=sex)+stat_smooth()+
     ylab("ranger wgt") + xlab("data wgt")+theme(legend.position = "top")
   
-  g3 <- qplot(data$wgt[miss_index],impt_rmidas_data[[3]]$wgt[miss_index],col=sex)+
+  g3 <- qplot(data$wgt[miss_index],impt_rmidas_data[[3]]$wgt[miss_index],col=sex)+stat_smooth()+
     ylab("midas wgt") + xlab("data wgt")+theme(legend.position = "top")
   grid.arrange(g1, g2,g3, ncol=3)
   
@@ -292,13 +309,13 @@ for (i in 1:10){
 miss_index <- which(is.na(miss_data$hgt))
 for (i in 1:10){
   sex <- factor(data$sex[miss_index])
-  g1 <- qplot(data$hgt[miss_index],impt_mice_data[[3]]$hgt[miss_index],col=sex)+
+  g1 <- qplot(data$hgt[miss_index],impt_mice_data[[3]]$hgt[miss_index],col=sex)+stat_smooth()+
     ylab("mice hgt") + xlab("data hgt")+theme(legend.position = "top")
   
-  g2 <- qplot(data$hgt[miss_index],impt_ranger_data[[3]]$hgt[miss_index],col=sex)+
+  g2 <- qplot(data$hgt[miss_index],impt_ranger_data[[3]]$hgt[miss_index],col=sex)+stat_smooth()+
     ylab("ranger hgt") + xlab("data hgt")+theme(legend.position = "top")
   
-  g3 <- qplot(data$hgt[miss_index],impt_rmidas_data[[3]]$hgt[miss_index],col=sex)+
+  g3 <- qplot(data$hgt[miss_index],impt_rmidas_data[[3]]$hgt[miss_index],col=sex)+stat_smooth()+
     ylab("midas hgt") + xlab("data hgt")+theme(legend.position = "top")
   grid.arrange(g1, g2,g3, ncol=3)
   
@@ -308,17 +325,17 @@ for (i in 1:10){
 
 # compare miss to true data:age
 
-```{r age_miss_true_age,message=FALSE}
+```{r age_miss_true_age,message=FALSE,warning=FALSE}
 miss_index <- which(is.na(miss_data$age))
 for (i in 1:10){
   sex <- factor(data$sex[miss_index])
-  g1 <- qplot(data$age[miss_index],impt_mice_data[[3]]$age[miss_index],col=sex)+
+  g1 <- qplot(data$age[miss_index],impt_mice_data[[3]]$age[miss_index],col=sex)+stat_smooth()+
     ylab("mice age") + xlab("data age")+theme(legend.position = "top")
   
-  g2 <- qplot(data$age[miss_index],impt_ranger_data[[3]]$age[miss_index],col=sex)+
+  g2 <- qplot(data$age[miss_index],impt_ranger_data[[3]]$age[miss_index],col=sex)+stat_smooth()+
     ylab("ranger age") + xlab("data age")+theme(legend.position = "top")
   
-  g3 <- qplot(data$age[miss_index],impt_rmidas_data[[3]]$age[miss_index],col=sex)+
+  g3 <- qplot(data$age[miss_index],impt_rmidas_data[[3]]$age[miss_index],col=sex)+stat_smooth()+
     ylab("midas age") + xlab("data age")+theme(legend.position = "top")
   grid.arrange(g1, g2,g3, ncol=3)
   

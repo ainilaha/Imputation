@@ -122,5 +122,40 @@ create_compare_data <- function(df,miss_df,impt_df_list,col,m=10,
   }
   
   # print(head(df))
+  df$na_count = as.factor(df$na_count)
   df
 }
+
+
+
+
+plot_na_pie <- function(col){
+  miss_data <- as.data.frame(miss_data)
+  miss_index <- miss_index <- which(is.na(miss_data[,col]))
+  na_count <- apply(miss_data[miss_index,], 1, function(x) sum(is.na(x)))
+  
+  temp_df <- miss_data[miss_index,]
+  # test_df$na_count<-na_count
+  
+  na_pattern <- md.pattern(temp_df)
+  
+  na_row_count <- c()
+  for (i in 1:4){
+    cn <- sum(as.numeric(row.names(na_pattern)[which(na_pattern[,ncol(na_pattern)]==i)]))
+    na_row_count <- c(na_row_count,cn)
+  }
+  
+  # na_row_count_perct <- round(na_row_count/sum(na_row_count)*100,2)
+  pie_labels <- paste0(round(100 * na_row_count/sum(na_row_count), 2), "%")
+  
+  labels <- paste(1:4,na_row_count,sep = ":")
+  
+  
+  pie(na_row_count, labels = pie_labels, 
+      main = paste(col,"NAs Counts"),col = rainbow(length(na_row_count)))
+  legend("topright", labels, cex = 0.8,
+         fill = rainbow(length(na_row_count)))
+}
+
+plot_na_pie("age")
+
