@@ -19,3 +19,9 @@ Imputation methods for biomedical data
 #### Compare More
   - [Notebook](https://ccb-hms.github.io/Imputation/more_compare.html)
   - [rMarkdown](https://github.com/ccb-hms/Imputation/blob/main/more_compare.Rmd)
+
+  
+#### GAIN
+  - [Notebook: fdgs](https://github.com/ccb-hms/Imputation/gain/blob/master/run_gain_fgds.ipynb)
+  - [Notebook: letter](https://github.com/ccb-hms/Imputation/gain/blob/master/run_gain_letter.ipynb)
+  - [Notebook: spam](https://github.com/ccb-hms/Imputation/gain/blob/master/run_gain_spam.ipynb)
