@@ -22,6 +22,6 @@ Imputation methods for biomedical data
 
   
 #### GAIN
-  - [Notebook: fdgs](https://github.com/ccb-hms/Imputation/gain/blob/master/run_gain_fgds.ipynb)
-  - [Notebook: letter](https://github.com/ccb-hms/Imputation/gain/blob/master/run_gain_letter.ipynb)
-  - [Notebook: spam](https://github.com/ccb-hms/Imputation/gain/blob/master/run_gain_spam.ipynb)
+  - [Notebook: fdgs](https://github.com/ccb-hms/Imputation/blob/main/gain/run_gain_fgds.ipynb)
+  - [Notebook: letter](https://github.com/ccb-hms/Imputation/blob/main/gain/run_gain_letter.ipynb)
+  - [Notebook: spam](https://github.com/ccb-hms/Imputation/blob/main/gain/run_gain_spam.ipynb)
