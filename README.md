@@ -25,3 +25,22 @@ Imputation methods for biomedical data
   - [Notebook: fdgs](https://github.com/ccb-hms/Imputation/blob/main/gain/run_gain_fgds.ipynb)
   - [Notebook: letter](https://github.com/ccb-hms/Imputation/blob/main/gain/run_gain_letter.ipynb)
   - [Notebook: spam](https://github.com/ccb-hms/Imputation/blob/main/gain/run_gain_spam.ipynb)
+  
+
+
+  
+#### Inverse Normal Rank Transformation
+  - [Notebook](https://ccb-hms.github.io/Imputation/inverse_normal.html)
+  - [rMarkdown](https://github.com/ccb-hms/Imputation/blob/main/inverse_normal.Rmd)
+  
+
+#### Spline Regression
+  - [Notebook Train with 1000 samples](https://ccb-hms.github.io/Imputation/b_spline_reg_1000.html)
+  - [Notebook Train with 2000 samples](https://ccb-hms.github.io/Imputation/b_spline_reg_2000.html)
+  - [Notebook Train with 5000 samples](https://ccb-hms.github.io/Imputation/b_spline_reg_5000.html)
+  - [b_spline_reg.Rmd](https://github.com/ccb-hms/Imputation/blob/main/inverse_normal.Rmd)
+  
+  
+#### Update Notes:
+  - [Notebook](https://ccb-hms.github.io/Imputation/updates_notes.html)
+  - [rMarkdown](https://github.com/ccb-hms/Imputation/blob/main/updates_notes.Rmd)

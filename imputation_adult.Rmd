@@ -32,7 +32,7 @@ library(gdata)
 ```{r data,message=FALSE}
 data <- read.csv("https://raw.githubusercontent.com/MIDASverse/MIDASpy/master/Examples/adult_data.csv",
                     # colClasses=c("NULL",NA,NA,NA),
-                    row.names = 1)
+                    row.names = 1)[1:3000, ]
 head(data)
 ```
 
@@ -42,22 +42,26 @@ head(data)
 adult_cat <- c('workclass','marital_status','relationship','race','education','occupation','native_country')
 adult_bin <- c('sex','class_labels')
 adult_num <- c('age','fnlwgt','education_num','capital_gain','capital_loss','hours_per_week')
+for(col in c(adult_bin,adult_cat)){
+  data[,col] <- as.factor(data[,col])
+}
 
-qplot(data$workclass)+theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1))
-qplot(data$marital_status)+theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1))
-qplot(data$relationship)+theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1))
-qplot(data$race)+theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1))
-qplot(data$education)+theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1))
-qplot(data$occupation)+theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1))
-qplot(data$native_country)+theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1))
+
+# qplot(data$workclass)+theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1))
+# qplot(data$marital_status)+theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1))
+# qplot(data$relationship)+theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1))
+# qplot(data$race)+theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1))
+# qplot(data$education)+theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1))
+# qplot(data$occupation)+theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1))
+# qplot(data$native_country)+theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1))
 ```
 
 
-## Imputation
+## Imputation with MICE
 ```{r impt_ranger,message=FALSE}
 
 #### Create Missing Data
-miss_data <- add_missingness(data, prop = 0.1)
+miss_data <- add_missingness(data, prop = 0.2)
 miss_data <- as.data.frame(miss_data)
 # miss_index <- which(is.na(miss_data[,"reg"]))
 # view miss number of miss data by coluemns
@@ -73,6 +77,12 @@ impt_ranger_data <- replicate(
   as.data.frame(missRanger(miss_data, verbose = 0, num.trees = 100)), 
   simplify = FALSE
 )
+for (i in 1:10){
+  for(cat in c(adult_bin,adult_cat)){
+    impt_ranger_data[[i]][,cat] <- round(impt_ranger_data[[i]][,cat])
+  }
+  
+}
 ```
 
 
@@ -84,7 +94,7 @@ impt_ranger_data <- replicate(
 
 imp <-  mice(miss_data, print=F)
 meth <- imp$meth
-meth[adult_cat] <- "rf"
+meth[adult_cat] <- "cart"
 meth[adult_bin] <- 'rf'
 meth[adult_num] <- "rf"
 
@@ -169,9 +179,9 @@ library(scales)
 library(caret)
 library(gdata)
 
-ggplotConfusionMatrix <- function(m, col_names){
+ggplotConfusionMatrix <- function(m, col_names, method_name){
   #https://stackoverflow.com/questions/51410405/ggplot2-confusion-matrix-geom-text-labeling
-  mytitle <- paste("Accuracy", percent_format()(m$overall[1]),
+  mytitle <- paste(method_name,"Accuracy", percent_format()(m$overall[1]),
                    "Kappa", percent_format()(m$overall[2]))
   data_c <-  mutate(group_by(as.data.frame(m$table), Reference ), percentage = 
                       percent(Freq/sum(Freq)))
@@ -181,7 +191,7 @@ ggplotConfusionMatrix <- function(m, col_names){
     geom_tile(aes(fill = Freq), colour = "white") +
     scale_fill_gradient(low = "white", high = "green") +
     geom_text(aes(x = Reference, y = Prediction, label = percentage)) +
-    scale_x_discrete(labels=col_names)+
+    scale_x_discrete(labels=col_names,guide = guide_axis(angle = 45))+
     scale_y_discrete(labels=col_names)+
     # theme(legend.position = "none") +
     ggtitle(mytitle)
@@ -190,7 +200,7 @@ ggplotConfusionMatrix <- function(m, col_names){
 
 
 
-plot_confusion_matrix <- function(impt_data_list, data, miss_df, col, m=10){
+plot_confusion_matrix <- function(impt_data_list, data, miss_df, col,method_name, m=10){
   
   miss_df <-  as.data.frame(miss_df)
   miss_index <- which(is.na(miss_df[,col]))
@@ -207,11 +217,11 @@ plot_confusion_matrix <- function(impt_data_list, data, miss_df, col, m=10){
   
   pred_values <- as.factor(pred_values)
   
-  true_labels <- as.factor(rep(true_labels,m))
-  
+  true_labels <- as.factor(as.numeric(as.factor(rep(true_labels,m))))
+
   pred_values <- factor(pred_values,levels = levels(true_labels))
   true_labels <- factor(true_labels,levels = levels(true_labels))
-  print(pred_values)
+  # print(pred_values)
   # print(true_labels)
   
   
@@ -219,12 +229,71 @@ plot_confusion_matrix <- function(impt_data_list, data, miss_df, col, m=10){
   
   map <- mapLevels(x=as.factor(data[,col]))
   
-  ggplotConfusionMatrix(cfm,names(map))
+  ggplotConfusionMatrix(cfm,names(map),method_name)
   
 }
 
 ```
 
+## marital_status
+```{r marital_status,message=FALSE}
+qplot(data$marital_status)+theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1))
+plot_confusion_matrix(impt_ranger_data,data,miss_data,col = "marital_status",method_name="ranger")
+plot_confusion_matrix(impt_mice_data,data,miss_data,col ="marital_status",method_name="mice")
+plot_confusion_matrix(impt_rmidas_data,data,miss_data,col ="marital_status",method_name="rmidas")
+
+```
+
+## workclass
+```{r workclass,message=FALSE}
+qplot(data$workclass)+theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1))
+plot_confusion_matrix(impt_ranger_data,data,miss_data,col = "workclass",method_name="ranger")
+plot_confusion_matrix(impt_mice_data,data,miss_data,col ="workclass",method_name="mice")
+plot_confusion_matrix(impt_rmidas_data,data,miss_data,col ="workclass",method_name="rmidas")
+
+```
+
+
+## relationship
+```{r relationship,message=FALSE}
+qplot(data$relationship)+theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1))
+plot_confusion_matrix(impt_ranger_data,data,miss_data,col = "relationship",method_name="ranger")
+plot_confusion_matrix(impt_mice_data,data,miss_data,col ="relationship",method_name="mice")
+plot_confusion_matrix(impt_rmidas_data,data,miss_data,col ="relationship",method_name="rmidas")
+
+```
+## race
+```{r race,message=FALSE}
+qplot(data$race)+theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1))
+plot_confusion_matrix(impt_ranger_data,data,miss_data,col = "race",method_name="ranger")
+plot_confusion_matrix(impt_mice_data,data,miss_data,col ="race",method_name="mice")
+plot_confusion_matrix(impt_rmidas_data,data,miss_data,col ="race",method_name="rmidas")
+
+```
+## education
+```{r education,message=FALSE}
+qplot(data$education)+theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1))
+plot_confusion_matrix(impt_ranger_data,data,miss_data,col = "education",method_name="ranger")
+plot_confusion_matrix(impt_mice_data,data,miss_data,col ="education",method_name="mice")
+plot_confusion_matrix(impt_rmidas_data,data,miss_data,col ="education",method_name="rmidas")
+
+```
+## occupation
+```{r occupation,message=FALSE}
+qplot(data$occupation)+theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1))
+plot_confusion_matrix(impt_ranger_data,data,miss_data,col = "occupation",method_name="ranger")
+plot_confusion_matrix(impt_mice_data,data,miss_data,col ="occupation",method_name="mice")
+plot_confusion_matrix(impt_rmidas_data,data,miss_data,col ="occupation",method_name="rmidas")
+
+```
+## native_country
+```{r native_country,message=FALSE}
+qplot(data$native_country)+theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1))
+plot_confusion_matrix(impt_ranger_data,data,miss_data,col = "native_country",method_name="ranger")
+plot_confusion_matrix(impt_mice_data,data,miss_data,col ="native_country",method_name="mice")
+plot_confusion_matrix(impt_rmidas_data,data,miss_data,col ="native_country",method_name="rmidas")
+
+```
 
 ## MICE: hours_per_week
 
