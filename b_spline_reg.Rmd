@@ -32,85 +32,127 @@ data = fdgs |> select(-c(id,wgt.z,hgt.z)) |> na.omit()
 #train_data = data[1:2000,]
 # prediction
 #data_new = data[5001:6002,]
-train_ix <- sample(x = 1:nrow(data), size = 1000)
-test_ix <- sample(x = setdiff(1:nrow(data), train_ix), 1000)
+train_ix = sample(x = 1:nrow(data), size = 1000)
+test_ix = sample(x = setdiff(1:nrow(data), train_ix), 1000)
 
-train_data <- data[train_ix, ]
-data_new <- data[test_ix, ]
+train_data = data[train_ix, ]
+data_new = data[test_ix, ]
 ```
 
 ### B-Spline Regression examples2 for wgt
 
 ```{r spline_reg2,warning=FALSE}
+
 lm_age = lm(wgt ~ age, train_data)
-knots = quantile(train_data$age,probs = seq(0.1,1,0.2))
-sb_age = lm(wgt~bs(age,knots=knots) , train_data)
+
+q=10
+knots = quantile(unique(data$age),1:(q-2)/(q-1))
 
 
+knots = quantile(train_data$age, probs = seq(0.1, 1, 0.2))
+sb_age = lm(wgt ~ bs(age, knots = knots) , train_data)
 
 
-lm_bs = lm(wgt ~ factor(sex) + bs(age,knots=knots), train_data)
+lm_bs = lm(wgt ~ factor(sex) + bs(age, knots = knots), train_data)
 
 # prediction
 
-lm_pred = predict(lm_age,newdata= list(age=data_new$age),se.fit=T)
+lm_pred = predict(lm_age,
+                  newdata = list(age = data_new$age),
+                  se.fit = T)
 
-bs_pred = predict(sb_age,newdata=list(age=data_new$age),se=T)
+bs_pred = predict(sb_age, newdata = list(age = data_new$age), se = T)
 
-sb_sex = predict(lm_bs,data_new,se=T)
+sb_sex = predict(lm_bs, data_new, se = T)
 
-lm_pred = data.frame(fit=lm_pred$fit,lwr=lm_pred$fit-2*lm_pred$se.fit,upr=lm_pred$fit+2*lm_pred$se.fit)
-lm_pred$model = rep('lm',nrow(lm_pred))
+lm_pred = data.frame(
+  fit = lm_pred$fit,
+  lwr = lm_pred$fit - 2 * lm_pred$se.fit,
+  upr = lm_pred$fit + 2 * lm_pred$se.fit
+)
+lm_pred$model = rep('lm', nrow(lm_pred))
 
 
-bs_pred = data.frame(fit=bs_pred$fit,lwr=bs_pred$fit-2*bs_pred$se.fit,upr=bs_pred$fit+2*bs_pred$se.fit)
-bs_pred$model = rep('bs',nrow(bs_pred))
+bs_pred = data.frame(
+  fit = bs_pred$fit,
+  lwr = bs_pred$fit - 2 * bs_pred$se.fit,
+  upr = bs_pred$fit + 2 * bs_pred$se.fit
+)
+bs_pred$model = rep('bs', nrow(bs_pred))
 
 
-sb_sex = data.frame(fit=sb_sex$fit,lwr=sb_sex$fit-2*sb_sex$se.fit,upr=sb_sex$fit+2*sb_sex$se.fit)
-sb_sex$model = paste(rep('bs_sex',nrow(sb_sex)),data_new$sex,sep = ":")
+sb_sex = data.frame(
+  fit = sb_sex$fit,
+  lwr = sb_sex$fit - 2 * sb_sex$se.fit,
+  upr = sb_sex$fit + 2 * sb_sex$se.fit
+)
+sb_sex$model = paste(rep('bs_sex', nrow(sb_sex)), data_new$sex, sep = ":")
 # sb_sex$model = rep('bs_sex',nrow(sb_sex))
 
 
 
-true_data = data.frame(fit=data_new$wgt,
-                        lwr=rep(0,nrow(data_new)),
-                                upr=rep(0,nrow(data_new)),
-                                model=rep("True",nrow(data_new)),
-                        age=data_new$age
-                        )
+true_data = data.frame(
+  fit = data_new$wgt,
+  lwr = rep(0, nrow(data_new)),
+  upr = rep(0, nrow(data_new)),
+  model = rep("True", nrow(data_new)),
+  age = data_new$age
+)
 
 
-df = rbind(lm_pred,bs_pred,sb_sex)
-df$age = rep(data_new$age,3)
-
-
-
-
-ggplot(true_data,aes(x=age, y=fit)) + geom_point(colour="gray")+
-  geom_line(data = df,aes(x=age,y=fit,colour=model),size=1.5)+ylab("wgt")
+df = rbind(lm_pred, bs_pred, sb_sex)
+df$age = rep(data_new$age, 3)
 
 
 
 
+ggplot(true_data, aes(x = age, y = fit)) + geom_point(colour = "gray") +
+  geom_line(data = df,
+            aes(x = age, y = fit, colour = model),
+            size = 1.5) + ylab("wgt")
 
-ggplot(data =df ,aes(x=age,y=fit,colour=model))+geom_line(size=1.5)+
-  geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.1)+ylab("wgt")
 
 
 
-plot_pred = function(col){
+
+ggplot(data = df , aes(x = age, y = fit, colour = model)) + geom_line(size =
+                                                                        1.5) +
+  geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.1) + ylab("wgt")
+
+
+
+plot_pred = function(col) {
+  df1 = df[df$model %in% c(col), ]
   
-  df1 = df[df$model %in% c(col),]
+  ggplot(true_data, aes(x = age, y = fit)) + geom_point(colour = "gray") +
+    geom_line(
+      data = df1,
+      aes(x = age, y = fit, color = "pred"),
+      linetype = 1,
+      size = 1.5
+    ) +
+    geom_line(
+      data = df1,
+      aes(x = age, y = lwr, color = 'lower'),
+      linetype = 2,
+      size = 1
+    ) +
+    geom_line(
+      data = df1,
+      aes(x = age, y = upr, color = 'upper'),
+      linetype = 2,
+      size = 1
+    ) +
+    scale_color_manual(
+      name = col,
+      breaks = c('pred', 'lower', 'upper'),
+      values = c(
+        'pred' = 'red',
+        'lower' = 'blue',
+        'upper' = 'blue'
+      )
+    ) + ylab("wgt")
   
-  ggplot(true_data,aes(x=age, y=fit)) + geom_point(colour="gray")+
-    geom_line(data = df1,aes(x=age,y=fit,color="pred"),linetype = 1,size=1.5)+
-    geom_line(data = df1,aes(x=age,y=lwr,color='lower'),linetype = 2,size=1)+
-    geom_line(data = df1,aes(x=age,y=upr,color='upper'),linetype = 2,size=1)+
-    scale_color_manual(name=col,
-                     breaks=c('pred', 'lower', 'upper'),
-                     values=c('pred'='red', 'lower'='blue', 'upper'='blue'))+ylab("wgt")
-
   
 }
 
@@ -130,70 +172,106 @@ plot_pred('bs_sex:girl')
 ```{r spline_reg3,warning=FALSE}
 lm_age = lm(hgt ~ age, train_data)
 # knot = c(5,10,15,10)
-sb_age = lm(hgt~bs(age,df=5) , train_data)
-lm_bs = lm(hgt ~ factor(sex) + bs(age,df=5), train_data)
+sb_age = lm(hgt ~ bs(age, knots = knots) , train_data)
+lm_bs = lm(hgt ~ factor(sex) + bs(age, knots = knots), train_data)
 
 
 # prediction
 
-lm_pred = predict(lm_age,data_new,se=T)
+lm_pred = predict(lm_age, data_new, se = T)
 
-bs_pred = predict(sb_age,data_new,se=T)
+bs_pred = predict(sb_age, data_new, se = T)
 
-sb_sex = predict(lm_bs,data_new,se=T)
+sb_sex = predict(lm_bs, data_new, se = T)
 
-lm_pred = data.frame(fit=lm_pred$fit,lwr=lm_pred$fit-2*lm_pred$se.fit,upr=lm_pred$fit+2*lm_pred$se.fit)
-lm_pred$model = rep('lm',nrow(lm_pred))
+lm_pred = data.frame(
+  fit = lm_pred$fit,
+  lwr = lm_pred$fit - 2 * lm_pred$se.fit,
+  upr = lm_pred$fit + 2 * lm_pred$se.fit
+)
+lm_pred$model = rep('lm', nrow(lm_pred))
 
 
-bs_pred = data.frame(fit=bs_pred$fit,lwr=bs_pred$fit-2*bs_pred$se.fit,upr=bs_pred$fit+2*bs_pred$se.fit)
-bs_pred$model = rep('bs',nrow(bs_pred))
+bs_pred = data.frame(
+  fit = bs_pred$fit,
+  lwr = bs_pred$fit - 2 * bs_pred$se.fit,
+  upr = bs_pred$fit + 2 * bs_pred$se.fit
+)
+bs_pred$model = rep('bs', nrow(bs_pred))
 
 
-sb_sex = data.frame(fit=sb_sex$fit,lwr=sb_sex$fit-2*sb_sex$se.fit,upr=sb_sex$fit+2*sb_sex$se.fit)
-sb_sex$model = paste(rep('bs_sex',nrow(sb_sex)),data_new$sex,sep = ":")
+sb_sex = data.frame(
+  fit = sb_sex$fit,
+  lwr = sb_sex$fit - 2 * sb_sex$se.fit,
+  upr = sb_sex$fit + 2 * sb_sex$se.fit
+)
+sb_sex$model = paste(rep('bs_sex', nrow(sb_sex)), data_new$sex, sep = ":")
 # sb_sex$model = rep('bs_sex',nrow(sb_sex))
 
 
 
-true_data = data.frame(fit=data_new$hgt,
-                        lwr=rep(0,nrow(data_new)),
-                                upr=rep(0,nrow(data_new)),
-                                model=rep("True",nrow(data_new)),
-                        age=data_new$age
-                        )
+true_data = data.frame(
+  fit = data_new$hgt,
+  lwr = rep(0, nrow(data_new)),
+  upr = rep(0, nrow(data_new)),
+  model = rep("True", nrow(data_new)),
+  age = data_new$age
+)
 
 
-df = rbind(lm_pred,bs_pred,sb_sex)
-df$age = rep(data_new$age,3)
-
-
-
-
-ggplot(true_data,aes(x=age, y=fit)) + geom_point(colour="gray")+
-  geom_line(data = df,aes(x=age,y=fit,colour=model),size=1.5)+ylab("hgt")
+df = rbind(lm_pred, bs_pred, sb_sex)
+df$age = rep(data_new$age, 3)
 
 
 
 
+ggplot(true_data, aes(x = age, y = fit)) + geom_point(colour = "gray") +
+  geom_line(data = df,
+            aes(x = age, y = fit, colour = model),
+            size = 1.5) + ylab("hgt")
 
-ggplot(data =df ,aes(x=age,y=fit,colour=model))+geom_line(size=1.5)+
-  geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.1)+ylab("hgt")
 
 
 
-plot_pred = function(col){
+
+ggplot(data = df , aes(x = age, y = fit, colour = model)) + geom_line(size =
+                                                                        1.5) +
+  geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.1) + ylab("hgt")
+
+
+
+plot_pred = function(col) {
+  df1 = df[df$model %in% c(col), ]
   
-  df1 = df[df$model %in% c(col),]
+  ggplot(true_data, aes(x = age, y = fit)) + geom_point(colour = "gray") +
+    geom_line(
+      data = df1,
+      aes(x = age, y = fit, color = "pred"),
+      linetype = 1,
+      size = 1.5
+    ) +
+    geom_line(
+      data = df1,
+      aes(x = age, y = lwr, color = 'lower'),
+      linetype = 2,
+      size = 1
+    ) +
+    geom_line(
+      data = df1,
+      aes(x = age, y = upr, color = 'upper'),
+      linetype = 2,
+      size = 1
+    ) +
+    scale_color_manual(
+      name = col,
+      breaks = c('pred', 'lower', 'upper'),
+      values = c(
+        'pred' = 'red',
+        'lower' = 'blue',
+        'upper' = 'blue'
+      )
+    ) + ylab("hgt")
   
-  ggplot(true_data,aes(x=age, y=fit)) + geom_point(colour="gray")+
-    geom_line(data = df1,aes(x=age,y=fit,color="pred"),linetype = 1,size=1.5)+
-    geom_line(data = df1,aes(x=age,y=lwr,color='lower'),linetype = 2,size=1)+
-    geom_line(data = df1,aes(x=age,y=upr,color='upper'),linetype = 2,size=1)+
-    scale_color_manual(name=col,
-                     breaks=c('pred', 'lower', 'upper'),
-                     values=c('pred'='red', 'lower'='blue', 'upper'='blue'))+ylab("hgt")
-
   
 }
 
