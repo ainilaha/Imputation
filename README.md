@@ -45,7 +45,12 @@ Imputation methods for biomedical data
   - [Notebook](https://ccb-hms.github.io/Imputation/gamlss_mice.html)
   - [rMarkdown](https://github.com/ccb-hms/Imputation/blob/main/gamlss_mice.Rmd)
   
-  
+
+#### B.Spline with MICE
+  - [Notebook](https://ccb-hms.github.io/Imputation/spline_mice.html)
+  - [rMarkdown](https://github.com/ccb-hms/Imputation/blob/main/spline_mice.Rmd)
+
+
 #### Update Notes:
   - [Notebook](https://ccb-hms.github.io/Imputation/updates_notes.html)
   - [rMarkdown](https://github.com/ccb-hms/Imputation/blob/main/updates_notes.Rmd)
