@@ -9,12 +9,18 @@ library(gdata)
 library(ImputeRobust)
 
 
-data <- fdgs |> dplyr::select(-c(id,wgt.z,hgt.z,reg)) |> na.omit()
+data <- fdgs |> dplyr::select(-c(id,wgt.z,hgt.z)) |> na.omit()
 
-# data <- data[1:500,]
+# data <- data[1:100,]
 
 miss_data <- add_missingness(data, prop = 0.2)
 miss_data <- as.data.frame(miss_data)
+
+
+library(VIM)
+aggr_plot <- aggr(miss_data, col=c('navyblue','red'), 
+                  numbers=TRUE, sortVars=TRUE, labels=names(miss_data), 
+                  cex.axis=.7, gap=3, ylab=c("Histogram of missing data","Pattern"))
 
 iter_n <- 10
 
@@ -24,11 +30,16 @@ iter_n <- 10
 
 imp2 <-  mice(miss_data, print=F)
 meth <- imp2$meth
-meth[c('sex')] <- "gamlssBI"
+pred <- imp2$predictorMatrix
+pred['sex','age'] <- 0
+pred[,'reg'] <- 0
+meth[c('sex','reg')] <- "rf"
 meth[c('age','hgt','wgt')] <- 'gamlssNO'
 
-imp2 <- mice(miss_data, m=10, method = meth, print=F)
-imp20  <-  mice.mids(imp2, maxit=iter_n, print=F)
+imp2 <- mice(miss_data, m=10, method = meth, 
+             predictorMatrix=pred,
+             visitSequence = "monotone",n.cyc = 1)
+imp20  <-  mice.mids(imp2, maxit=iter_n)
 impt_mice_gamlss_data <- list()
 
 for (i in 1:10){
@@ -37,12 +48,14 @@ for (i in 1:10){
 }
 
 
+
+
 #### Imputing Data with MICE rf
 
 imp <-  mice(miss_data, print=F)
 meth <- imp$meth
-meth[c('sex')] <- "rf"
-meth[c('age','hgt','wgt')] <- 'rf'
+# meth[c('sex','reg')] <- "rf"
+meth[c('sex','reg','age','hgt','wgt')] <- 'rf'
 
 imp <- mice(miss_data, m=10, method = meth, print=F)
 imp20  <-  mice.mids(imp, maxit=iter_n, print=F)
@@ -60,7 +73,7 @@ for (i in 1:10){
 
 imp3 <-  mice(miss_data, print=F)
 meth <- imp3$meth
-meth[c('sex')] <- "cart"
+meth[c('sex','reg')] <- "cart"
 meth[c('age','hgt','wgt')] <- 'cart'
 
 imp3 <- mice(miss_data, m=10, method = meth, print=F)
@@ -150,6 +163,16 @@ create_compare_data <- function(df,miss_df,impt_df_list,nas,col,m=10,
   df
 }
 
+
+
+
+
+imputed.sets <- mice(miss_data, m = 2,
+                     method = "gamlss",
+                     visitSequence = "monotone",
+                     maxit = 1, seed = 973,
+                     n.cyc = 1, bf.cyc = 1,
+                     cyc = 1)
 
 
 

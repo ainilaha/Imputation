@@ -39,8 +39,11 @@ Imputation methods for biomedical data
 
 #### Spline Regression
   - [Notebook](https://ccb-hms.github.io/Imputation/b_spline_reg.html)
-
   - [rMarkdown](https://github.com/ccb-hms/Imputation/blob/main/b_spline_reg.Rmd)
+
+#### Generalized Additive Models
+  - [Notebook](https://ccb-hms.github.io/Imputation/gamlss_mice.html)
+  - [rMarkdown](https://github.com/ccb-hms/Imputation/blob/main/gamlss_mice.Rmd)
   
   
 #### Update Notes:

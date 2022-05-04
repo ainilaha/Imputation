@@ -9,7 +9,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 
 ## Imputation
-```{r impt,message=FALSE}
+```{r impt,message=FALSE,warning=FALSE}
 source("gamlss_mice.R", local = knitr::knit_global())
 ```
 
