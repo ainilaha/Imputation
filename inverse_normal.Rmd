@@ -1,0 +1,132 @@
+---
+title: "Inverse Normal Rank Transformation"
+author: "Laha Ale"
+date: '2022-04-22'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+###  Load Libs
+```{r load_libs,echo=TRUE,message=FALSE,warning=FALSE}
+
+library(cobs)
+library(npreg)
+
+library(mice)
+library(ggplot2)
+library(gridExtra)
+library("GGally")
+library(dplyr)
+
+
+```
+
+
+
+
+### Remove NAs
+
+```{r remove_nas}
+data <- fdgs %>% select(-c(id,wgt.z,hgt.z)) %>% na.omit()
+head(data)
+```
+
+### plot matrix category by sex
+
+```{r matrix_sex, echo=TRUE,message=FALSE}
+
+ggpairs(data[,c("age","hgt","wgt","sex")], aes(colour = sex, alpha = 0.4))
+
+```
+
+#### drop colunms
+```{r load_drop_cols, echo = TRUE}
+data <- fdgs %>% select(-c(id,wgt.z,hgt.z)) %>% na.omit()
+# data$wgt <- log2(data$wgt)
+# data$age <- sqrt(data$age)
+head(data)
+```
+
+
+
+
+## inverse normal rank transformation
+
+### compare before and after transformed
+
+```{r inverse_cmp,echo=TRUE}
+invNorm <- function(x) {qnorm((rank(x) - 3/8)/(length(x) +1 - 6/8))}
+
+
+
+data['iwgt'] <- invNorm(data$wgt)
+
+data['ihgt'] <- invNorm(data$hgt)
+
+data['iage'] <- invNorm(data$age)
+
+# weight
+
+wgt_g <- ggplot(data, aes(x=wgt)) + geom_histogram(aes(y=..density..), binwidth=.5,
+                 colour="green", fill="white") +geom_density(alpha=.2, fill="#FF6666")  
+iwgt_g <- ggplot(data, aes(x=iwgt)) + geom_histogram(aes(y=..density..), binwidth=.5,
+                colour="black", fill="white") +geom_density(alpha=.2, fill="#FF6666")  
+grid.arrange(wgt_g, iwgt_g, ncol=2)
+
+
+# height
+hgt_g <- ggplot(data, aes(x=hgt)) + geom_histogram(aes(y=..density..), binwidth=.5,
+                colour="green", fill="white") +geom_density(alpha=.2, fill="#FF6666")  
+ihgt_g <- ggplot(data, aes(x=ihgt)) + geom_histogram(aes(y=..density..), binwidth=.5,
+                colour="black", fill="white") +geom_density(alpha=.2, fill="#FF6666")  
+grid.arrange(hgt_g, ihgt_g, ncol=2)
+
+# age
+age_g <- ggplot(data, aes(x=age)) + geom_histogram(aes(y=..density..), binwidth=.5,
+                colour="green", fill="white") +geom_density(alpha=.2, fill="#FF6666")   
+iage_g <- ggplot(data, aes(x=iage)) + geom_histogram(aes(y=..density..), binwidth=.5,
+                colour="black", fill="white") +geom_density(alpha=.2, fill="#FF6666")    
+
+grid.arrange(age_g, iage_g, ncol=2)
+```
+
+
+
+### correlation 
+
+```{r inverse_cor,echo=TRUE}
+g1_wgt <- ggplot(data, aes(x=age, y=wgt,colour=sex)) + geom_point(size=1.5)+stat_smooth()
+g2_wgt <- ggplot(data, aes(x=age, y=iwgt,colour=sex)) + geom_point(size=1.5)+stat_smooth()
+g3_wgt <- ggplot(data, aes(x=iage, y=iwgt,colour=sex)) + geom_point(size=1.5)+stat_smooth()
+
+grid.arrange(g1_wgt, g2_wgt,g3_wgt,ncol=3)
+g1_wgt
+g2_wgt
+g3_wgt
+
+
+g1_hgt <- ggplot(data, aes(x=age, y=hgt,colour=sex)) + geom_point(size=1.5)+stat_smooth()
+g2_hgt <- ggplot(data, aes(x=age, y=ihgt,colour=sex)) + geom_point(size=1.5)+stat_smooth()
+g3_hgt <- ggplot(data, aes(x=iage, y=ihgt,colour=sex)) + geom_point(size=1.5)+stat_smooth()
+
+grid.arrange(g1_hgt, g2_hgt,g3_hgt,ncol=3)
+g1_hgt
+g2_hgt
+g3_hgt
+
+
+
+g1_wh <- ggplot(data, aes(x=wgt, y=hgt,colour=sex)) + geom_point(size=1.5)+stat_smooth()
+g2_wh <- ggplot(data, aes(x=wgt, y=ihgt,colour=sex)) + geom_point(size=1.5)+stat_smooth()
+g3_wh <- ggplot(data, aes(x=iwgt, y=ihgt,colour=sex)) + geom_point(size=1.5)+stat_smooth()
+
+grid.arrange(g1_wh, g2_wh,g3_wh,ncol=3)
+g1_wh
+g2_wh
+g3_wh
+```
+
