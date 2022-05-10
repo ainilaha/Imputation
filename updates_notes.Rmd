@@ -1,0 +1,226 @@
+---
+title: "Updates Notes"
+author: "Laha Ale"
+date: '2022-03-25'
+output:
+  powerpoint_presentation: default
+  beamer_presentation: default
+  ioslides_presentation: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+## Updates
+
+- Goal of Multiple Imputation
+- GAIN \& MIDAS
+- What is the next step?
+
+## Goal of Multiple Imputation
+
+- *scientific estimand* $Q$ : if we would observe the entire population
+- to find an estimate $\hat{Q}$ that is *unbiased* and *confidence valid* (Rubin, 1996).
+- Unbiasedness:
+$$\begin{equation}
+E(\hat Q|Y) = Q  
+\end{equation}$$
+- confidence validity: Let $U$ be the estimated variance-covariance matrix of $\hat Q$
+$$\begin{equation}
+E(U|Y) \geq V(\hat Q|Y) 
+\end{equation}$$
+
+## Variation
+- The amount of
+uncertainty in $\hat Q$ about the true population value $Q$ depends on
+what we know about $Y_\mathrm{mis}$
+
+- posterior distribution $P(Q|Y_\mathrm{obs})$:
+$$\begin{equation}
+P(Q|{\mbox{$Y_\mathrm{obs}$}}) = \int{P(Q|{\mbox{$Y_\mathrm{obs}$}},{\mbox{$Y_\mathrm{mis}$}})P({\mbox{$Y_\mathrm{mis}$}}|{\mbox{$Y_\mathrm{obs}$}})} d{\mbox{$Y_\mathrm{mis}$}}
+\end{equation}
+$$
+
+
+## Imputation is not prediction:
+- eg RMSE: it could ignore the inherent uncertainty of the
+missing values
+$$
+\begin{equation}
+\mathrm{RMSE} = \sqrt{\frac{1}{n_\mathrm{mis}}\sum_{i=1}^{n_\mathrm{mis}} ({\mbox{$y_i^\mathrm{mis}$}}- {\mbox{$\dot y_i$}})^2}
+\end{equation}
+$$
+- it is not useful to evaluate methods solely
+based on their ability to recreate the "true data".
+
+## GAIN \& MIDAS
+- demo of GAIN
+- examples with dataset from MIDAS (note: MICE is not work on the categorical)
+
+## What is the next step?
+
+- select one of the methods we survey?
+- incorporate data correlation for GAIN or MIDAS?
+- revise MICE to scale? SVI?
+
+
+## Imputation under the normal linear normal
+
+1.  *Predict*.
+    $\dot y=\hat\beta_0+X_\mathrm{mis}\hat\beta_1$,
+    where $\hat\beta_0$ and $\hat\beta_1$ are least squares estimates
+    calculated from the observed data. named this
+    regression imputation. In `mice` -`norm.predict`.
+
+2.  *Predict* + *noise*.
+    $\dot y=\hat\beta_0+X_\mathrm{mis}\hat\beta_1+\dot\epsilon$,
+    where $\dot\epsilon$ is randomly drawn from the normal distribution
+    as $\dot\epsilon \sim N(0,\hat\sigma^2)$. named
+    this stochastic regression imputation. In
+    `mice`-`norm.nob`.
+
+3.  *Bayesian multiple imputation*.
+    $\dot y =\dot\beta_0 + X_\mathrm{mis}\dot\beta_1+\dot\epsilon$,
+    where $\dot\epsilon \sim N(0,\dot\sigma^2)$ and $\dot\beta_0$,
+    $\dot\beta_1$ and $\dot\sigma$ are random draws from their posterior
+    distribution, given the data.named this
+    “predict + noise + parameters uncertainty.” In mice `mice` - `norm`.
+
+## Imputation under the normal linear normal 2
+
+
+4. *Bootstrap multiple imputation*.
+    $\dot y=\dot\beta_0+X_\mathrm{mis}\dot\beta_1+\dot\epsilon$,
+    where $\dot\epsilon \sim N(0,\dot\sigma^2)$, and where
+    $\dot\beta_0$, $\dot\beta_1$ and $\dot\sigma$ are the least squares
+    estimates calculated from a bootstrap sample taken from the
+    observed data. This is an alternative way to implement “predict +
+    noise + parameters uncertainty.” `m ice`- `norm.boot`.
+    
+    
+## Classification and regression trees
+
+- robust against outliers, can deal with multicollinearity and
+skewed distributions, and are flexible enough to fit interactions and
+nonlinear relations.
+
+- the cut points divide the sample into more homogeneous
+subsamples. 
+
+- traverse the tree and find/average the appropriate terminal node
+
+- the parameter uncertainty can be incorporated by fitting the tree on a bootstrapped
+sample
+
+## Categorical data
+
+- *logistic regression*  `mice, logreg`
+$$
+\begin{equation}
+\Pr(y_i=1|X_i, \beta) = \frac{\exp(X_i\beta)}{1+\exp(X_i\beta)}
+\end{equation}
+$$
+- *multinomial logit model*, `mice, ployreg`
+$$
+\Pr(y_i=k|X_i, \beta) = \frac{\exp(X_i\beta_k)}{\sum_{k=1}^K \exp(X_i\beta_k)} 
+$$
+- ordered categories is imputed by the *ordered logit model*, or
+*proportional odds model*, `mice, polr`
+
+$$
+\Pr(y_i\leq k|X_i, \beta, \tau_k) = \frac{\exp(\tau_k - X_i\beta)}
+ {1 + \exp(\tau_k - X_i\beta)} 
+$$
+
+## Other data types
+
+### Count data
+Examples of count data include the number of children in a family or the
+number of crimes committed.
+
+### Semi-continuous data
+Semi-continuous data have a high mass at one point (often zero) and a
+continuous distribution over the remaining values. An example is the
+number of cigarettes smoked per day, which has a high mass at zero
+because of the non-smokers, and an often highly skewed unimodal
+distribution for the smokers.
+
+## Censored, truncated and rounded data {#sec:censored}
+
+An observation $y_i$ is censored if its value is only partly known. In
+*right-censored* data we only know that $y_i > a_i$ for a censoring
+point $a_i$. In *left-censored* data we only know that $y_i \leq b_i$
+for some known censoring point $b_i$, and in *interval censoring* we
+know $a_i \leq y_i \leq b_i$. Left and
+right censoring may cause floor and ceiling effects. Rounding data to
+fewer decimal places results in interval-censored data.
+
+Truncation is related to censoring, but differs from it in the sense
+that value below (left truncation) or above (right truncation) the
+truncation point is not recorded at all.
+
+**Inspired, add constraints on prediction, eg only accept when predicted valued satisfy $\mu-2\sigma < pred < \mu+2\sigma$, eg predict wights at age 16** 
+
+
+
+## correlation measures between categorical and continuous variables
+
+### Quantify correlation or association:
+- continuous-continuous
+- categorical-categorical
+- categorical-continuous
+- the feature importantce
+
+### Computing correlation 2 steps:
+ i). Testing if there is a statistically significant correlation between two variables 
+ ii). Quantifying the association or ‘goodness of fit’ between the two variables. 
+
+Ideally, universal scale $\implies$ comparable $\implies$ feature selection,..
+
+## categorical-categorical
+
+### distance metrics 
+- Euclidean distance
+- Manhattan distance
+- ...
+
+### statistical metrics
+- chi-square test
+- Goodman Kruskal’s lambda 
+- ...
+
+## Contingency Table Analysis
+
+- Goodman Kruskal’s lambda
+- Phi co-efficient (uses chi-squared statistic)
+- Cramer’s V (uses chi-squared statistic)
+- Tschuprow’s T (uses chi-squared statistic)
+- Contingency coefficient C (uses chi-squared statistic)
+
+## Relative strengths and weaknesses
+
+Distance metrics: intuitive and easier to understand
+
+Drawback:
+
+- scale dependent
+- not easily comparable between variable pairs with different number of categories
+
+$\implies$ one-hot encode
+
+statistical techniques based on analyzing contingency tables suffer from fewer drawbacks compared to distance metrics
+
+- Phi are defined only for 2x2 tables
+- Cramer’s V can be a heavily biased estimator
+
+## continuous - categorical
+
+- point biserial correlation (special case of Pearson’s correlation)
+- logistic regression
+- Kruskal Wallis H Test.
+
+
+
+
+
+

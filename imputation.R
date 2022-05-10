@@ -16,9 +16,8 @@ library(gdata)
 
 data <- fdgs %>% select(-c(id,wgt.z,hgt.z)) %>% na.omit()
 
-# data$test <- apply( data[ ,c("reg","age")] , 1 , paste , collapse = "-" )
-
-# head(data)
+col_bin <- c('sex')
+col_cat <- c('reg') 
 
 
 #### Create Missing Data
@@ -69,8 +68,7 @@ for (i in 1:10){
 
 
 #### Imputing Data with RMIDAS
-col_bin <- c('sex')
-col_cat <- c('reg') 
+
 # Apply rMIDAS preprocessing steps
 data_conv <- rMIDAS::convert(miss_data, 
                              bin_cols = col_bin, 
@@ -79,8 +77,8 @@ data_conv <- rMIDAS::convert(miss_data,
 
 # Train the model for 20 epochs
 rmidas_train <- rMIDAS::train(data_conv,
-                              training_epochs = 50,
-                              layer_structure = c(128,256,128),
+                              training_epochs = 20,
+                              layer_structure = c(128,128),
                               input_drop = 0.75,
                               seed = 89)
 

@@ -257,15 +257,15 @@ ggplot(df_cart_hgt[grepl("4:|True",df_cart_hgt$na_count),], aes(age,hgt, colour 
 
 ```{r wgt_miss_true_wgt,messwgt=FALSE,warning=FALSE}
 miss_index <- which(is.na(miss_data$wgt))
-for (i in 1:10){
+for (i in 1:5){
   sex <- factor(data$sex[miss_index])
-  g1 <- qplot(data$wgt[miss_index],impt_mice_rf_data[[3]]$wgt[miss_index],col=sex)+stat_smooth()+ylim(-10, 105)+
+  g1 <- qplot(data$wgt[miss_index],impt_mice_rf_data[[i]]$wgt[miss_index],col=sex)+stat_smooth()+ylim(-10, 105)+
     ylab("rf wgt") + xlab("data wgt")+theme(legend.position = "top")
   
-  g2 <- qplot(data$wgt[miss_index],impt_mice_spline_data[[3]]$wgt[miss_index],col=sex)+stat_smooth()+ylim(-10, 105)+
+  g2 <- qplot(data$wgt[miss_index],impt_mice_spline_data[[i]]$wgt[miss_index],col=sex)+stat_smooth()+ylim(-10, 105)+
     ylab("b.spline wgt") + xlab("data wgt")+theme(legend.position = "top")
   
-  g3 <- qplot(data$wgt[miss_index],impt_mice_cart_data[[3]]$wgt[miss_index],col=sex)+stat_smooth()+ylim(-10, 105)+
+  g3 <- qplot(data$wgt[miss_index],impt_mice_cart_data[[i]]$wgt[miss_index],col=sex)+stat_smooth()+ylim(-10, 105)+
     ylab("cart wgt") + xlab("data wgt")+theme(legend.position = "top")
   grid.arrange(g1, g2,g3, ncol=3)
   
@@ -276,15 +276,15 @@ for (i in 1:10){
 
 ```{r hgt_miss_true_ght,message=FALSE,warning=FALSE}
 miss_index <- which(is.na(miss_data$hgt))
-for (i in 1:10){
+for (i in 1:5){
   sex <- factor(data$sex[miss_index])
-  g1 <- qplot(data$hgt[miss_index],impt_mice_rf_data[[3]]$hgt[miss_index],col=sex)+stat_smooth()+ylim(30, 215)+
+  g1 <- qplot(data$hgt[miss_index],impt_mice_rf_data[[i]]$hgt[miss_index],col=sex)+stat_smooth()+ylim(30, 215)+
     ylab("rf hgt") + xlab("data hgt")+theme(legend.position = "top")
   
-  g2 <- qplot(data$hgt[miss_index],impt_mice_spline_data[[3]]$hgt[miss_index],col=sex)+stat_smooth()+ylim(30, 215)+
+  g2 <- qplot(data$hgt[miss_index],impt_mice_spline_data[[i]]$hgt[miss_index],col=sex)+stat_smooth()+ylim(30, 215)+
     ylab("b.spline hgt") + xlab("data hgt")+theme(legend.position = "top")
   
-  g3 <- qplot(data$hgt[miss_index],impt_mice_cart_data[[3]]$hgt[miss_index],col=sex)+stat_smooth()+ylim(30, 215)+
+  g3 <- qplot(data$hgt[miss_index],impt_mice_cart_data[[i]]$hgt[miss_index],col=sex)+stat_smooth()+ylim(30, 215)+
     ylab("cart hgt") + xlab("data hgt")+theme(legend.position = "top")
   grid.arrange(g1, g2,g3, ncol=3)
   
@@ -296,15 +296,15 @@ for (i in 1:10){
 
 ```{r age_miss_true_age,message=FALSE,warning=FALSE}
 miss_index <- which(is.na(miss_data$age))
-for (i in 1:10){
+for (i in 1:5){
   sex <- factor(data$sex[miss_index])
-  g1 <- qplot(data$age[miss_index],impt_mice_rf_data[[3]]$age[miss_index],col=sex)+stat_smooth()+ylim(-5,22)+
+  g1 <- qplot(data$age[miss_index],impt_mice_rf_data[[i]]$age[miss_index],col=sex)+stat_smooth()+ylim(-5,22)+
     ylab("rf age") + xlab("data age")+theme(legend.position = "top")
   
-  g2 <- qplot(data$age[miss_index],impt_mice_spline_data[[3]]$age[miss_index],col=sex)+stat_smooth()+ylim(-5,22)+
+  g2 <- qplot(data$age[miss_index],impt_mice_spline_data[[i]]$age[miss_index],col=sex)+stat_smooth()+ylim(-5,22)+
     ylab("b.spline age") + xlab("data age")+theme(legend.position = "top")
   
-  g3 <- qplot(data$age[miss_index],impt_mice_cart_data[[3]]$age[miss_index],col=sex)+stat_smooth()+ylim(-5,22)+
+  g3 <- qplot(data$age[miss_index],impt_mice_cart_data[[i]]$age[miss_index],col=sex)+stat_smooth()+ylim(-5,22)+
     ylab("cart age") + xlab("data age")+theme(legend.position = "top")
   grid.arrange(g1, g2,g3, ncol=3)
   

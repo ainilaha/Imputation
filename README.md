@@ -29,7 +29,7 @@ Imputation methods for biomedical data
 
 #### Adult data imputation
   - [Notebook](https://ccb-hms.github.io/Imputation/imputation_adult.html)
-  - [rMarkdown](https://github.com/ccb-hms/Imputation/blob/main/imputation_adult.Rmd
+  - [rMarkdown](https://github.com/ccb-hms/Imputation/blob/main/imputation_adult.Rmd)
 
   
 #### Inverse Normal Rank Transformation

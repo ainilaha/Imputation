@@ -306,13 +306,13 @@ ggplot(df_midas_hgt[df_midas_hgt$age <14,], aes(age,hgt, colour = source))+geom_
 miss_index <- which(is.na(miss_data$wgt))
 for (i in 1:10){
   sex <- factor(data$sex[miss_index])
-  g1 <- qplot(data$wgt[miss_index],impt_mice_data[[3]]$wgt[miss_index],col=sex)+stat_smooth()+ylim(-10, 105)+
+  g1 <- qplot(data$wgt[miss_index],impt_mice_data[[i]]$wgt[miss_index],col=sex)+stat_smooth()+ylim(-10, 105)+
     ylab("mice wgt") + xlab("data wgt")+theme(legend.position = "top")
   
-  g2 <- qplot(data$wgt[miss_index],impt_ranger_data[[3]]$wgt[miss_index],col=sex)+stat_smooth()+ylim(-10, 105)+
+  g2 <- qplot(data$wgt[miss_index],impt_ranger_data[[i]]$wgt[miss_index],col=sex)+stat_smooth()+ylim(-10, 105)+
     ylab("ranger wgt") + xlab("data wgt")+theme(legend.position = "top")
   
-  g3 <- qplot(data$wgt[miss_index],impt_rmidas_data[[3]]$wgt[miss_index],col=sex)+stat_smooth()+ylim(-10, 105)+
+  g3 <- qplot(data$wgt[miss_index],impt_rmidas_data[[i]]$wgt[miss_index],col=sex)+stat_smooth()+ylim(-10, 105)+
     ylab("midas wgt") + xlab("data wgt")+theme(legend.position = "top")
   grid.arrange(g1, g2,g3, ncol=3)
   
@@ -325,13 +325,13 @@ for (i in 1:10){
 miss_index <- which(is.na(miss_data$hgt))
 for (i in 1:10){
   sex <- factor(data$sex[miss_index])
-  g1 <- qplot(data$hgt[miss_index],impt_mice_data[[3]]$hgt[miss_index],col=sex)+stat_smooth()+ylim(30, 215)+
+  g1 <- qplot(data$hgt[miss_index],impt_mice_data[[i]]$hgt[miss_index],col=sex)+stat_smooth()+ylim(30, 215)+
     ylab("mice hgt") + xlab("data hgt")+theme(legend.position = "top")
   
-  g2 <- qplot(data$hgt[miss_index],impt_ranger_data[[3]]$hgt[miss_index],col=sex)+stat_smooth()+ylim(30, 215)+
+  g2 <- qplot(data$hgt[miss_index],impt_ranger_data[[i]]$hgt[miss_index],col=sex)+stat_smooth()+ylim(30, 215)+
     ylab("ranger hgt") + xlab("data hgt")+theme(legend.position = "top")
   
-  g3 <- qplot(data$hgt[miss_index],impt_rmidas_data[[3]]$hgt[miss_index],col=sex)+stat_smooth()+ylim(30, 215)+
+  g3 <- qplot(data$hgt[miss_index],impt_rmidas_data[[i]]$hgt[miss_index],col=sex)+stat_smooth()+ylim(30, 215)+
     ylab("midas hgt") + xlab("data hgt")+theme(legend.position = "top")
   grid.arrange(g1, g2,g3, ncol=3)
   
@@ -345,13 +345,13 @@ for (i in 1:10){
 miss_index <- which(is.na(miss_data$age))
 for (i in 1:10){
   sex <- factor(data$sex[miss_index])
-  g1 <- qplot(data$age[miss_index],impt_mice_data[[3]]$age[miss_index],col=sex)+stat_smooth()+ylim(-5,22)+
+  g1 <- qplot(data$age[miss_index],impt_mice_data[[i]]$age[miss_index],col=sex)+stat_smooth()+ylim(-5,22)+
     ylab("mice age") + xlab("data age")+theme(legend.position = "top")
   
-  g2 <- qplot(data$age[miss_index],impt_ranger_data[[3]]$age[miss_index],col=sex)+stat_smooth()+ylim(-5,22)+
+  g2 <- qplot(data$age[miss_index],impt_ranger_data[[i]]$age[miss_index],col=sex)+stat_smooth()+ylim(-5,22)+
     ylab("ranger age") + xlab("data age")+theme(legend.position = "top")
   
-  g3 <- qplot(data$age[miss_index],impt_rmidas_data[[3]]$age[miss_index],col=sex)+stat_smooth()+ylim(-5,22)+
+  g3 <- qplot(data$age[miss_index],impt_rmidas_data[[i]]$age[miss_index],col=sex)+stat_smooth()+ylim(-5,22)+
     ylab("midas age") + xlab("data age")+theme(legend.position = "top")
   grid.arrange(g1, g2,g3, ncol=3)
   
