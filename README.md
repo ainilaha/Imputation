@@ -49,6 +49,10 @@ Imputation methods for biomedical data
 #### B.Spline with MICE
   - [Notebook](https://ccb-hms.github.io/Imputation/spline_mice.html)
   - [rMarkdown](https://github.com/ccb-hms/Imputation/blob/main/spline_mice.Rmd)
+  
+#### NHANES data
+  - [Download and combine data](https://ccb-hms.github.io/Imputation/com_data.html)
+  - [Data Explore](https://ccb-hms.github.io/Imputation/data_explor.html)
 
 
 #### Update Notes:
