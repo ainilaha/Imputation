@@ -53,6 +53,8 @@ Imputation methods for biomedical data
 #### NHANES data
   - [Download and combine data](https://ccb-hms.github.io/Imputation/com_data.html)
   - [Data Explore](https://ccb-hms.github.io/Imputation/data_explor.html)
+  - [Data Explore more](https://ccb-hms.github.io/Imputation/nhanes_exploratory.html)
+  - [Test PHSEANT](https://ccb-hms.github.io/Imputation/phesant.html)
 
 
 #### Update Notes:
