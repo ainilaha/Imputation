@@ -1,0 +1,165 @@
+---
+title: "EnWAS"
+author: "Laha Ale"
+date: '2022-07-03'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## load libs
+```{r libs,warning=FALSE}
+library(splines)
+library(stringr)
+library(dplyr)
+library(ggplot2)
+library(gridExtra)
+library(DBI)
+```
+
+## Load exploration
+
+```{r data, echo=TRUE}
+# df <- read.csv("./data/merged_data.csv")
+# data <- df[,c('BMXWAIST','RIDAGEYR','BMXHT','BMXWT','RIAGENDR','years','DR1TM161','WTDRD1','BMXLEG','BMXARML')]
+
+# please uncoments the following code to download the database from github if 
+# do not want to download the file from github manually nor run the download 
+# notebook
+
+# fileURL <- "https://github.com/ccb-hms/Imputation/blob/main/nhanes.sqlite"
+# if(!file.exists("nhanes.sqlite")){
+#     res <- tryCatch(download.file(fileURL,
+#                               destfile="./nhanes.sqlite",
+#                               method="auto"),
+#                 error=function(e) 1)
+# }
+
+
+nhanes_db <- dbConnect(RSQLite::SQLite(), "nhanes.sqlite")
+
+# list all of the tables
+dbListTables(nhanes_db)
+
+cols <- 'BMXWAIST , RIDAGEYR, BMXHT, BMXWT, RIAGENDR, years, DR1TM161, WTDRD1, BMXLEG, BMXARML '
+data_sql <- paste0('SELECT ', cols, 'FROM merged_table')
+
+dbListTables(nhanes_db)
+
+data <- dbGetQuery(nhanes_db, data_sql)
+data <- na.omit(data)
+
+dbDisconnect(nhanes_db)
+
+
+train_ix <- sample(x = 1:nrow(data), size = 2500)
+test_ix <- sample(x = setdiff(1:nrow(data), train_ix), 1200)
+
+train_data <- data[train_ix, ]
+test_data <- data[test_ix, ]
+```
+
+## Inverse Normal Distribution
+
+```{r func, echo=TRUE}
+invNorm <- function(x) {qnorm((rank(x) - 3/8)/(length(x) +1 - 6/8))}
+
+mean_square_error <- function(y_true, y_pred){
+    round(mean((y_true - y_pred)^2),4)
+}
+
+plot_density <- function(data,data_name,col='red'){
+    d <- density(data)
+    plot(d,main=paste(data_name,"Density"))
+    polygon(d, col=col, border="blue")
+  }
+
+
+```
+
+## Load exploration
+
+
+```{r data2, echo=TRUE}
+
+
+
+qplot(x=BMXHT,y=BMXWAIST,data=data,colour=RIAGENDR)
+qplot(x=RIDAGEYR,y=BMXWAIST,data=data,colour=RIAGENDR)
+qplot(x=BMXWT,y=BMXWAIST,data=data,colour=RIAGENDR)
+```
+
+
+
+
+### regression models
+
+
+```{r spline_test, echo=TRUE}
+test_df <- test_data |> select(-BMXWAIST)
+
+
+
+run_model <- function(formula_str,train_data_set=train_data,
+                      test_data_set=test_df){
+  lm_reg = lm(formula = as.formula(formula_str), train_data_set)
+  print(summary(lm_reg))
+  lm_pred = predict(lm_reg, newdata = test_df, se = T)
+  
+  pred_df = data.frame(
+    fit = lm_pred$fit,
+    weight = test_data$BMXWT,
+    sex = test_data$RIAGENDR,
+    label = test_data$BMXWAIST
+  )
+  
+  mse<- mean_square_error(pred_df$fit, pred_df$label)
+  g <-  ggplot(pred_df, aes(x = weight, y = label)) + geom_point(colour = "gray") +
+    geom_point(aes(x = weight, y = fit, colour = sex),
+              size = 1.5) + ylab("waist circumference")
+  
+  g+ggtitle(paste("MSE = ",mse))
+}
+
+
+run_model("BMXWAIST ~ BMXWT")
+run_model("BMXWAIST ~ bs(BMXWT)")
+run_model("BMXWAIST ~ bs(RIDAGEYR, df = 7) + BMXWT + RIAGENDR + years")
+run_model("BMXWAIST ~ ns(RIDAGEYR, df = 7) + BMXWT + RIAGENDR + years")
+run_model("BMXWAIST ~ bs(RIDAGEYR, df = 7) + bs(BMXWT) + RIAGENDR + BMXHT")
+run_model("BMXWAIST ~ bs(RIDAGEYR, df = 7) + BMXWT + RIAGENDR + BMXHT + years")
+run_model("BMXWAIST ~ bs(RIDAGEYR, df = 7) + invNorm(BMXWT) + RIAGENDR + BMXHT + years")
+run_model("BMXWAIST ~ bs(RIDAGEYR, df = 7) + BMXWT + RIAGENDR + invNorm(BMXHT) + years")
+run_model("BMXWAIST ~ bs(RIDAGEYR, df = 7) + invNorm(BMXWT) + RIAGENDR + invNorm(BMXHT) + years")
+run_model("BMXWAIST ~ bs(RIDAGEYR, knots = seq(-20,20, by = 10), Boundary.knots = c(-30,100))+ BMXWT + RIAGENDR + years")
+
+# grid.arrange(g1, g2,g3, nrow=3)
+
+```
+
+
+### regression models with variables
+
+
+```{r spline_test2, echo=TRUE}
+base_form <- "BMXWAIST ~ bs(RIDAGEYR, df = 7) + BMXWT + RIAGENDR + years + "
+
+# MFA 16:1 (Hexadecenoic) (gm)
+run_model(paste0(base_form,"DR1TM161"))
+hist(data$DR1TM161)
+hist(invNorm(data$DR1TM161))
+run_model(paste0(base_form,"invNorm(DR1TM161)"))
+# Dietary day one sample weight
+run_model(paste0(base_form,"WTDRD1"))
+
+# BMXARML - Upper Arm Length (cm)
+run_model(paste0(base_form,"BMXARML"))
+
+#BMXLEG - Upper Leg Length (cm)
+run_model(paste0(base_form,"BMXLEG"))
+
+# grid.arrange(g1, g2,g3, nrow=3)
+
+```
