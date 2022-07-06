@@ -56,7 +56,7 @@ Imputation methods for biomedical data
   - [Downlaod and Save](https://ccb-hms.github.io/Imputation/download_save_data.html)
   - [Data Explore more](https://ccb-hms.github.io/Imputation/nhanes_exploratory.html)
   - [Test PHSEANT](https://ccb-hms.github.io/Imputation/phesant.html)
-  - [EnWaS](https://ccb-hms.github.io/EnWAS.html)
+  - [EnWaS](https://ccb-hms.github.io/Imputation/EnWAS.html)
 
 
 #### Update Notes:
