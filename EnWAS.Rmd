@@ -21,13 +21,11 @@ library(DBI)
 
 ## Load exploration
 
-```{r data, echo=TRUE}
-# df <- read.csv("./data/merged_data.csv")
-# data <- df[,c('BMXWAIST','RIDAGEYR','BMXHT','BMXWT','RIAGENDR','years','DR1TM161','WTDRD1','BMXLEG','BMXARML')]
+- `nhanes.sqlite` can download [here](https://github.com/ccb-hms/Imputation/blob/main/nhanes.sqlite) or generate by run [notebook](https://ccb-hms.github.io/Imputation/nhanes_exploratory.html)
 
-# please uncoments the following code to download the database from github if 
-# do not want to download the file from github manually nor run the download 
-# notebook
+```{r data, echo=TRUE}
+
+# please uncoments the following if do not have nhanes.sqlite
 
 # fileURL <- "https://github.com/ccb-hms/Imputation/blob/main/nhanes.sqlite"
 # if(!file.exists("nhanes.sqlite")){
@@ -36,14 +34,14 @@ library(DBI)
 #                               method="auto"),
 #                 error=function(e) 1)
 # }
-
+set.seed(123)
 
 nhanes_db <- dbConnect(RSQLite::SQLite(), "nhanes.sqlite")
 
 # list all of the tables
 dbListTables(nhanes_db)
 
-cols <- 'BMXWAIST , RIDAGEYR, BMXHT, BMXWT, RIAGENDR, years, DR1TM161, WTDRD1, BMXLEG, BMXARML '
+cols <- 'BMXWAIST , RIDAGEYR, BMXHT, BMXWT, BMXBMI, RIAGENDR, years, DR1TM161, WTDRD1, BMXLEG, BMXARML '
 data_sql <- paste0('SELECT ', cols, 'FROM merged_table')
 
 dbListTables(nhanes_db)
@@ -54,8 +52,8 @@ data <- na.omit(data)
 dbDisconnect(nhanes_db)
 
 
-train_ix <- sample(x = 1:nrow(data), size = 2500)
-test_ix <- sample(x = setdiff(1:nrow(data), train_ix), 1200)
+train_ix <- sample(x = 1:nrow(data), size = 5000)
+test_ix <- sample(x = setdiff(1:nrow(data), train_ix), 3000)
 
 train_data <- data[train_ix, ]
 test_data <- data[test_ix, ]
@@ -86,9 +84,9 @@ plot_density <- function(data,data_name,col='red'){
 
 
 
-qplot(x=BMXHT,y=BMXWAIST,data=data,colour=RIAGENDR)
-qplot(x=RIDAGEYR,y=BMXWAIST,data=data,colour=RIAGENDR)
-qplot(x=BMXWT,y=BMXWAIST,data=data,colour=RIAGENDR)
+qplot(x=BMXHT,y=BMXWAIST,data=data,colour=RIAGENDR,alpha=I(0.1))
+qplot(x=RIDAGEYR,y=BMXWAIST,data=data,colour=RIAGENDR,alpha=I(0.1))
+qplot(x=BMXWT,y=BMXWAIST,data=data,colour=RIAGENDR,alpha=I(0.1))
 ```
 
 
@@ -104,26 +102,37 @@ test_df <- test_data |> select(-BMXWAIST)
 
 run_model <- function(formula_str,train_data_set=train_data,
                       test_data_set=test_df){
+  # setup regression model
   lm_reg = lm(formula = as.formula(formula_str), train_data_set)
   print(summary(lm_reg))
+  
+  # run prediction
   lm_pred = predict(lm_reg, newdata = test_df, se = T)
   
+  # save prediction results
   pred_df = data.frame(
     fit = lm_pred$fit,
     weight = test_data$BMXWT,
     sex = test_data$RIAGENDR,
     label = test_data$BMXWAIST
   )
-  
+  # compute MSE
   mse<- mean_square_error(pred_df$fit, pred_df$label)
-  g <-  ggplot(pred_df, aes(x = weight, y = label)) + geom_point(colour = "gray") +
-    geom_point(aes(x = weight, y = fit, colour = sex),
+  
+  #plot results
+  g <-  ggplot(pred_df, aes(x = weight, y = label)) + geom_point(colour = "black",alpha = 0.1) +
+    geom_point(aes(x = weight, y = fit, colour = sex,alpha = 0.1),
               size = 1.5) + ylab("waist circumference")
   
   g+ggtitle(paste("MSE = ",mse))
 }
+```
 
 
+### regression models weight
+
+
+```{r spline_test_weith, echo=TRUE}
 run_model("BMXWAIST ~ BMXWT")
 run_model("BMXWAIST ~ bs(BMXWT)")
 run_model("BMXWAIST ~ bs(RIDAGEYR, df = 7) + BMXWT + RIAGENDR + years")
@@ -132,9 +141,42 @@ run_model("BMXWAIST ~ bs(RIDAGEYR, df = 7) + bs(BMXWT) + RIAGENDR + BMXHT")
 run_model("BMXWAIST ~ bs(RIDAGEYR, df = 7) + BMXWT + RIAGENDR + BMXHT + years")
 run_model("BMXWAIST ~ bs(RIDAGEYR, df = 7) + invNorm(BMXWT) + RIAGENDR + BMXHT + years")
 run_model("BMXWAIST ~ bs(RIDAGEYR, df = 7) + BMXWT + RIAGENDR + invNorm(BMXHT) + years")
-run_model("BMXWAIST ~ bs(RIDAGEYR, df = 7) + invNorm(BMXWT) + RIAGENDR + invNorm(BMXHT) + years")
-run_model("BMXWAIST ~ bs(RIDAGEYR, knots = seq(-20,20, by = 10), Boundary.knots = c(-30,100))+ BMXWT + RIAGENDR + years")
+run_model("BMXWAIST ~ bs(RIDAGEYR, df = 7) + bs(BMXWT) + RIAGENDR + BMXHT + years")
+run_model("BMXWAIST ~ bs(RIDAGEYR, df = 7) + bs(BMXWT,df=7) + RIAGENDR + bs(BMXHT,df=7) + years")
 
+run_model("BMXWAIST ~ bs(RIDAGEYR, df = 7)*RIAGENDR + bs(BMXWT) + BMXHT + years")
+run_model("BMXWAIST ~ bs(RIDAGEYR, df = 7)*RIAGENDR + bs(BMXWT) + RIAGENDR+ BMXHT + years")
+
+run_model("BMXWAIST ~ bs(RIDAGEYR, df = 7)*RIAGENDR + bs(BMXWT) + BMXHT")
+
+# grid.arrange(g1, g2,g3, nrow=3)
+
+```
+
+## with BMI
+
+
+```{r spline_test_bmi, echo=TRUE}
+run_model("BMXWAIST ~ BMXBMI")
+run_model("BMXWAIST ~ BMXWT + BMXHT")
+run_model("BMXWAIST ~ BMXWT + BMXHT + BMXBMI")
+
+
+run_model("BMXWAIST ~ bs(BMXBMI,df=7)")
+
+run_model("BMXWAIST ~ bs(BMXBMI,df=7)*RIAGENDR")
+
+run_model("BMXWAIST ~ bs(RIDAGEYR, df = 7) + bs(BMXBMI,df=7)*RIAGENDR")
+run_model("BMXWAIST ~ bs(RIDAGEYR) + bs(BMXBMI,df=7)*RIAGENDR")
+run_model("BMXWAIST ~ bs(RIDAGEYR, df = 7) + bs(BMXBMI,df=7)*RIAGENDR + BMXHT")
+run_model("BMXWAIST ~ bs(RIDAGEYR, df = 7) + bs(BMXBMI,df=7)*RIAGENDR + bs(BMXHT)")
+run_model("BMXWAIST ~ bs(RIDAGEYR, df = 7) + bs(BMXBMI,df=7)*RIAGENDR + BMXWT")
+run_model("BMXWAIST ~ bs(RIDAGEYR, df = 7) + bs(BMXBMI,df=7)*RIAGENDR + bs(BMXWT) + bs(BMXHT)")
+
+run_model("BMXWAIST ~ bs(RIDAGEYR, df = 7) + bs(BMXBMI,df=7)*RIAGENDR + BMXWT + BMXHT + years")
+
+# base model:
+run_model("BMXWAIST ~ bs(RIDAGEYR, df = 7) + bs(BMXBMI,df=7)*RIAGENDR + BMXWT + BMXHT")
 # grid.arrange(g1, g2,g3, nrow=3)
 
 ```
@@ -144,7 +186,7 @@ run_model("BMXWAIST ~ bs(RIDAGEYR, knots = seq(-20,20, by = 10), Boundary.knots 
 
 
 ```{r spline_test2, echo=TRUE}
-base_form <- "BMXWAIST ~ bs(RIDAGEYR, df = 7) + BMXWT + RIAGENDR + years + "
+base_form <- "BMXWAIST ~ bs(RIDAGEYR, df = 7) + bs(BMXBMI,df=7)*RIAGENDR + BMXWT + BMXHT + "
 
 # MFA 16:1 (Hexadecenoic) (gm)
 run_model(paste0(base_form,"DR1TM161"))

@@ -58,8 +58,8 @@ Imputation methods for biomedical data
   - [Test PHSEANT](https://ccb-hms.github.io/Imputation/phesant.html)
   
   - [Check Variable information](https://ccb-hms.github.io/Imputation/check_vars.html)
-  - [Pre EnWaS 1](https://ccb-hms.github.io/Imputation/EnWAS.html)
-  - [Pre EnWaS 2](https://ccb-hms.github.io/Imputation/EnWAS_v1.html)
+  - [Pre EnWaS (testing and selecting base model)](https://ccb-hms.github.io/Imputation/EnWAS.html)
+  - [Pre EnWaS (explore splines and data distribution)](https://ccb-hms.github.io/Imputation/EnWAS_v1.html)
   - [Variable Selection](https://ccb-hms.github.io/Imputation/diet_var_selection.html)
   - [EnWaS](https://ccb-hms.github.io/Imputation/EnWAS_v2.html)
 

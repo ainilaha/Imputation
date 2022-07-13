@@ -1,0 +1,146 @@
+---
+title: "EnWAS V1"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## load libs
+```{r libs,warning=FALSE,message=FALSE}
+library(splines)
+library(stringr)
+library(dplyr)
+library(ggplot2)
+library(gridExtra)
+library(DBI)
+```
+
+## Load exploration
+
+- `nhanes.sqlite` can download [here](https://github.com/ccb-hms/Imputation/blob/main/nhanes.sqlite) or generate by run [notebook](https://ccb-hms.github.io/Imputation/nhanes_exploratory.html)
+
+```{r data, echo=TRUE}
+set.seed(123)
+nhanes_db <- dbConnect(RSQLite::SQLite(), "nhanes.sqlite")
+
+# list all of the tables
+dbListTables(nhanes_db)
+
+cols <- 'BMXWAIST , RIDAGEYR, BMXHT, BMXBMI, BMXWT, RIAGENDR, years, DR1TM161, WTDRD1, BMXLEG, BMXARML '
+data_sql <- paste0('SELECT ', cols, 'FROM merged_table')
+
+dbListTables(nhanes_db)
+
+data <- dbGetQuery(nhanes_db, data_sql)
+data <- na.omit(data)
+
+dbDisconnect(nhanes_db)
+
+
+train_ix <- sample(x = 1:nrow(data), size = 6000)
+test_ix <- sample(x = setdiff(1:nrow(data), train_ix), 3000)
+
+train_data <- data[train_ix, ]
+test_data <- data[test_ix, ]
+```
+
+## Inverse Normal Distribution
+
+```{r func, echo=TRUE}
+invNorm <- function(x) {qnorm((rank(x) - 3/8)/(length(x) +1 - 6/8))}
+
+mean_square_error <- function(y_true, y_pred){
+    round(mean((y_true - y_pred)^2),4)
+}
+
+plot_density <- function(data,data_name,col='red'){
+    d <- density(data)
+    plot(d,main=paste(data_name,"Density"))
+    polygon(d, col=col, border="blue")
+  }
+
+
+```
+
+## Data exploration
+
+
+```{r data2, echo=TRUE}
+hist(data$RIDAGEYR)
+ggplot(data, aes(x=RIDAGEYR, y=BMXWAIST,colour=RIAGENDR)) + 
+  geom_point(alpha=0.1)+
+  geom_smooth(method = lm, formula = y ~ x)
+
+ggplot(data, aes(x=RIDAGEYR, y=BMXWAIST,colour=RIAGENDR)) + 
+  geom_point(alpha=0.1)+
+  geom_smooth(method = lm, formula = y ~ bs(x, df=7), size = 1)
+
+
+ggplot(data, aes(x=RIDAGEYR, y=BMXWAIST,colour=RIAGENDR)) + 
+  geom_point(alpha=0.1)+
+  geom_smooth(method = lm, formula = y ~ bs(x, df=7), size = 1)+
+  geom_smooth(method = lm, formula = y ~ x)
+
+
+ggplot(data, aes(x=RIDAGEYR, y=BMXWAIST) ) + 
+  geom_point(aes(colour=RIAGENDR),alpha=0.2)+
+  geom_density_2d()
+
+
+ggplot(data, aes(x=BMXWT, y=BMXWAIST,colour=RIAGENDR) ) + 
+  geom_point(alpha=0.1)+geom_smooth(method = lm,formula = y ~ x)
+
+
+ggplot(data, aes(x=BMXWT, y=BMXWAIST) ) + 
+  geom_point(aes(colour=RIAGENDR),alpha=0.1)+
+  geom_density_2d()
+
+ggplot(data, aes(x=BMXBMI, y=BMXWAIST) ) + 
+  geom_point(aes(colour=RIAGENDR),alpha=0.1)+
+  geom_density_2d()
+```
+
+Regression models
+
+```{r train_pred, echo=TRUE}
+ 
+```
+Regression models with age
+
+```{r data4, echo=TRUE}
+test_df <- test_data |> select(-BMXWAIST)
+lm_reg = lm(formula = BMXWAIST ~ BMXWT + RIDAGEYR, train_data)
+
+lm_pred = predict(lm_reg, newdata = test_df, se = T)
+
+lm_reg2 = lm(formula = BMXWAIST ~ BMXWT + bs(RIDAGEYR,df=7), train_data)
+lm_pred2 = predict(lm_reg2, newdata = test_df, se = T)
+
+
+
+# save prediction results
+pred_df = data.frame(
+  fit1 = lm_pred$fit,
+  fit2 = lm_pred2$fit,
+  weight = test_data$BMXWT,
+  sex = test_data$RIAGENDR,
+  age <- train_data$RIDAGEYR,
+  label = test_data$BMXWAIST
+)
+
+
+ggplot(pred_df, aes(x = weight, y = label)) + geom_point(colour = "black",alpha = 0.1) +
+  geom_point(aes(y=fit1,x= weight,color=sex),alpha = 0.3)
+
+
+
+ggplot(pred_df, aes(x = weight, y = label)) + geom_point(colour = "black",alpha = 0.1) +
+  geom_point(data=pred_df,aes(y=fit1,x= weight,colour="lm"),alpha = 0.1)+
+  geom_point(data=pred_df,aes(y=fit2,x= weight,colour="lm_bs"),alpha = 0.1) +
+  scale_color_manual(name = "models", values = c("lm" = "darkblue", "lm_bs" = "red"))
+
+qplot(x=fit1,y=fit2,data=pred_df,colour=sex,alpha=I(0.1))
+
+```
