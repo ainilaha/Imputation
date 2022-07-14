@@ -60,18 +60,16 @@ dbDisconnect(nhanes_db)
 
 ```{r func, echo=TRUE}
 invNorm <- function(x) {qnorm((rank(x) - 3/8)/(length(x) +1 - 6/8))}
-# min_max_norm <- function(x) {
-#   (x - min(x)) / (max(x) - min(x))
-# }
-# 
-# data_norm <- as.data.frame(lapply(data[,!(names(data) %in% c('RIAGENDR','years'))], min_max_norm))
-# data_norm[,c('RIAGENDR','years')] <- data[,c('RIAGENDR','years')]
+min_max_norm <- function(x) {
+  (x - min(x)) / (max(x) - min(x))
+}
 
 
-build_formula <- function(exposure_var) {
+
+
+build_formula <- function(base_model,exposure_var) {
   as.formula(
-    sprintf(
-      'BMXWAIST ~ bs(RIDAGEYR, df = 7)*RIAGENDR + bs(BMXWT) + BMXHT + %s',
+    sprintf(base_model,
       exposure_var
     )
   )
@@ -93,17 +91,44 @@ dsn <- svydesign(ids = ~ 0,
                  data = data)
 
 
-association_list <- data.frame() # step 2 of algorithm
-for(exposure in exposure_vars) {
-  model <- build_formula(exposure)
+
+
+
+
+enwas <- function(base_model,exposure_vars, dsn){
+  association_list <- data.frame() # step 2 of algorithm
+  
+  for(exposure in exposure_vars) {
+  model <- build_formula(base_model, exposure)
   #print(model)
   ## now run the association
   mod <- svyglm(model, dsn) # step 3a
   mod_df <- tidy(mod)
   mod_df$variable <- exposure
   association_list <- rbind(association_list, mod_df) # step 3b of algorithm
+  }
+  
+  # process results
+  xwas_association_list <- association_list[association_list$term %in% exposure_vars, ]
+  xwas_association_list$fdr <- p.adjust(xwas_association_list$p.value, method='BY')
+  xwas_association_list <- xwas_association_list |> 
+                        mutate(coff = estimate*std.error)  |>
+                        mutate(lower = estimate-1.96*std.error)  |>
+                        mutate(upper = estimate+1.96*std.error)
+  
+  xwas_association_list
+  
 }
 
+forest_plot <- function(xwas_result){
+  xwas_result |>
+  ggplot(aes(x=variable, y=estimate, ymin=lower, ymax=upper,colour=estimate)) +
+          geom_pointrange() + 
+          # geom_hline(yintercept=1, lty=2) +  # add a dotted line at x=1 after flip
+          coord_flip() +  # flip coordinates (puts labels on y axis)
+          xlab("Exposures") + ylab("Estimate (95% CI)") +
+          theme_bw()  # use a white background
+}
 
 
 ```
@@ -112,58 +137,23 @@ for(exposure in exposure_vars) {
 ## EnWAS Results
 
 ```{r func3, echo=TRUE,warning=F}
-# adjust_for = c('RIDAGEYR','BMXHT', 'BMXBMI', 'BMXWT', 'RIAGENDR')
-# xwas_association_list <- association_list[!(association_list$term %in% adjust_for), ]
-# xwas_association_list <- xwas_association_list[!(xwas_association_list$term %in% '(Intercept)'), ]
-# 
-# xwas_association_list <- xwas_association_list |> group_by(variable) |>
-#                       summarise(estimate=mean(estimate),
-#                                 std.error=mean(std.error),
-#                                 statistic=mean(statistic),
-#                                 p.value=mean(p.value),
-#                                 )
+base_model <- 'BMXWAIST ~ bs(RIDAGEYR, df = 7)*RIAGENDR + bs(BMXWT) + BMXHT + %s'
+enwas_res <- enwas(base_model,exposure_vars,dsn)
+forest_plot(enwas_res)
 
 
-xwas_association_list <- association_list[association_list$term %in% exposure_vars, ]
-xwas_association_list$fdr <- p.adjust(xwas_association_list$p.value, method='BY')
+base_model <- 'BMXWAIST ~ RIDAGEYR*RIAGENDR + BMXWT + BMXHT + %s'
+enwas_res <- enwas(base_model,exposure_vars,dsn)
+forest_plot(enwas_res)
 
 
-xwas_association_list |>
-  ggplot( aes(x=term, y=fdr,fill=fdr)) +
-  geom_bar(stat="identity", alpha=.6, width=.4) +
-  coord_flip() +
-  xlab("") +
-  theme_bw()
+age_knots <- seq(10, 90, by = 10)
+q <- 10
+bmi_knots = quantile(unique(data$BMXBMI),1:(q-2)/(q-1))
 
-
-xwas_association_list <- xwas_association_list |> 
-                        mutate(coff = estimate*std.error)  |>
-                        mutate(lower = estimate-1.96*std.error)  |>
-                        mutate(upper = estimate+1.96*std.error)
-
-# importance
-xwas_association_list |>
-  ggplot( aes(x=term, y=coff,fill=coff)) +
-  geom_bar(stat="identity", alpha=.6, width=.4) +
-  coord_flip() +
-  xlab("") +
-  theme_bw()
-
-
-xwas_association_list |>
-  ggplot(aes(x=variable, y=estimate, ymin=lower, ymax=upper,colour=estimate)) +
-          geom_pointrange() + 
-          # geom_hline(yintercept=1, lty=2) +  # add a dotted line at x=1 after flip
-          coord_flip() +  # flip coordinates (puts labels on y axis)
-          xlab("Exposures") + ylab("Estimate (95% CI)") +
-          theme_bw()  # use a white background
-
-library(nhanesA)
-library(knitr)
-var_names <- nhanesTableVars("DIET","DR1TOT_F")
-var_desr <- var_names |> filter(Variable.Name %in% exposure_vars)
-nrow(var_desr)
-kable(var_desr)
+# base_model <- 'BMXWAIST ~ ns(RIDAGEYR, knots = seq(10, 90, by = 10), Boundary.knots = c(10, 120)) * RIAGENDR + ns(BMXBMI) + BMXWT + BMXH + %s'
+# enwas_res <- enwas(base_model,exposure_vars,dsn)
+# forest_plot(enwas_res)
   
 ```
 
