@@ -1,0 +1,185 @@
+---
+title: "EnWAS_v3"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## load libs
+```{r libs,warning=FALSE}
+library(splines)
+library(stringr)
+library(dplyr)
+library(ggplot2)
+library(gridExtra)
+library(DBI)
+```
+
+## Load exploration
+
+- `nhanes.sqlite` can download [here](https://github.com/ccb-hms/Imputation/blob/main/nhanes.sqlite) or generate by run [notebook](https://ccb-hms.github.io/Imputation/nhanes_exploratory.html)
+
+```{r data, echo=TRUE}
+
+set.seed(123)
+
+nhanes_db <- dbConnect(RSQLite::SQLite(), "nhanes.sqlite")
+
+# list all of the tables
+dbListTables(nhanes_db)
+
+cols <- 'BMXWAIST , RIDAGEYR, BMXHT, BMXWT, BMXBMI, RIAGENDR, years, DR1TM161, WTDRD1, BMXLEG, BMXARML '
+data_sql <- paste0('SELECT ', cols, 'FROM merged_table')
+
+dbListTables(nhanes_db)
+
+data <- dbGetQuery(nhanes_db, data_sql)
+data <- na.omit(data)
+
+dbDisconnect(nhanes_db)
+
+
+train_ix <- sample(x = 1:nrow(data), size = 5000)
+test_ix <- sample(x = setdiff(1:nrow(data), train_ix), 3000)
+
+train_data <- data[train_ix, ]
+test_data <- data[test_ix, ]
+```
+
+## Inverse Normal Distribution
+
+```{r func, echo=TRUE}
+invNorm <- function(x) {qnorm((rank(x) - 3/8)/(length(x) +1 - 6/8))}
+
+mean_square_error <- function(y_true, y_pred){
+    round(mean((y_true - y_pred)^2),4)
+}
+
+
+```
+
+
+
+
+### regression models
+
+
+```{r spline_test, echo=TRUE}
+
+
+plot_base_model <-  function(x,
+                             y = "BMXWAIST",
+                             fixed_terms,
+                             fixed_values,
+                             lm_mod,
+                             test_set = test_data) {
+  # run prediction
+  tmp_test_df <- test_set
+  tmp_test_df[, fixed_terms] <-
+    matrix(rep(fixed_values, nrow(test_set)),
+           nrow = nrow(test_set),
+           byrow = TRUE)
+  lm_pred <- predict(lm_mod, newdata = tmp_test_df, se = T)
+  
+  
+  # save prediction results
+  pred_df <- data.frame(
+    fit = lm_pred$fit,
+    lower = lm_pred$fit - 1.96 * lm_pred$se.fit,
+    upper = lm_pred$fit + 1.96 * lm_pred$se.fit,
+    sex = test_set$RIAGENDR,
+    x = test_set[, x],
+    y = test_set[, y]
+  )
+  
+  
+  
+  # compute MSE
+  mse <- mean_square_error(pred_df$fit, pred_df$y)
+  
+  #plot results
+  g <-
+    ggplot(pred_df, aes(x = x, y = y)) + geom_point(colour = "black", alpha = 0.1) +
+    geom_line(aes(
+      x = x,
+      y = fit,
+      colour = sex,
+      alpha = 0.1
+    ), size = 1.5) +
+    ylab(y) + xlab(x)
+  
+  g + ggtitle(paste("MSE = ", mse))
+  
+  
+}
+
+
+
+
+```
+
+
+### regression models weight
+
+`MXWAIST ~ bs(RIDAGEYR, df = 7)*RIAGENDR + bs(BMXWT) + BMXHT`
+
+```{r spline_test_weith, echo=TRUE}
+lm_model <- lm(formula=BMXWAIST ~ bs(RIDAGEYR, df = 7)*RIAGENDR + bs(BMXWT) + BMXHT,train_data)
+summary(lm_model)
+
+
+fixed_terms=c('RIDAGEYR','BMXHT')
+fixed_values <- colMeans(test_data[, fixed_terms],na.rm = TRUE)
+
+plot_base_model(x='BMXWT',fixed_terms=fixed_terms,fixed_values=fixed_values,lm_mod=lm_model)
+
+
+fixed_terms=c('RIDAGEYR','BMXWT')
+fixed_values <- colMeans(test_data[, fixed_terms],na.rm = TRUE)
+plot_base_model(x='BMXHT',fixed_terms=fixed_terms,fixed_values=fixed_values,lm_mod=lm_model)
+```
+
+
+
+
+### regression models natural spline
+
+```{r spline_models, echo=TRUE}
+age_knots <- seq(10, 90, by = 10)
+q <- 10
+bmi_knots = quantile(unique(data$BMXBMI),1:(q-2)/(q-1))
+
+
+ns_model <-
+  lm(
+    formula = BMXWAIST ~ ns(
+      RIDAGEYR,
+      knots = age_knots,
+      Boundary.knots = c(10, 120)
+    ) * RIAGENDR + ns(BMXBMI,knots = bmi_knots) + BMXWT + BMXHT,
+    train_data
+  )
+summary(ns_model)
+
+
+
+
+
+
+
+fixed_terms=c('RIDAGEYR','BMXHT','BMXBMI')
+fixed_values <- colMeans(test_data[, fixed_terms],na.rm = TRUE)
+
+plot_base_model(x='BMXWT',fixed_terms=fixed_terms,fixed_values=fixed_values,lm_mod=ns_model)
+
+
+fixed_terms=c('RIDAGEYR','BMXWT','BMXBMI')
+fixed_values <- colMeans(test_data[, fixed_terms],na.rm = TRUE)
+plot_base_model(x='BMXHT',fixed_terms=fixed_terms,fixed_values=fixed_values,lm_mod=ns_model)
+
+fixed_terms=c('RIDAGEYR','BMXWT','BMXHT')
+fixed_values <- colMeans(test_data[, fixed_terms],na.rm = TRUE)
+plot_base_model(x='BMXBMI',fixed_terms=fixed_terms,fixed_values=fixed_values,lm_mod=ns_model)
+```
