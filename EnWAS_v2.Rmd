@@ -159,34 +159,20 @@ enwas_res <- enwas(base_model,exposure_vars,dsn)
 forest_plot(enwas_res)
 
 
-base_model <- 'BMXWAIST ~ RIDAGEYR+RIAGENDR + BMXWT + BMXHT'
-enwas_res2 <- enwas(base_model,exposure_vars,dsn)
+base_model2 <- 'BMXWAIST ~ RIDAGEYR+RIAGENDR + BMXWT + BMXHT'
+enwas_res2 <- enwas(base_model2,exposure_vars,dsn)
 forest_plot(enwas_res2)
 
 
 
-forest_plot_mult(list(enwas1=enwas_res,enwas2=enwas_res2))
-
-
-
-
-
-
-# 
-# 
-# base_model <- 'BMXWAIST ~ RIDAGEYR + RIAGENDR + BMXWT + BMXHT + %s'
-# enwas_res <- enwas(base_model,exposure_vars,dsn)
-# forest_plot(enwas_res)
-# 
-# 
-# age_knots <- seq(10, 90, by = 10)
+# age_knots <- seq(20, 90, by = 80)
 # q <- 10
 # bmi_knots = quantile(unique(data$BMXBMI),1:(q-2)/(q-1))
-# 
-# base_model <- 'BMXWAIST ~ ns(RIDAGEYR, knots = seq(10, 90, by = 10), Boundary.knots = c(10, 120)) * RIAGENDR + ns(BMXBMI) + BMXWT + BMXHT + %s'
-# 
-# enwas_res <- enwas(base_model,exposure_vars,dsn)
-# forest_plot(enwas_res)
+
+base_model3 <- 'BMXWAIST ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10)) * RIAGENDR + ns(BMXBMI,knots = seq(30, 80, by = 10)) + BMXWT + BMXHT'
+
+enwas_res3 <- enwas(base_model3,exposure_vars,dsn)
+forest_plot_mult(list(enwas1=enwas_res,enwas2=enwas_res2,enwas3=enwas_res3))
   
 ```
 
