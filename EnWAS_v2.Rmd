@@ -25,34 +25,44 @@ library(ggplot2)
 - `nhanes.sqlite` can download [here](https://github.com/ccb-hms/Imputation/blob/main/nhanes.sqlite) or generate by run [notebook](https://ccb-hms.github.io/Imputation/nhanes_exploratory.html)
 
 ```{r data, echo=TRUE}
+source("phesant.R")
+
+exposure_vars <-
+  read.delim("data/select_vars.txt", header = FALSE)$V1
+exposure_cols <- paste(exposure_vars, collapse = ", ")
 
 
-exposure_vars <- read.delim("data/select_vars.txt",header = FALSE)$V1
-exposure_clap <- paste(exposure_vars,collapse=", ")
+# Load data and convert data types according to PHESEANT.
+# Return data set and PHESEANT results.
+load_data <- function(exposure_cols) {
+  nhanes_db <- dbConnect(RSQLite::SQLite(), "nhanes.sqlite")
+  
+  cols <-
+    'BMXWAIST, RIDAGEYR, BMXHT, BMXBMI, BMXWT, RIAGENDR, years'
+  data_sql <-
+    paste('SELECT', cols, exposure_cols, 'FROM merged_table')
+  
+  data <- dbGetQuery(nhanes_db, data_sql)
+  data <- na.omit(data)
+  dbDisconnect(nhanes_db)
+  
+  phs_res <- phesant(data)
+  
+  data[, names(phs_res[phs_res %in% c("ordered", "unordered", "binary")])] <-
+    lapply(data[, names(phs_res[phs_res %in% c("ordered", "unordered", "binary")])], as.factor)
+  
+  data[, names(phs_res[phs_res == "continuous"])] <-
+    lapply(data[, names(phs_res[phs_res == "continuous"])], as.numeric)
+  
+  return(list(data = data, phs_res = phs_res))
+  
+}
 
+data_phs <- load_data(exposure_cols)
 
-nhanes_db <- dbConnect(RSQLite::SQLite(), "nhanes.sqlite")
+data <- data_phs$data
+phs_res <- data_phs$phs_res
 
-# list all of the tables
-dbListTables(nhanes_db)
-
-cols <- 'BMXWAIST, RIDAGEYR, BMXHT, BMXBMI, BMXWT, RIAGENDR,'
-data_sql <- paste('SELECT', cols, exposure_clap,'FROM merged_table')
-
-dbListTables(nhanes_db)
-
-data <- dbGetQuery(nhanes_db, data_sql)
-data <- na.omit(data)
-
-
-dbDisconnect(nhanes_db)
-
-
-# train_ix <- sample(x = 1:nrow(data), size = 6000)
-# test_ix <- sample(x = setdiff(1:nrow(data), train_ix), 3000)
-# 
-# train_data <- data[train_ix, ]
-# test_data <- data[test_ix, ]
 ```
 
 

@@ -21,28 +21,20 @@ library(DBI)
 - `nhanes.sqlite` can download [here](https://github.com/ccb-hms/Imputation/blob/main/nhanes.sqlite) or generate by run [notebook](https://ccb-hms.github.io/Imputation/nhanes_exploratory.html)
 
 ```{r data, echo=TRUE}
-
 nhanes_db <- dbConnect(RSQLite::SQLite(), "nhanes.sqlite")
 
 # list all of the tables
 dbListTables(nhanes_db)
 
-temp_data <- dbGetQuery(nhanes_db, "select * from diet_total limit 1")
+temp_data <-
+  dbGetQuery(nhanes_db, "select * from diet_total limit 1")
 data <- dbGetQuery(nhanes_db, "select * from merged_table")
 dbDisconnect(nhanes_db)
 
-
-
-
-diet_cols <- intersect(colnames(temp_data),colnames(data))
-
+diet_cols <- intersect(colnames(temp_data), colnames(data))
 diet_cols <- diet_cols[!diet_cols %in% c('SEQN', 'years')]
 
-
-
-diet_data <- data[,diet_cols]
-
-
+diet_data <- data[, diet_cols]
 
 ```
 
@@ -50,99 +42,7 @@ diet_data <- data[,diet_cols]
 
 ```{r func, echo=TRUE}
 invNorm <- function(x) {qnorm((rank(x) - 3/8)/(length(x) +1 - 6/8))}
-
-phesant <- function(df) {
-  cnt_data <- nrow(df)
-  
-  # set default data type as unknown
-  data_types <- rep('unknown', ncol(df))
-  names(data_types) <- colnames(df)
-  
-  # **********************continuous started*******************************
-  num_data <-
-    df |> select_if(is.numeric) |> select_if( ~ !is.integer(.x))
-  same_ratio <-
-    round(1 - sapply(num_data, function(x)
-      n_distinct(x)) / cnt_data, 4)
-  
-  continous_cols <- names(same_ratio[same_ratio < 0.35])
-  
-  
-  
-  num_data <- num_data |> select(-all_of(continous_cols))
-  distinct_cnt <- sapply(num_data, function(x)
-    n_distinct(x))
-  ex_continous_cols <- names(distinct_cnt[distinct_cnt > 20])
-  continous_cols <- c(continous_cols, ex_continous_cols)
-  
-  # remove less than 10 participants
-  paticipants_cnt <- sapply(df, function(x)
-    sum(!is.na(x)))
-  data_types[names(paticipants_cnt[paticipants_cnt < 10])] = "remove"
-  
-  
-  # assign to order and binary
-  num_data <- num_data |> select(-all_of(ex_continous_cols))
-  distinct_cnt <- sapply(num_data, function(x)
-    n_distinct(x))
-  bin_cols <- names(distinct_cnt[distinct_cnt <= 2])
-  
-  order_cols <- names(distinct_cnt[distinct_cnt > 2 & distinct_cnt <= 20])
-  
-  
-  
-  # **********************continuous end***********************************
-  
-  
-  # **********************integer started*********************************
-  int_data <- df |> select_if(is.integer)
-  distinct_cnt <- sapply(int_data, function(x)
-    n_distinct(x))
-
-  
-  bin_cols <- c(bin_cols, names(distinct_cnt[distinct_cnt <= 2]))
-  order_cols <- c(order_cols, names(distinct_cnt[distinct_cnt > 2 & distinct_cnt <= 20]))
-  
-  continous_cols <-
-    c(continous_cols, names(distinct_cnt[distinct_cnt > 20]))
-  
-  # **********************integer end*************************************
-  
-  
-  
-  
-  # **********************categorical (single) started*******************
-  cat_data <-
-    df |> select_if(function(x)
-      is.factor(x) || is.character(x))
-  
-  # remove categories than less than 10 participants:
-  for (col in colnames(cat_data)) {
-    cnt <- cat_data |> count(!!as.name(col))
-    cnt <- cnt[cnt$n > 10, ]
-    cat_data <- cat_data[cat_data[, col] %in% cnt[, col], ]
-  }
-  # ordered or un-ordered:
-  
-  distinct_cnt <- sapply(cat_data, function(x)
-    n_distinct(x))
-  bin_cols <- c(bin_cols, names(distinct_cnt[distinct_cnt <= 2]))
-  
-  # NEEDS FURTHER VERY TO BE ORDER
-  unorder_cols <- names(distinct_cnt[distinct_cnt > 2])
-  
-  
-  # **********************categorical (single) end************************
-  
-  data_types[continous_cols] <- 'continuous'
-  data_types[bin_cols] <- 'binary'
-  data_types[order_cols] <- 'ordered'
-  data_types[unorder_cols] <- 'unorder'
-  
-  data_types
-  
-}
-
+source("phesant.R")
 
 # generate the variable selection metrices
 select_matrice <- function(df){
@@ -245,21 +145,31 @@ one of:
 ```{r func411, echo=TRUE,warning=FALSE}
 library(corrplot)
 
-diet_data <- data[,c('RIAGENDR',diet_cols)]
-sfa_data <- na.omit(diet_data[,c("DR1TS040","DR1TS060",'DR1TS080',
-                     "DR1TS100",'DR1TS120',"DR1TS140","DR1TS160",
-                     "DR1TS180")])
+diet_data <- data[, c('RIAGENDR', diet_cols)]
+sfa_data <- na.omit(diet_data[, c(
+  "DR1TS040",
+  "DR1TS060",
+  'DR1TS080',
+  "DR1TS100",
+  'DR1TS120',
+  "DR1TS140",
+  "DR1TS160",
+  "DR1TS180"
+)])
 sfa_cor <- cor(sfa_data)
 
 kable(sfa_cor)
 heatmap(sfa_cor)
-corrplot(sfa_cor,type = "upper", order = "hclust")
+corrplot(sfa_cor,
+         type = "upper",
+         order = "hclust",
+         tl.srt = 45)
 
 
-pfa_data <- na.omit(diet_data[,c('DR1TP182','DR1TP183','DR1TP204')])
+pfa_data <- na.omit(diet_data[, c('DR1TP182', 'DR1TP183', 'DR1TP204')])
 cor(pfa_data)
 
-mfa_data <- na.omit(diet_data[,c('DR1TM161','DR1TM181','DR1TM201')])
+mfa_data <- na.omit(diet_data[, c('DR1TM161', 'DR1TM181', 'DR1TM201')])
 cor(mfa_data)
 
 ```
@@ -270,37 +180,70 @@ cor(mfa_data)
 ```{r func412, echo=TRUE,warning=FALSE}
 library(ggfortify)
 
-sfa_data <- na.omit(diet_data[,c("RIAGENDR","DR1TS040","DR1TS060",'DR1TS080',
-                     "DR1TS100",'DR1TS120',"DR1TS140","DR1TS160",
-                     "DR1TS180")])
 
-sfa_pca <- prcomp(sfa_data[,2:8],
-                  center = TRUE,scale. = TRUE)
+sfa_data <-
+  na.omit(diet_data[, c(
+    "RIAGENDR",
+    "DR1TS040",
+    "DR1TS060",
+    'DR1TS080',
+    "DR1TS100",
+    'DR1TS120',
+    "DR1TS140",
+    "DR1TS160",
+    "DR1TS180"
+  )])
 
-autoplot(sfa_pca, data = sfa_data, colour = 'RIAGENDR',
-         loadings = TRUE, loadings.colour = 'blue',
-         loadings.label = TRUE, loadings.label.size = 3,alpha=0.1)
+sfa_pca <- prcomp(sfa_data[, 2:8],
+                  center = TRUE, scale. = TRUE)
+
+autoplot(
+  sfa_pca,
+  data = sfa_data,
+  colour = 'RIAGENDR',
+  loadings = TRUE,
+  loadings.colour = 'blue',
+  loadings.label = TRUE,
+  loadings.label.size = 3,
+  alpha = 0.1
+)
 
 
 
-pfa_data <- na.omit(diet_data[,c("RIAGENDR",'DR1TP182','DR1TP183','DR1TP204')])
+pfa_data <-
+  na.omit(diet_data[, c("RIAGENDR", 'DR1TP182', 'DR1TP183', 'DR1TP204')])
 
-pfa_pca <- prcomp(pfa_data[,2:4],
-                  center = TRUE,scale. = TRUE)
+pfa_pca <- prcomp(pfa_data[, 2:4],
+                  center = TRUE, scale. = TRUE)
 
-autoplot(pfa_pca, data = sfa_data, colour = 'RIAGENDR',
-         loadings = TRUE, loadings.colour = 'blue',
-         loadings.label = TRUE, loadings.label.size = 3,alpha=0.1)
+autoplot(
+  pfa_pca,
+  data = sfa_data,
+  colour = 'RIAGENDR',
+  loadings = TRUE,
+  loadings.colour = 'blue',
+  loadings.label = TRUE,
+  loadings.label.size = 3,
+  alpha = 0.1
+)
 
 
-mfa_data <- na.omit(diet_data[,c("RIAGENDR",'DR1TM161','DR1TM181','DR1TM201')])
+mfa_data <-
+  na.omit(diet_data[, c("RIAGENDR", 'DR1TM161', 'DR1TM181', 'DR1TM201')])
 
-mfa_pca <- prcomp(mfa_data[,2:4],
-                  center = TRUE,scale. = TRUE)
+mfa_pca <- prcomp(mfa_data[, 2:4],
+                  center = TRUE, scale. = TRUE)
 
-autoplot(mfa_pca, data = sfa_data, colour = 'RIAGENDR',
-         loadings = TRUE, loadings.colour = 'blue',
-         loadings.label = TRUE, loadings.label.size = 3,alpha=0.1)
+autoplot(
+  mfa_pca,
+  data = sfa_data,
+  colour = 'RIAGENDR',
+  loadings = TRUE,
+  loadings.colour = 'blue',
+  loadings.label = TRUE,
+  loadings.label.size = 3,
+  alpha = 0.1
+)
 
 ```
 
