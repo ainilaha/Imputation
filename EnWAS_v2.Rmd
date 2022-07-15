@@ -75,11 +75,9 @@ min_max_norm <- function(x) {
 }
 
 
-
-
 build_formula <- function(base_model,exposure_var) {
   as.formula(
-    sprintf(base_model,
+    sprintf(paste0(base_model," + %s"),
       exposure_var
     )
   )
@@ -101,11 +99,8 @@ dsn <- svydesign(ids = ~ 0,
                  data = data)
 
 
-
-
-
-
 enwas <- function(base_model,exposure_vars, dsn){
+  
   association_list <- data.frame() # step 2 of algorithm
   
   for(exposure in exposure_vars) {
@@ -134,7 +129,19 @@ forest_plot <- function(xwas_result){
   xwas_result |>
   ggplot(aes(x=variable, y=estimate, ymin=lower, ymax=upper,colour=estimate)) +
           geom_pointrange() + 
-          # geom_hline(yintercept=1, lty=2) +  # add a dotted line at x=1 after flip
+          coord_flip() +  # flip coordinates (puts labels on y axis)
+          xlab("Exposures") + ylab("Estimate (95% CI)") +
+          theme_bw()  # use a white background
+}
+
+
+forest_plot_mult <- function(xwas_result_list){
+  xwas_result <- do.call("rbind",xwas_result_list)
+  xwas_result$EnWAS <- rep(names(xwas_result_list),each=nrow(xwas_result_list[[1]]))
+  
+  xwas_result |>
+  ggplot(aes(x=variable, y=estimate, ymin=lower, ymax=upper,colour=EnWAS)) +
+          geom_pointrange() + 
           coord_flip() +  # flip coordinates (puts labels on y axis)
           xlab("Exposures") + ylab("Estimate (95% CI)") +
           theme_bw()  # use a white background
@@ -147,29 +154,39 @@ forest_plot <- function(xwas_result){
 ## EnWAS Results
 
 ```{r func3, echo=TRUE,warning=F}
-base_model <- 'BMXWAIST ~ bs(RIDAGEYR, df = 7)*RIAGENDR + bs(BMXWT) + BMXHT + %s'
+base_model <- 'BMXWAIST ~ bs(RIDAGEYR, df = 7)*RIAGENDR + bs(BMXWT) + BMXHT'
 enwas_res <- enwas(base_model,exposure_vars,dsn)
 forest_plot(enwas_res)
 
 
-base_model <- 'BMXWAIST ~ RIDAGEYR*RIAGENDR + BMXWT + BMXHT + %s'
-enwas_res <- enwas(base_model,exposure_vars,dsn)
-forest_plot(enwas_res)
+base_model <- 'BMXWAIST ~ RIDAGEYR+RIAGENDR + BMXWT + BMXHT'
+enwas_res2 <- enwas(base_model,exposure_vars,dsn)
+forest_plot(enwas_res2)
 
 
-base_model <- 'BMXWAIST ~ RIDAGEYR + RIAGENDR + BMXWT + BMXHT + %s'
-enwas_res <- enwas(base_model,exposure_vars,dsn)
-forest_plot(enwas_res)
+
+forest_plot_mult(list(enwas1=enwas_res,enwas2=enwas_res2))
 
 
-age_knots <- seq(10, 90, by = 10)
-q <- 10
-bmi_knots = quantile(unique(data$BMXBMI),1:(q-2)/(q-1))
 
-base_model <- 'BMXWAIST ~ ns(RIDAGEYR, knots = seq(10, 90, by = 10), Boundary.knots = c(10, 120)) * RIAGENDR + ns(BMXBMI) + BMXWT + BMXHT + %s'
 
-enwas_res <- enwas(base_model,exposure_vars,dsn)
-forest_plot(enwas_res)
+
+
+# 
+# 
+# base_model <- 'BMXWAIST ~ RIDAGEYR + RIAGENDR + BMXWT + BMXHT + %s'
+# enwas_res <- enwas(base_model,exposure_vars,dsn)
+# forest_plot(enwas_res)
+# 
+# 
+# age_knots <- seq(10, 90, by = 10)
+# q <- 10
+# bmi_knots = quantile(unique(data$BMXBMI),1:(q-2)/(q-1))
+# 
+# base_model <- 'BMXWAIST ~ ns(RIDAGEYR, knots = seq(10, 90, by = 10), Boundary.knots = c(10, 120)) * RIAGENDR + ns(BMXBMI) + BMXWT + BMXHT + %s'
+# 
+# enwas_res <- enwas(base_model,exposure_vars,dsn)
+# forest_plot(enwas_res)
   
 ```
 
