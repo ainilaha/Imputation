@@ -18,6 +18,7 @@ library(DBI)
 ```
 
 ## Load exploration
+- `nhanes.sqlite` can download [here](https://github.com/ccb-hms/Imputation/blob/main/nhanes.sqlite) or generate by run [notebook](https://ccb-hms.github.io/Imputation/nhanes_exploratory.html)
 
 ```{r data, echo=TRUE}
 
@@ -135,7 +136,7 @@ phesant <- function(df) {
   
   data_types[continous_cols] <- 'continuous'
   data_types[bin_cols] <- 'binary'
-  data_types[order_cols] <- 'order'
+  data_types[order_cols] <- 'ordered'
   data_types[unorder_cols] <- 'unorder'
   
   data_types
@@ -186,7 +187,7 @@ select_matrice <- function(df){
 
 
 ## Selection process
-![variable selction process](images/selection_process.png)
+![variable selection process](images/selection_process.png)
 
 ```{r func2, echo=TRUE,warning=FALSE}
 library(knitr)
@@ -201,32 +202,12 @@ select_vars <- rownames(select_vars)
 select_vars
 ```
 
-## discard varibales
+## Removed variables
 
 ```{r func31, echo=TRUE,warning=FALSE}
 discard_varible <- setdiff(colnames(diet_data),select_vars)
 #discard variables
 kable(select_df[discard_varible,])
-```
-
-
-
-
-## exampeles of compare discard varibales and kept varibles
-
-```{r func3, echo=TRUE,warning=FALSE}
-
-# discard variables
-hist(diet_data$DR1TATOA)
-hist(invNorm(diet_data$DR1TATOA))
-hist(diet_data$DR1EXMER)
-hist(invNorm(diet_data$DR1EXMER))
-
-# selected variables
-hist(diet_data$DR1TM201)
-hist(invNorm(diet_data$DR1TM201))
-hist(diet_data$DR1TATOC)
-hist(invNorm(diet_data$DR1TATOC))
 ```
 
 ## final selected varibles
@@ -259,44 +240,28 @@ one of:
 
 
 
-
-
-```{r func41, echo=TRUE,warning=FALSE}
-diet_data <- data[,c('RIAGENDR',diet_cols)]
-ggplot(diet_data, aes(x=DR1TS040, y=DR1TS060) ) + 
-    geom_point(aes(colour=RIAGENDR),alpha=0.1)+
-    geom_density_2d()+geom_smooth(method = lm,formula = y ~ x)
-
-
-ggplot(diet_data, aes(x=invNorm(DR1TS040), y=invNorm(DR1TS060)) ) + 
-    geom_point(aes(colour=RIAGENDR),alpha=0.1)+
-    geom_density_2d()+geom_smooth(method = lm,formula = y ~ x)
-
-ggplot(diet_data, aes(x=DR1TS060, y=DR1TS080) ) + 
-    geom_point(aes(colour=RIAGENDR),alpha=0.1)+
-    geom_density_2d()+geom_smooth(method = lm,formula = y ~ x)
-
-ggplot(diet_data, aes(x=invNorm(DR1TS060), y=invNorm(DR1TS080)) ) + 
-    geom_point(aes(colour=RIAGENDR),alpha=0.1)+
-    geom_density_2d()+geom_smooth(method = lm,formula = y ~ x)
-```
-
-
-## GGPair Correlation
-
-Warning! it could be slow to run! 
+## Correlation Matrix
 
 ```{r func411, echo=TRUE,warning=FALSE}
-library(GGally)
-ggpairs(diet_data[,c("RIAGENDR","DR1TS060",
-                     "DR1TS100",
-                     "DR1TS180")], aes(colour = RIAGENDR, alpha = 0.4))
-ggpairs(diet_data[,c("RIAGENDR","DR1TP182",
-                     "DR1TP183",
-                     "DR1TP204")], aes(colour = RIAGENDR, alpha = 0.4))
-ggpairs(diet_data[,c("RIAGENDR","DR1TM161",
-                     "DR1TM181",
-                     "DR1TM201")], aes(colour = RIAGENDR, alpha = 0.4))
+library(corrplot)
+
+diet_data <- data[,c('RIAGENDR',diet_cols)]
+sfa_data <- na.omit(diet_data[,c("DR1TS040","DR1TS060",'DR1TS080',
+                     "DR1TS100",'DR1TS120',"DR1TS140","DR1TS160",
+                     "DR1TS180")])
+sfa_cor <- cor(sfa_data)
+
+kable(sfa_cor)
+heatmap(sfa_cor)
+corrplot(sfa_cor,type = "upper", order = "hclust")
+
+
+pfa_data <- na.omit(diet_data[,c('DR1TP182','DR1TP183','DR1TP204')])
+cor(pfa_data)
+
+mfa_data <- na.omit(diet_data[,c('DR1TM161','DR1TM181','DR1TM201')])
+cor(mfa_data)
+
 ```
 
 
@@ -316,17 +281,26 @@ autoplot(sfa_pca, data = sfa_data, colour = 'RIAGENDR',
          loadings = TRUE, loadings.colour = 'blue',
          loadings.label = TRUE, loadings.label.size = 3,alpha=0.1)
 
-sfa_data[,2:8] <- sapply(sfa_data[,2:8],invNorm)
 
-sfa_pca <- prcomp(sfa_data[,2:8],
+
+pfa_data <- na.omit(diet_data[,c("RIAGENDR",'DR1TP182','DR1TP183','DR1TP204')])
+
+pfa_pca <- prcomp(pfa_data[,2:4],
                   center = TRUE,scale. = TRUE)
 
-autoplot(sfa_pca, data = sfa_data, colour = 'RIAGENDR',
+autoplot(pfa_pca, data = sfa_data, colour = 'RIAGENDR',
          loadings = TRUE, loadings.colour = 'blue',
          loadings.label = TRUE, loadings.label.size = 3,alpha=0.1)
 
 
+mfa_data <- na.omit(diet_data[,c("RIAGENDR",'DR1TM161','DR1TM181','DR1TM201')])
 
+mfa_pca <- prcomp(mfa_data[,2:4],
+                  center = TRUE,scale. = TRUE)
+
+autoplot(mfa_pca, data = sfa_data, colour = 'RIAGENDR',
+         loadings = TRUE, loadings.colour = 'blue',
+         loadings.label = TRUE, loadings.label.size = 3,alpha=0.1)
 
 ```
 

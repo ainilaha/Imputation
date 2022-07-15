@@ -147,13 +147,19 @@ enwas_res <- enwas(base_model,exposure_vars,dsn)
 forest_plot(enwas_res)
 
 
+base_model <- 'BMXWAIST ~ RIDAGEYR + RIAGENDR + BMXWT + BMXHT + %s'
+enwas_res <- enwas(base_model,exposure_vars,dsn)
+forest_plot(enwas_res)
+
+
 age_knots <- seq(10, 90, by = 10)
 q <- 10
 bmi_knots = quantile(unique(data$BMXBMI),1:(q-2)/(q-1))
 
-# base_model <- 'BMXWAIST ~ ns(RIDAGEYR, knots = seq(10, 90, by = 10), Boundary.knots = c(10, 120)) * RIAGENDR + ns(BMXBMI) + BMXWT + BMXH + %s'
-# enwas_res <- enwas(base_model,exposure_vars,dsn)
-# forest_plot(enwas_res)
+base_model <- 'BMXWAIST ~ ns(RIDAGEYR, knots = seq(10, 90, by = 10), Boundary.knots = c(10, 120)) * RIAGENDR + ns(BMXBMI) + BMXWT + BMXHT + %s'
+
+enwas_res <- enwas(base_model,exposure_vars,dsn)
+forest_plot(enwas_res)
   
 ```
 
