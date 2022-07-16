@@ -8,7 +8,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ## load libs
-```{r libs,warning=FALSE}
+```{r libs,warning=FALSE,message=FALSE}
 library(splines)
 library(stringr)
 library(dplyr)
@@ -33,7 +33,6 @@ dbListTables(nhanes_db)
 cols <- 'BMXWAIST , RIDAGEYR, BMXHT, BMXWT, BMXBMI, RIAGENDR, years, DR1TM161, WTDRD1, BMXLEG, BMXARML '
 data_sql <- paste0('SELECT ', cols, 'FROM merged_table')
 
-dbListTables(nhanes_db)
 
 data <- dbGetQuery(nhanes_db, data_sql)
 data <- na.omit(data)
@@ -42,7 +41,7 @@ dbDisconnect(nhanes_db)
 
 
 train_ix <- sample(x = 1:nrow(data), size = 5000)
-test_ix <- sample(x = setdiff(1:nrow(data), train_ix), 3000)
+test_ix <- sample(x = setdiff(1:nrow(data), train_ix), 20000)
 
 train_data <- data[train_ix, ]
 test_data <- data[test_ix, ]
@@ -63,25 +62,30 @@ mean_square_error <- function(y_true, y_pred){
 
 
 
-### regression models
+### Plot regression
+
+It is challenging to select testing data to test the model by fixing some terms because data columns are not completely orthogonal to each other. As the previous version shows, simply fixing terms or using mean or median as the data could be biased.
 
 
 ```{r spline_test, echo=TRUE}
 
-
 plot_base_model <-  function(x,
                              y = "BMXWAIST",
                              fixed_terms,
-                             fixed_values,
                              lm_mod,
                              test_set = test_data) {
-  # run prediction
-  tmp_test_df <- test_set
-  tmp_test_df[, fixed_terms] <-
-    matrix(rep(fixed_values, nrow(test_set)),
-           nrow = nrow(test_set),
-           byrow = TRUE)
-  lm_pred <- predict(lm_mod, newdata = tmp_test_df, se = T)
+  
+  # test_df <- test_set
+  
+  for(c in fixed_terms){
+    m <- mean(test_set[,c], na.rm=T)
+    std <- sd(test_set[,c], na.rm=T)
+    test_set <- test_set[m-std/5 <= test_set[,c] & test_set[,c]<= m+std/5,]
+ 
+  }
+  print(dim(test_set))
+
+  lm_pred <- predict(lm_mod, newdata = test_set, se = T)
   
   
   # save prediction results
@@ -127,18 +131,18 @@ plot_base_model <-  function(x,
 
 ```{r spline_test_weith, echo=TRUE}
 lm_model <- lm(formula=BMXWAIST ~ bs(RIDAGEYR, df = 7)*RIAGENDR + bs(BMXWT) + BMXHT,train_data)
-summary(lm_model)
+# summary(lm_model)
 
 
 fixed_terms=c('RIDAGEYR','BMXHT')
-fixed_values <- colMeans(test_data[, fixed_terms],na.rm = TRUE)
+# fixed_values <- colMeans(test_data[, fixed_terms],na.rm = TRUE)
 
-plot_base_model(x='BMXWT',fixed_terms=fixed_terms,fixed_values=fixed_values,lm_mod=lm_model)
+plot_base_model(x='BMXWT',fixed_terms=fixed_terms,lm_mod=lm_model)
 
 
 fixed_terms=c('RIDAGEYR','BMXWT')
-fixed_values <- colMeans(test_data[, fixed_terms],na.rm = TRUE)
-plot_base_model(x='BMXHT',fixed_terms=fixed_terms,fixed_values=fixed_values,lm_mod=lm_model)
+
+plot_base_model(x='BMXHT',fixed_terms=fixed_terms,lm_mod=lm_model)
 ```
 
 
@@ -161,25 +165,14 @@ ns_model <-
     ) * RIAGENDR + ns(BMXBMI,knots = bmi_knots) + BMXWT + BMXHT,
     train_data
   )
-summary(ns_model)
 
-
-
-
-
-
-
-fixed_terms=c('RIDAGEYR','BMXHT','BMXBMI')
-fixed_values <- colMeans(test_data[, fixed_terms],na.rm = TRUE)
-
-plot_base_model(x='BMXWT',fixed_terms=fixed_terms,fixed_values=fixed_values,lm_mod=ns_model)
+plot_base_model(x='BMXWT',fixed_terms=fixed_terms,lm_mod=ns_model)
 
 
 fixed_terms=c('RIDAGEYR','BMXWT','BMXBMI')
 fixed_values <- colMeans(test_data[, fixed_terms],na.rm = TRUE)
-plot_base_model(x='BMXHT',fixed_terms=fixed_terms,fixed_values=fixed_values,lm_mod=ns_model)
+plot_base_model(x='BMXHT',fixed_terms=fixed_terms,lm_mod=ns_model)
 
 fixed_terms=c('RIDAGEYR','BMXWT','BMXHT')
-fixed_values <- colMeans(test_data[, fixed_terms],na.rm = TRUE)
-plot_base_model(x='BMXBMI',fixed_terms=fixed_terms,fixed_values=fixed_values,lm_mod=ns_model)
+plot_base_model(x='BMXBMI',fixed_terms=fixed_terms,lm_mod=ns_model)
 ```
