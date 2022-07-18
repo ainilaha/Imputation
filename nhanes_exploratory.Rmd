@@ -1,0 +1,259 @@
+---
+title: "NHANES Exploratory Data Analysis"
+
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load libs
+
+```{r libs,warning=FALSE,message=FALSE}
+library(nhanesA)
+library(knitr)
+library(corrplot)
+library(DBI)
+```
+
+
+## Define clip Functions
+
+```{r funcs}
+
+# it keeps the data columns that missing rate below the threshold
+# return the clipped data sets and descriptions of kept variables
+clip_data <- function(group, com_tb, tb, miss_threshold=0.1){
+  miss_rate <- sapply(com_tb, function(x) sum(is.na(x)))/nrow(com_tb)
+  var_descr <-  nhanesTableVars(group,paste0(tb,"_C"))
+  var_descr[nrow(var_descr) + 1,] <- c("years", "data years")
+
+  var_descr <- var_descr[var_descr$Variable.Name %in% colnames(com_tb),] 
+  miss_rate['years'] <- 0
+  var_descr$miss_rate = miss_rate[var_descr$Variable.Name]
+  var_descr$miss_rate_pct = paste(round(100*var_descr$miss_rate, 2), "%", sep="")
+  
+  
+  
+  var_descr <- var_descr[,c('Variable.Name','miss_rate_pct','Variable.Description','miss_rate')]
+  clipped_var <- var_descr[var_descr$miss_rate < miss_threshold,]
+  
+  clipped_data <- com_tb[,clipped_var$Variable.Name]
+  
+  return(list(clipped_data,clipped_var))
+}
+
+```
+
+## Load the data from SQlites database
+
+```{r comb}
+
+# please uncoments the following code to download the database from github if 
+# do not want to download the file from github manually nor run the download 
+# notebook
+
+# fileURL <- "https://github.com/ccb-hms/Imputation/blob/main/nhanes.sqlite"
+# if(!file.exists("nhanes.sqlite")){
+#     res <- tryCatch(download.file(fileURL,
+#                               destfile="./nhanes.sqlite",
+#                               method="auto"),
+#                 error=function(e) 1)
+# }
+
+
+nhanes_db <- dbConnect(RSQLite::SQLite(), "nhanes.sqlite")
+
+# list all of the tables
+dbListTables(nhanes_db)
+
+
+demo_data <- dbGetQuery(nhanes_db, 'SELECT * FROM demo')
+
+diet_data <- dbGetQuery(nhanes_db, 'SELECT * FROM diet_total')
+```
+
+
+## remove less 21 years old
+
+```{r lss21}
+dim(diet_data)
+diet_data <- merge(demo_data[ ,c('SEQN','RIDAGEYR')],diet_data,by='SEQN')
+diet_data <- diet_data[diet_data$RIDAGEYR > 21, ]
+diet_data$RIDAGEYR <- NULL
+dim(diet_data)
+
+
+dim(demo_data)
+demo_data <- demo_data[demo_data$RIDAGEYR>21,]
+dim(demo_data)
+
+
+
+```
+
+
+
+## Missing value in Row
+
+```{r missing_r}
+demo_miss_rate_r <- apply(demo_data, 1,function(x) sum(is.na(x)))/ncol(demo_data)
+
+plot(density(demo_miss_rate_r),col="blue",main = "Demo missing rate in row")
+polygon(density(demo_miss_rate_r), col = "slateblue1")
+max(demo_miss_rate_r)
+
+diet_miss_rate_r <- apply(diet_data, 1,function(x) sum(is.na(x)))/ncol(diet_data)
+plot(density(diet_miss_rate_r),col="chartreuse3",main = "diet missing rate in row")
+polygon(density(diet_miss_rate_r), col = "chartreuse3")
+max(diet_miss_rate_r)
+dim(diet_data)
+length(diet_miss_rate_r[diet_miss_rate_r>0.6])
+
+length(diet_miss_rate_r[diet_miss_rate_r>0.6])/nrow(diet_data)
+```
+
+
+## Clip data sets
+
+```{r miss_clipp,warning=FALSE}
+library(dplyr)
+library(ggplot2)
+library(naniar)
+library(visdat)
+r_demo <- clip_data("DEMO", demo_data, "DEMO")
+
+clipped_demo <- r_demo[[1]]
+clipped_var_demo <- r_demo[[2]]
+
+kable(clipped_var_demo[,c("Variable.Name", 'miss_rate_pct', 'Variable.Description')])
+
+r_diet <- clip_data("DIET", diet_data, "DR1TOT")
+
+clipped_diet <- r_diet[[1]]
+clipped_var_diet <- r_diet[[2]]
+
+kable(clipped_var_diet[,c("Variable.Name", 'miss_rate_pct', 'Variable.Description')])
+```
+
+## Missing distributions for the Demo
+
+```{r miss_clipp_dist,warning=FALSE,results='asis'}
+library(hrbrthemes)
+library(GGally)
+
+# select interesting columns
+# i_miss_demo <- c("FIAINTRP","FIALANG",'FIAPROXY') 
+# ggpairs is to costing to run on labtop 
+# ggpairs(clipped_demo[,c(i_miss_demo,"RIAGENDR")], aes(colour = RIAGENDR, alpha = 0.4))
+
+
+clipped_demo$RIAGENDR <- as.factor(clipped_demo$RIAGENDR)
+levels(clipped_demo$RIAGENDR) <- c("Male","Female")
+
+
+ggplot(clipped_demo, aes(x=years, color=RIAGENDR)) +
+  geom_bar(aes(fill=RIAGENDR), position="dodge")+
+  scale_x_discrete(guide = guide_axis(angle = 25))+
+  theme(legend.position="top")
+
+
+p <- ggplot(data=clipped_demo, aes(x=RIDAGEYR, group=years, fill=years)) +
+  geom_density(adjust=1.5, alpha=.25) +
+  theme_ipsum()
+
+p
+
+```
+
+
+
+## Missing correlation for DEMO
+
+```{r missing}
+gg_miss_var(clipped_demo,show_pct = TRUE)+theme(axis.text.y = element_text(angle = 45))
+
+correlation <- cor(is.na(clipped_demo[,clipped_var_demo[clipped_var_demo$miss_rate>0,]$Variable.Name]))
+# correlation[is.na(correlation)] <- 0
+heatmap(correlation)
+
+corrplot(correlation, type = "upper", order = "hclust", 
+         tl.col = "black", tl.srt = 45)
+
+```
+
+
+
+
+## Missing correlation for DIET
+
+```{r missing2,fig.asp = 0.8, fig.width = 7, out.width = "100%"}
+gg_miss_var(diet_data,show_pct = TRUE)+theme(axis.text.y = element_text(angle = 45))
+gg_miss_var(clipped_diet,show_pct = TRUE)+theme(axis.text.y = element_text(angle = 45))
+correlation <- cor(is.na(clipped_diet[,clipped_var_diet[clipped_var_diet$miss_rate>0,]$Variable.Name]))
+# correlation[is.na(correlation)] <- 0
+heatmap(correlation)
+
+corrplot(correlation, type = "upper", order = "hclust", tl.col = "black", tl.srt = 45)
+hist(diet_data$DR1TSUGR)
+
+hist(diet_data$DR1TVK)
+```
+
+
+## Body Measures Data
+
+```{r bmx,warning=FALSE, results='asis'}
+
+bmx_cols <- 'SEQN, BMXWT, BMXHT , BMXWAIST , BMXBMI, BMXLEG , BMXARML, years '
+bmx_sql <- paste0('SELECT ', bmx_cols, 'FROM body_measures')
+bmx_data <- dbGetQuery(nhanes_db, bmx_sql)
+gg_miss_var(bmx_data,show_pct = TRUE)+theme(axis.text.y = element_text(angle = 45))
+
+r_bmx <- clip_data("EXAM", bmx_data, "BMX", miss_threshold=1.0)
+
+clipped_var_bmx <- r_bmx[[2]]
+
+kable(clipped_var_bmx[,c("Variable.Name", 'miss_rate_pct', 'Variable.Description')])
+
+bmx_data <- merge(demo_data[,c("SEQN","RIDAGEYR")],bmx_data,by="SEQN")
+
+bmx_data <- bmx_data[bmx_data$RIDAGEYR>21,]
+
+
+
+for (cl in c('BMXWT','BMXHT','BMXWAIST','BMXBMI')){
+  p <- ggplot(data=bmx_data, aes_string(x=cl, group='years', fill='years')) +
+    geom_density(adjust=1.5, alpha=.25) +
+    theme_ipsum()
+  print(p)
+}
+
+
+bmx_data$RIDAGEYR=NULL
+
+```
+
+## Merge the data by SEQN
+
+```{r merge}
+# NOTE: SEQN may not unique it is only unique in the same year
+
+merged_df <- merge(bmx_data, clipped_demo, by = c("SEQN",'years'))
+
+merged_df <- merge(merged_df, clipped_diet, by = c("SEQN",'years'))
+
+# create a view may save space and efficient on the final version, in the future
+
+
+dbRemoveTable(nhanes_db,"merged_table")
+
+dbWriteTable(nhanes_db, "merged_table", merged_df)
+dbListTables(nhanes_db)
+dbDisconnect(nhanes_db)
+
+```
+
+
+

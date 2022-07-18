@@ -38,7 +38,7 @@ load_data <- function(exposure_cols) {
   nhanes_db <- dbConnect(RSQLite::SQLite(), "nhanes.sqlite")
   
   cols <-
-    'BMXWAIST, RIDAGEYR, BMXHT, BMXBMI, BMXWT, RIAGENDR, years'
+    'BMXWAIST, RIDAGEYR, BMXHT, BMXBMI, BMXWT, RIAGENDR,SDMVPSU,SDMVSTRA, years,'
   data_sql <-
     paste('SELECT', cols, exposure_cols, 'FROM merged_table')
   
@@ -93,10 +93,11 @@ build_formula <- function(base_model,exposure_var) {
 ```{r func2, echo=TRUE}
 
 
-dsn <- svydesign(ids = ~ 0,
-                 weights = ~ RIDAGEYR,
-                 strata = ~ RIAGENDR,
-                 data = data)
+dsn <- svydesign(ids = ~ SDMVPSU,
+                 weights = ~ WTDRD1,
+                 strata = ~ SDMVSTRA,
+                 data = data,
+                 nest = TRUE)
 
 
 enwas <- function(base_model,exposure_vars, dsn){
@@ -159,20 +160,31 @@ enwas_res <- enwas(base_model,exposure_vars,dsn)
 forest_plot(enwas_res)
 
 
-base_model2 <- 'BMXWAIST ~ RIDAGEYR+RIAGENDR + BMXWT + BMXHT'
-enwas_res2 <- enwas(base_model2,exposure_vars,dsn)
-forest_plot(enwas_res2)
+linear_model <- 'BMXWAIST ~ RIDAGEYR+RIAGENDR + BMXWT + BMXHT'
+linear_res2 <- enwas(linear_model,exposure_vars,dsn)
+forest_plot(linear_res2)
 
 
 
-# age_knots <- seq(20, 90, by = 80)
-# q <- 10
-# bmi_knots = quantile(unique(data$BMXBMI),1:(q-2)/(q-1))
+age_knots <- seq(20, 90, by = 80)
+q <- 10
+bmi_knots = quantile(unique(invNorm(data$BMXBMI)),1:(q-2)/(q-1))
 
-base_model3 <- 'BMXWAIST ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10)) * RIAGENDR + ns(BMXBMI,knots = seq(30, 80, by = 10)) + BMXWT + BMXHT'
+age_ns_model <- 'BMXWAIST ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10)) * RIAGENDR + ns(BMXBMI,knots = seq(30, 80, by = 10)) + BMXWT + BMXHT'
+age_ns_res <- enwas(age_ns_model,exposure_vars,dsn)
 
-enwas_res3 <- enwas(base_model3,exposure_vars,dsn)
-forest_plot_mult(list(enwas1=enwas_res,enwas2=enwas_res2,enwas3=enwas_res3))
+
+
+all_ns_model <- 'BMXWAIST ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10)) * RIAGENDR + ns(BMXBMI,knots = seq(30, 80, by = 10)) + ns(BMXWT) + ns(BMXHT, knots = seq(40, 200, by = 10))'
+all_ns_res <- enwas(all_ns_model,exposure_vars,dsn)
+
+
+ns_inverseNorm_model <- 'BMXWAIST ~ ns(invNorm(RIDAGEYR),df=7) * RIAGENDR + ns(invNorm(BMXBMI)) + ns(invNorm(BMXWT)) + ns(invNorm(BMXHT))'
+all_ns_inverse_res <- enwas(ns_inverseNorm_model,exposure_vars,dsn)
+
+
+
+forest_plot_mult(list(bs_age=enwas_res,ns_age=age_ns_res,ns_all =all_ns_res,ns_invNorm=all_ns_inverse_res))
   
 ```
 
