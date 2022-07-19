@@ -95,64 +95,81 @@ build_formula <- function(base_model,exposure_var,inv=FALSE) {
 
 ```{r func2, echo=TRUE}
 
-data$fouryearwt <- data$WTDRD1/2
-dsn <- svydesign(ids = ~ SDMVPSU,
-                 weights = ~ fouryearwt,
-                 strata = ~ SDMVSTRA,
-                 data = data,
-                 nest = TRUE)
+data$fouryearwt <- data$WTDRD1 / 2
+dsn <- svydesign(
+  ids = ~ SDMVPSU,
+  weights = ~ fouryearwt,
+  strata = ~ SDMVSTRA,
+  data = data,
+  nest = TRUE
+)
 
 
-enwas <- function(base_model,exposure_vars, dsn, inv=FALSE){
-  
+enwas <- function(base_model, exposure_vars, dsn, inv = FALSE) {
   association_list <- data.frame() # step 2 of algorithm
-  
-  for(exposure in exposure_vars) {
-  model <- build_formula(base_model, exposure,inv)
-  #print(model)
-  ## now run the association
-  mod <- svyglm(model, dsn) # step 3a
-  mod_df <- tidy(mod)
-  mod_df$variable <- exposure
-  association_list <- rbind(association_list, mod_df) # step 3b of algorithm
+  model_list <- c()
+  for (exposure in exposure_vars) {
+    model <- build_formula(base_model, exposure, inv)
+    ## now run the association
+    mod <- svyglm(model, dsn)
+    model_list <- c(model_list, mod)
+    mod_df <- tidy(mod)
+    mod_df$variable <- exposure
+    association_list <-
+      rbind(association_list, mod_df) # step 3b of algorithm
   }
   
   # process results
-  xwas_association_list <- association_list[association_list$term %in% exposure_vars, ]
+  xwas_association_list <-
+    association_list[association_list$term %in% exposure_vars,]
   # xwas_association_list <- association_list[association_list$term %in% c(exposure_vars,paste0("invNorm(",exposure_vars,")")), ]
   # xwas_association_list$term <- str_replace_all(xwas_association_list$term, "invNorm", "")
   # xwas_association_list$term <- str_replace_all(xwas_association_list$term, "[[:punct:]]", "")
-
-  xwas_association_list$fdr <- p.adjust(xwas_association_list$p.value, method='BY')
-  xwas_association_list <- xwas_association_list |> 
-                        mutate(coff = estimate*std.error)  |>
-                        mutate(lower = estimate-1.96*std.error)  |>
-                        mutate(upper = estimate+1.96*std.error)
   
-  xwas_association_list
+  xwas_association_list$fdr <-
+    p.adjust(xwas_association_list$p.value, method = 'BY')
+  xwas_association_list <- xwas_association_list |>
+    mutate(coff = estimate * std.error)  |>
+    mutate(lower = estimate - 1.96 * std.error)  |>
+    mutate(upper = estimate + 1.96 * std.error)
+  
+  return (list(model_list= model_list, enwas_res = xwas_association_list))
   
 }
 
-forest_plot <- function(xwas_result){
+forest_plot <- function(xwas_result) {
   xwas_result |>
-  ggplot(aes(x=variable, y=estimate, ymin=lower, ymax=upper,colour=estimate)) +
-          geom_pointrange() + 
-          coord_flip() +  # flip coordinates (puts labels on y axis)
-          xlab("Exposures") + ylab("Estimate (95% CI)") +
-          theme_bw()  # use a white background
+    ggplot(aes(
+      x = variable,
+      y = estimate,
+      ymin = lower,
+      ymax = upper,
+      colour = estimate
+    )) +
+    geom_pointrange() +
+    coord_flip() +  # flip coordinates (puts labels on y axis)
+    xlab("Exposures") + ylab("Estimate (95% CI)") +
+    theme_bw()  # use a white background
 }
 
 
-forest_plot_mult <- function(xwas_result_list){
-  xwas_result <- do.call("rbind",xwas_result_list)
-  xwas_result$EnWAS <- rep(names(xwas_result_list),each=nrow(xwas_result_list[[1]]))
+forest_plot_mult <- function(xwas_result_list) {
+  xwas_result <- do.call("rbind", xwas_result_list)
+  xwas_result$EnWAS <-
+    rep(names(xwas_result_list), each = nrow(xwas_result_list[[1]]))
   
   xwas_result |>
-  ggplot(aes(x=variable, y=estimate, ymin=lower, ymax=upper,colour=EnWAS)) +
-          geom_pointrange(alpha=0.4) + 
-          coord_flip() +  # flip coordinates (puts labels on y axis)
-          xlab("Exposures") + ylab("Estimate (95% CI)") +
-          theme_bw()  # use a white background
+    ggplot(aes(
+      x = variable,
+      y = estimate,
+      ymin = lower,
+      ymax = upper,
+      colour = EnWAS
+    )) +
+    geom_pointrange(alpha = 0.4) +
+    coord_flip() +  # flip coordinates (puts labels on y axis)
+    xlab("Exposures") + ylab("Estimate (95% CI)") +
+    theme_bw()  # use a white background
 }
 
 
@@ -197,11 +214,11 @@ all_ns_inverse_res <- enwas(ns_inverseNorm_model, exposure_vars, dsn)
 
 forest_plot_mult(
   list(
-    bs_age = enwas_res,
-    linear = linear_res2,
-    ns_age = age_ns_res,
-    ns_all = all_ns_res,
-    ns_invNorm = all_ns_inverse_res
+    bs_age = enwas_res$enwas_res,
+    linear = linear_res2$enwas_res,
+    ns_age = age_ns_res$enwas_res,
+    ns_all = all_ns_res$enwas_res,
+    ns_invNorm = all_ns_inverse_res$enwas_res
   )
 )
   
