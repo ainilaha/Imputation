@@ -95,10 +95,10 @@ build_formula <- function(base_model,exposure_var,inv=FALSE) {
 
 ```{r func2, echo=TRUE}
 
-data$fouryearwt <- data$WTDRD1 / 2
+# data$fouryearwt <- data$WTDRD1 / 2
 dsn <- svydesign(
   ids = ~ SDMVPSU,
-  weights = ~ fouryearwt,
+  weights = ~ WTDRD1,
   strata = ~ SDMVSTRA,
   data = data,
   nest = TRUE
@@ -108,24 +108,35 @@ dsn <- svydesign(
 enwas <- function(base_model, exposure_vars, dsn, inv = FALSE) {
   association_list <- data.frame() # step 2 of algorithm
   model_list <- c()
+  factor_terms <- c() # to hold the factors terrms
   for (exposure in exposure_vars) {
-    model <- build_formula(base_model, exposure, inv)
+    invnorm <- FALSE
+    if(inv & is.numeric(dsn$variables[,exposure])){
+      invnorm <- TRUE #
+    } 
+    if(is.factor(dsn$variables[,exposure])) {
+      factor_terms <- c(factor_terms, paste0(exposure,levels(dsn$variables[,exposure])))
+    }
+      
+                        
+    model <- build_formula(base_model, exposure, invnorm)
     ## now run the association
     mod <- svyglm(model, dsn)
     model_list <- c(model_list, mod)
     mod_df <- tidy(mod)
-    mod_df$variable <- exposure
+    # mod_df$variable <- exposure
     association_list <-
       rbind(association_list, mod_df) # step 3b of algorithm
   }
   
-  # process results
-  xwas_association_list <-
-    association_list[association_list$term %in% exposure_vars,]
-  # xwas_association_list <- association_list[association_list$term %in% c(exposure_vars,paste0("invNorm(",exposure_vars,")")), ]
-  # xwas_association_list$term <- str_replace_all(xwas_association_list$term, "invNorm", "")
-  # xwas_association_list$term <- str_replace_all(xwas_association_list$term, "[[:punct:]]", "")
   
+  xwas_association_list <-
+    association_list[association_list$term %in% c(exposure_vars,
+                                                  factor_terms,
+                                                  paste0("invNorm(",exposure_vars,")")),]
+  xwas_association_list$term <- str_replace_all(xwas_association_list$term, "invNorm", "")
+  xwas_association_list$term <- str_replace_all(xwas_association_list$term, "[[:punct:]]", "")
+
   xwas_association_list$fdr <-
     p.adjust(xwas_association_list$p.value, method = 'BY')
   xwas_association_list <- xwas_association_list |>
@@ -140,7 +151,7 @@ enwas <- function(base_model, exposure_vars, dsn, inv = FALSE) {
 forest_plot <- function(xwas_result) {
   xwas_result |>
     ggplot(aes(
-      x = variable,
+      x = term,
       y = estimate,
       ymin = lower,
       ymax = upper,
@@ -160,7 +171,7 @@ forest_plot_mult <- function(xwas_result_list) {
   
   xwas_result |>
     ggplot(aes(
-      x = variable,
+      x = term,
       y = estimate,
       ymin = lower,
       ymax = upper,
@@ -179,15 +190,10 @@ forest_plot_mult <- function(xwas_result_list) {
 ## EnWAS Results
 
 ```{r func3, echo=TRUE,warning=F}
-base_model <-
-  'BMXWAIST ~ bs(RIDAGEYR, df = 7)*RIAGENDR + bs(BMXWT) + BMXHT'
-enwas_res <- enwas(base_model, exposure_vars, dsn)
-# forest_plot(enwas_res)
-
 
 linear_model <- 'BMXWAIST ~ RIDAGEYR+RIAGENDR + BMXWT + BMXHT'
 linear_res2 <- enwas(linear_model, exposure_vars, dsn)
-# forest_plot(linear_res2)
+forest_plot(linear_res2$enwas_res)
 
 
 
@@ -199,23 +205,27 @@ age_ns_model <-
   'BMXWAIST ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10)) * RIAGENDR + ns(BMXBMI,knots = seq(30, 80, by = 10)) + BMXWT + BMXHT'
 age_ns_res <- enwas(age_ns_model, exposure_vars, dsn)
 
-
+forest_plot_mult(
+  list(
+    linear = linear_res2$enwas_res,
+    ns_age = age_ns_res$enwas_res
+  )
+)
 
 all_ns_model <-
   'BMXWAIST ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10)) * RIAGENDR + ns(BMXBMI,knots = seq(30, 80, by = 10)) + ns(BMXWT) + ns(BMXHT, knots = seq(40, 200, by = 10))'
 all_ns_res <- enwas(all_ns_model, exposure_vars, dsn)
 
 
-ns_inverseNorm_model <-
-  'BMXWAIST ~ ns(invNorm(RIDAGEYR),df=7) * RIAGENDR + ns(invNorm(BMXBMI)) + ns(invNorm(BMXWT)) + ns(invNorm(BMXHT))'
-all_ns_inverse_res <- enwas(ns_inverseNorm_model, exposure_vars, dsn)
+ns_inv_model <-
+  all_ns_model <-
+  'BMXWAIST ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10)) * RIAGENDR + ns(BMXBMI,knots = seq(30, 80, by = 10)) + ns(BMXWT) + ns(BMXHT, knots = seq(40, 200, by = 10))'
+all_ns_inverse_res <- enwas(ns_inv_model, exposure_vars, dsn,inv = TRUE)
 
 
 
 forest_plot_mult(
   list(
-    bs_age = enwas_res$enwas_res,
-    linear = linear_res2$enwas_res,
     ns_age = age_ns_res$enwas_res,
     ns_all = all_ns_res$enwas_res,
     ns_invNorm = all_ns_inverse_res$enwas_res
@@ -223,5 +233,3 @@ forest_plot_mult(
 )
   
 ```
-
-

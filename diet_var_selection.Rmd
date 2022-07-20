@@ -255,11 +255,7 @@ autoplot(
 
 
 ```{r func4, echo=TRUE,warning=FALSE}
-select_vars <- select_vars[!(select_vars %in% c('DR1TM181','DR1TM201','DR1TP182',
-                                                'DR1TS040','DR1TS060','DR1TS080',
-                                                'DR1TS100','DR1TS120','DR1TS140',
-                                                'DR1TS160','DR1TS180','DR1TP204',
-                                                'DR1TP182'))]
+select_vars <- select_vars[!(select_vars %in% c( "DR1TS140",'DR1TS100',"DR1TS060","DR1TP182"))]
 
 select_vars
 
