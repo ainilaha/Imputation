@@ -1,5 +1,6 @@
 ---
-title: "EnWAS V2"
+title: "EnWAS"
+
 output: html_document
 ---
 
@@ -95,59 +96,61 @@ build_formula <- function(base_model,exposure_var,inv=FALSE) {
 
 ```{r func2, echo=TRUE}
 
-# data$fouryearwt <- data$WTDRD1 / 2
-dsn <- svydesign(
-  ids = ~ SDMVPSU,
-  weights = ~ WTDRD1,
-  strata = ~ SDMVSTRA,
-  data = data,
-  nest = TRUE
-)
 
-
-enwas <- function(base_model, exposure_vars, dsn, inv = FALSE) {
-  association_list <- data.frame() # step 2 of algorithm
-  num_var <- length(exposure_vars)
+enwas <- function(base_model, exposure_vars, data_set, inv_norm = FALSE) {
+  
+  num_var <-length(exposure_vars)
+  
   model_list <- vector(mode = "list",length = num_var)
-  factor_terms <- c() # to hold the factors terrms
+  num_cols <- sapply(data[,exposure_vars], is.numeric)
+  num_cols <- names(num_cols[num_cols==TRUE])
+  if(inv_norm){
+    data_set[,num_cols] <- lapply(data_set[,num_cols],invNorm)
+  }
+  
+  
+  
+  
+  association_list <- data.frame() 
+  factor_terms <- c() # to hold the factors terms
+  num_var <- length(exposure_vars)
   for (i in 1:num_var) {
     exposure <- exposure_vars[i]
-    invnorm <- FALSE
-    if(inv & is.numeric(dsn$variables[,exposure])){
-      invnorm <- TRUE #
-    } 
-    if(is.factor(dsn$variables[,exposure])) {
-      factor_terms <- c(factor_terms, paste0(exposure,levels(dsn$variables[,exposure])))
+    
+    if(is.factor(data_set[,exposure])) {
+      factor_terms <- c(factor_terms, paste0(exposure,levels(data_set[,exposure])))
     }
       
-                        
-    model <- build_formula(base_model, exposure, invnorm)
-    ## now run the association
-    mod <- svyglm(model, dsn)
-    # mod <- lm(model, dsn$variables)
+    model <- build_formula(base_model, exposure)
+  
+    mod <- lm(model, data_set)
     model_list[[i]] <- mod
     mod_df <- tidy(mod)
-    # mod_df$variable <- exposure
     association_list <-
       rbind(association_list, mod_df) # step 3b of algorithm
   }
   
   
-  xwas_association_list <-
-    association_list[association_list$term %in% c(exposure_vars,
-                                                  factor_terms,
-                                                  paste0("invNorm(",exposure_vars,")")),]
-  xwas_association_list$term <- str_replace_all(xwas_association_list$term, "invNorm", "")
-  xwas_association_list$term <- str_replace_all(xwas_association_list$term, "[[:punct:]]", "")
+  xwas_list <-
+    association_list[association_list$term %in% c(exposure_vars,factor_terms),]
+  
+  sd_x_list <-  sapply(data_set[,num_cols],sd)
+  for(c in num_cols){
+    xwas_list[xwas_list$term==c,c('estimate','std.error')] <- xwas_list[xwas_list$term==c,c('estimate','std.error')]*sd_x_list[c]
+  }
 
-  xwas_association_list$fdr <-
-    p.adjust(xwas_association_list$p.value, method = 'BY')
-  xwas_association_list <- xwas_association_list |>
-    mutate(coff = estimate * std.error)  |>
+
+
+  xwas_list$fdr <-
+    p.adjust(xwas_list$p.value, method = 'BY')
+  
+  
+  
+  xwas_list <- xwas_list |>
     mutate(lower = estimate - 1.96 * std.error)  |>
     mutate(upper = estimate + 1.96 * std.error)
   
-  return (list(model_list= model_list, enwas_res = xwas_association_list))
+  return (list(model_list= model_list, enwas_res = xwas_list))
   
 }
 
@@ -198,21 +201,13 @@ forest_plot_mult <- function(xwas_result_list) {
 ```{r func3, echo=TRUE,warning=F}
 
 linear_model <- 'BMXWAIST ~ RIDAGEYR+RIAGENDR + BMXBMI'
-linear_res2 <- enwas(linear_model, exposure_vars, dsn)
+linear_res2 <- enwas(linear_model, exposure_vars, data)
 forest_plot(linear_res2$enwas_res)
 
 
-
-
-
-# age_knots <- seq(20, 90, by = 80)
-# q <- 10
-# bmi_knots = quantile(unique(invNorm(data$BMXBMI)), 1:(q - 2) / (q - 1))
-# all_ns_model <-
-#   'BMXWAIST ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10)) * RIAGENDR + ns(BMXBMI,knots = seq(30, 80, by = 10)) + ns(BMXWT) + ns(BMXHT, knots = seq(40, 200, by = 10))'
 all_ns_model <-
   'BMXWAIST ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10)) * RIAGENDR + ns(BMXBMI,knots = seq(30, 80, by = 10))'
-all_ns_res <- enwas(all_ns_model, exposure_vars, dsn)
+all_ns_res <- enwas(all_ns_model, exposure_vars, data)
 
 
 forest_plot_mult(
@@ -225,8 +220,8 @@ forest_plot_mult(
 
 
 
-lm_inverse_res <- enwas(linear_model, exposure_vars, dsn,inv = TRUE)
-ns_inverse_res <- enwas(all_ns_model, exposure_vars, dsn,inv = TRUE)
+lm_inverse_res <- enwas(linear_model, exposure_vars, data,inv = TRUE)
+ns_inverse_res <- enwas(all_ns_model, exposure_vars, data,inv = TRUE)
 
 
 forest_plot_mult(
