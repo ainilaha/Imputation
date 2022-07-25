@@ -1,7 +1,5 @@
 ---
-title: "EnWAS"
-author: "Laha Ale"
-date: '2022-07-03'
+title: "EnWAS1 : testing and selecting base model"
 output: html_document
 ---
 
@@ -21,7 +19,7 @@ library(DBI)
 
 ## Load exploration
 
-- `nhanes.sqlite` can download [here](https://github.com/ccb-hms/Imputation/blob/main/nhanes.sqlite) or generate by run [notebook](https://ccb-hms.github.io/Imputation/nhanes_exploratory.html)
+- `nhanes.sqlite` can download [here](https://github.com/ccb-hms/Imputation/blob/main/nhanes.sqlite) or generate by run [notebook](https://ccb-hms.github.io/Imputation/6_nhanes_data/nhanes_exploratory.html)
 
 ```{r data, echo=TRUE}
 
@@ -36,7 +34,7 @@ library(DBI)
 # }
 set.seed(123)
 
-nhanes_db <- dbConnect(RSQLite::SQLite(), "nhanes.sqlite")
+nhanes_db <- dbConnect(RSQLite::SQLite(), "../../nhanes.sqlite")
 
 # list all of the tables
 dbListTables(nhanes_db)

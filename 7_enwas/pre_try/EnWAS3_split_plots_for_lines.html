@@ -11,7 +11,7 @@
 
 
 
-<title>EnWAS_v3</title>
+<title>Pre EnWAS 3 (split plots for lines)</title>
 
 <script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
 // be compatible with the behavior of Pandoc < 2.8).
@@ -357,7 +357,7 @@ pre code {
 
 
 
-<h1 class="title toc-ignore">EnWAS_v3</h1>
+<h1 class="title toc-ignore">Pre EnWAS 3 (split plots for lines)</h1>
 
 </div>
 
@@ -375,11 +375,11 @@ library(DBI)</code></pre>
 <h2>Load exploration</h2>
 <ul>
 <li><code>nhanes.sqlite</code> can download <a href="https://github.com/ccb-hms/Imputation/blob/main/nhanes.sqlite">here</a>
-or generate by run <a href="https://ccb-hms.github.io/Imputation/nhanes_exploratory.html">notebook</a></li>
+or generate by run <a href="https://ccb-hms.github.io/Imputation/6_nhanes_data/nhanes_exploratory.html">notebook</a></li>
 </ul>
 <pre class="r"><code>set.seed(123)
 
-nhanes_db &lt;- dbConnect(RSQLite::SQLite(), &quot;nhanes.sqlite&quot;)
+nhanes_db &lt;- dbConnect(RSQLite::SQLite(), &quot;../../nhanes.sqlite&quot;)
 
 # list all of the tables
 dbListTables(nhanes_db)</code></pre>
@@ -409,8 +409,12 @@ test_data &lt;- data[test_ix, ]</code></pre>
 mean_square_error &lt;- function(y_true, y_pred){
     round(mean((y_true - y_pred)^2),4)
 }</code></pre>
-<div id="regression-models" class="section level3">
-<h3>regression models</h3>
+<div id="plot-regression" class="section level3">
+<h3>Plot regression</h3>
+<p>It is challenging to select testing data to test the model by fixing
+some terms because data columns are not completely orthogonal to each
+other. As the previous version shows, simply fixing terms or using mean
+or median as the data could be biased.</p>
 <pre class="r"><code>plot_base_model &lt;-  function(x,
                              y = &quot;BMXWAIST&quot;,
                              fixed_terms,
