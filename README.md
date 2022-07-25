@@ -3,7 +3,7 @@ Imputation methods for biomedical data
 
 ### compare rMIDAS and MICE
 #### 1. MICE vs rMIDAS 
-  - [Notebook](https://ccb-hms.github.io/Imputation/1_mice_rmidas/1_rmidas_mice.html)
+  - [Notebook](https://ccb-hms.github.io/Imputation/1_mice_rmidas/rmidas_mice.html)
   
 #### 2. Matrices Plots for MICE, rMIDAS, and missRanger
   - [Notebook for a single imputation ](https://ccb-hms.github.io/Imputation/2_matrices_plots/matrices.html)
