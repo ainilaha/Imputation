@@ -1,0 +1,152 @@
+---
+title: "Exploratory Data Analysis"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+### download.file ()
+We can download dataset files as fellow with download.file(...)
+XPath may a good option of we want to download other files automatically
+
+```{r cars, eval = FALSE}
+data_path = file.path(".", "data")
+
+if(!dir.exists()){
+  dir.create(data_path)
+}
+
+# list the download target tables
+data_tables = c("2003-2004/DR1TOT_C","2009-2010/DR1TOT_F",
+                "2007-2008/DR1TOT_E","2011-2012/DR1TOT_G",
+                "2005-2006/DR1TOT_D","2013-2014/DR1TOT_H",
+                "2015-2016/DR1TOT_I","2017-2018/DR1TOT_J")
+
+for (tb in data_tables){
+  
+  dest_file = paste0(stringr::str_replace(tb,"/","-"),".XPT")
+  dest_file = file.path(data_path,dest_file)
+  
+  if(!file.exists(dest_file)){
+    url = paste0("https://wwwn.cdc.gov/Nchs/Nhanes/",tb,".XPT")
+    download.file(url,destfile = dest_file,quiet = FALSE, mode="wb",cacheOK=TRUE)
+  }
+  
+}
+```
+
+
+### Download Data with nhanesA package
+
+It will be the same as the above if want to load the whole table.
+
+```{r load_data,warning=FALSE}
+library(nhanesA)
+library(knitr)
+
+kable(nhanesTables('DIET',2017)) # Dietary (DIET) 
+kable(nhanesTables('DEMO',2017)) # Demographics (DEMO)
+```
+### load data and show descrption of tables and variables
+```{r load_table,warning=FALSE}
+# 20017 Dietary Interview - Total Nutrient Intakes, First Day
+DR1TOT_J = nhanes("DR1TOT_J")
+dim(DR1TOT_J)
+
+miss = sapply(DR1TOT_J, function(x) sum(is.na(x)))/nrow(DR1TOT_J)
+var_descr = nhanesTableVars('DIET','DR1TOT_J')
+var_descr$miss_rate = miss[sort(names(miss))]
+var_descr$miss_rate_pct = paste(round(100*var_descr$miss_rate, 2), "%", sep="")
+var_descr = var_descr[,c('Variable.Name','miss_rate_pct','Variable.Description','miss_rate')]
+# kable(head(var_descr[,c('Variable.Name','miss_rate_pct','Variable.Description')]))
+kable(var_descr[,c('Variable.Name','miss_rate_pct','Variable.Description')])
+```
+
+
+## Show missing Variables
+
+
+```{r miss_var,results='asis'}
+diet_tables = c(
+  "DR1TOT_C",
+  "DR1TOT_D",
+  "DR1TOT_E",
+  "DR1TOT_F",
+  "DR1TOT_G",
+  "DR1TOT_H",
+  "DR1TOT_I",
+  "DR1TOT_J"
+)
+diet_total_vars = data.frame(matrix(ncol = 2, nrow = 0))
+colnames(diet_total_vars) <-
+  c("Variable.Name", "Variable.Description")
+for (tb in diet_tables) {
+  diet_total_vars = rbind(diet_total_vars, nhanesTableVars('DIET', tb))
+}
+
+diet_total_vars = diet_total_vars[!duplicated(diet_total_vars), ]
+
+
+
+for (tb in diet_tables) {
+  diff = setdiff(diet_total_vars$Variable.Name,
+                 nhanesTableVars('DIET', tb, namesonly = TRUE))
+  # cap = paste("missing variables in", tb)
+  cap = paste(nhanesSearchTableNames(tb, includerdc=TRUE, details=TRUE)[1,1:3], collapse =" ")
+  print(kable(diet_total_vars[(diet_total_vars$Variable.Name %in% diff), ],
+                                    caption = cap))
+}
+
+```
+
+
+## Show missing Values
+
+It would helpful when have relative less number of columns. However, it completely mess when we have large number of columns.
+```{r miss_value,warning=FALSE}
+library(dplyr)
+library(ggplot2)
+library(naniar)
+library(visdat)
+DEMO_E = nhanes('DEMO_E')
+vis_miss(DEMO_E)
+gg_miss_fct(DEMO_E,fct = RIDAGEYR)
+
+```
+
+### look up variables
+
+```{r lookup,results='asis'}
+search_nhanes_vars = function(group,table, var){
+  vars = nhanesTableVars(group,table)
+  print(kable(vars[vars$Variable.Name==var,]))
+  print(kable(nhanesTranslate(table,var)))
+}
+
+
+search_nhanes_vars('DEMO','DEMO_E','RIDAGEYR')
+```
+
+
+
+A possible plot would be, but still not quite useful.
+```{r miss_value2}
+# options(repr.plot.width = 8, repr.plot.height = 15)
+gg_miss_var(DR1TOT_J,show_pct = TRUE)+theme(axis.text.y = element_text(angle = 45))
+```
+
+```{r miss_value3, fig.asp = 0.8, fig.width = 7, out.width = "100%"}
+DEMO_J = nhanes("DEMO_J")
+df_J = merge(DEMO_J, DR1TOT_J, by = "SEQN")
+gg_miss_fct(df_J[, c(colnames(DR1TOT_J), 'RIDAGEYR')], fct = RIDAGEYR)
+# miss_80 = var_descr[var_descr$miss_rate>0.8,]
+# kable(miss_80[order(miss_80$miss_rate,decreasing = TRUE),c("Variable.Name",'miss_rate_pct','Variable.Description')])
+kable(var_descr[var_descr$miss_rate > 0.8, c("Variable.Name", 'miss_rate_pct', 'Variable.Description')])
+gg_miss_fct(df_J[, c(var_descr[var_descr$miss_rate < 0.2, "Variable.Name"], 'RIDAGEYR')], fct = RIDAGEYR) +
+  theme(axis.text.y = element_text(angle = 45))
+```
+

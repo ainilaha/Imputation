@@ -1,0 +1,137 @@
+---
+title: "Download NHANES Data Sets and Save"
+author: "Laha Ale"
+date: '2022-07-06'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load libs
+
+```{r libs}
+library(DBI)
+library(nhanesA)
+```
+
+## Define the load data functions
+
+```{r functions}
+# list the files we want to downloaded
+years <-  c("2003-2004","2005-2006","2007-2008",
+            "2009-2010","2022-2012","2013-2014",
+            "2015-2016","2017-2018")
+# those names are given in NHANES 
+names(years) <- c("C","D","E","F","G","H","I","J")
+
+
+
+
+# load NHANES tables by years, and download files and save as CSV format
+# if they are not existing under data_path
+load_nhanes_table <- function(t_name, data_path = "./data") {
+  if (!dir.exists(data_path)) {
+    dir.create(data_path)
+  }
+  
+  file <- paste0(t_name, ".csv")
+  dest_file <- file.path(data_path, file)
+  tabl <- nhanes(t_name)
+  if (!file.exists(dest_file)) {
+    write.csv(tabl, dest_file, row.names = FALSE)
+  } else{
+    tabl <- read.csv(dest_file)
+  }
+  tabl
+}
+
+
+# combine the data set accross the years
+read_combine_data <- function(year_names, table_name) {
+  first_tb <- paste0(table_name, "_", year_names[1])
+  com_cols <-
+    c(colnames(load_nhanes_table(first_tb)), "years")
+  
+  df_data <-
+    data.frame(data.frame(matrix(
+      ncol = length(com_cols), nrow = 0
+    )))
+  
+  colnames(df_data) <- com_cols
+  
+  for (y in year_names) {
+    tb <- paste0(table_name, "_", y)
+    # print(tb)
+    tmp_tb <-  load_nhanes_table(tb)
+    tmp_tb$years <- y
+    com_cols <- intersect(com_cols, colnames(tmp_tb))
+    df_data <- rbind(df_data[, com_cols], tmp_tb[, com_cols])
+  }
+  
+  df_data$years <- as.factor(df_data$years)
+  levels(df_data$years) <- years[levels(df_data$years)]
+  
+  df_data
+}
+
+```
+
+
+## Download and Save data to SqLite
+
+```{r download}
+nhanes_db <- dbConnect(RSQLite::SQLite(), "nhanes.sqlite")
+
+# Demographics
+demo_data <- read_combine_data(names(years),'DEMO')
+dbWriteTable(nhanes_db, "demo", demo_data)
+
+# Dietary Interview - Total Nutrient Intakes, First Day
+diet_data <- read_combine_data(names(years),'DR1TOT')
+dbWriteTable(nhanes_db, "diet_total", diet_data)
+
+# Body Measures
+# we may need to run the following three line for BMX
+# library(haven)
+# bmx <- read_xpt("https://wwwn.cdc.gov/Nchs/Nhanes/2003-2004/BMX_C.XPT")
+# write.csv(bmx,"./data/BMX_C.csv",row.names = FALSE)
+bmx_data <- read_combine_data(names(years),'BMX')
+dbWriteTable(nhanes_db, "body_measures", bmx_data)
+
+# Blood Pressure & Cholesterol
+blood_cholesterol_data <- read_combine_data(names(years),'BPQ')
+dbWriteTable(nhanes_db, "blood_cholesterol", blood_cholesterol_data)
+
+# Diabetes
+diabetes_data <- read_combine_data(names(years),'DIQ')
+dbWriteTable(nhanes_db, "diabetes", diabetes_data)
+
+# Current Health Status
+current_health_status <- read_combine_data(names(years),'HSQ')
+dbWriteTable(nhanes_db, "current_health_status", current_health_status)
+
+# Medical Conditions
+medical_conditions <- read_combine_data(names(years),'MCQ')
+dbWriteTable(nhanes_db, "medical_conditions", medical_conditions)
+
+```
+
+## Quick check database
+
+```{r check_db}
+
+# list all of the tables
+dbListTables(nhanes_db)
+
+test_blood_cholesterol <- dbGetQuery(nhanes_db, 'SELECT * FROM blood_cholesterol LIMIT 5')
+test_blood_cholesterol
+
+# close the connection
+dbDisconnect(nhanes_db)
+
+```
+
+
+

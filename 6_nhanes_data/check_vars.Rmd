@@ -1,0 +1,75 @@
+---
+title: "Variables Information"
+
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## Load libs
+
+```{r libs}
+library(DBI)
+library(nhanesA)
+```
+
+
+
+## retrive variable information
+
+Do not run the following code if downloaded nhanes.sqlite.
+
+```{r var_infor}
+# function(group,table)
+  
+nhanes_db <- dbConnect(RSQLite::SQLite(), "nhanes.sqlite")
+
+
+var_df <-
+    data.frame(data.frame(matrix(
+      ncol = 4, nrow = 0
+    )))
+
+retrive_vars <- function(group_name,t_name){
+  discr <- nhanesTableVars(group_name,t_name)
+  colnames(discr) <- c('variable','description')
+  discr$t_name <- rep(t_name,nrow(discr))
+  discr
+}
+
+var_df <- rbind(var_df,retrive_vars('DEMO','DEMO_F'))
+var_df <- rbind(var_df,retrive_vars('EXAM','BMX_F'))
+var_df <- rbind(var_df,retrive_vars('DIET','DR1TOT_F'))
+var_df <- rbind(var_df,retrive_vars('Q','BPQ_F'))
+var_df <- rbind(var_df,retrive_vars('Q','DIQ_F'))
+var_df <- rbind(var_df,retrive_vars('Q','HSQ_F'))
+var_df <- rbind(var_df,retrive_vars('Q','MCQ_F'))
+dbRemoveTable(nhanes_db,'var_decr')
+dbWriteTable(nhanes_db, "var_decr", var_df)
+dbDisconnect(nhanes_db)
+
+```
+
+
+## Get varibale information
+
+```{r var_infor2}
+# function(group,table)
+look_var <- function(var_name){
+  nhanes_db <- dbConnect(RSQLite::SQLite(), "nhanes.sqlite")
+  sql_str <- paste0('SELECT * FROM var_decr WHERE variable = "',var_name,'"')
+  var_info <- dbGetQuery(nhanes_db,sql_str)
+  dbDisconnect(nhanes_db)
+  print(var_info[,c('variable','description')])
+  print(nhanesTranslate(var_info$t_name,var_info$variable))
+}
+
+# usage examples:
+
+look_var('BMXBMI')
+
+look_var('DMDCITZN')
+
+look_var('DMDEDUC2')
+```
