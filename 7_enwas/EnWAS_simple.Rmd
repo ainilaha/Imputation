@@ -11,7 +11,6 @@ knitr::opts_chunk$set(echo = TRUE)
 ## load libs
 ```{r libs,warning=FALSE,message=FALSE}
 library(DBI)
-library(survey)
 library(broom)
 library(splines)
 library(stringr)
@@ -97,62 +96,70 @@ build_formula <- function(base_model,exposure_var,inv=FALSE) {
 ```{r func2, echo=TRUE}
 
 
-enwas <- function(base_model, exposure_vars, data_set, inv_norm = FALSE) {
-  
-  num_var <-length(exposure_vars)
-  
-  model_list <- vector(mode = "list",length = num_var)
-  num_cols <- sapply(data[,exposure_vars], is.numeric)
-  num_cols <- names(num_cols[num_cols==TRUE])
-  if(inv_norm){
-    data_set[,num_cols] <- lapply(data_set[,num_cols],invNorm)
-  }
-  
-  
-  
-  
-  association_list <- data.frame() 
-  factor_terms <- c() # to hold the factors terms
-  num_var <- length(exposure_vars)
-  for (i in 1:num_var) {
-    exposure <- exposure_vars[i]
+
+enwas <-
+  function(base_model,
+           exposure_vars,
+           data_set,
+           inv_norm = FALSE) {
+    num_var <- length(exposure_vars)
     
-    if(is.factor(data_set[,exposure])) {
-      factor_terms <- c(factor_terms, paste0(exposure,levels(data_set[,exposure])))
+    model_list <- vector(mode = "list", length = num_var)
+    num_cols <- sapply(data[, exposure_vars], is.numeric)
+    num_cols <- names(num_cols[num_cols == TRUE])
+    if (inv_norm) {
+      data_set[, num_cols] <- lapply(data_set[, num_cols], invNorm)
     }
+    
+    
+    
+    
+    association_list <- data.frame()
+    factor_terms <- c() # to hold the factors terms
+    num_var <- length(exposure_vars)
+    for (i in 1:num_var) {
+      exposure <- exposure_vars[i]
       
-    model <- build_formula(base_model, exposure)
-  
-    mod <- lm(model, data_set)
-    model_list[[i]] <- mod
-    mod_df <- tidy(mod)
-    association_list <-
-      rbind(association_list, mod_df) # step 3b of algorithm
+      if (is.factor(data_set[, exposure])) {
+        factor_terms <-
+          c(factor_terms, paste0(exposure, levels(data_set[, exposure])))
+      }
+      
+      model <- build_formula(base_model, exposure)
+      
+      mod <- lm(model, data_set)
+      model_list[[i]] <- mod
+      mod_df <- tidy(mod)
+      association_list <-
+        rbind(association_list, mod_df) # step 3b of algorithm
+    }
+    
+    
+    xwas_list <-
+      association_list[association_list$term %in% c(exposure_vars, factor_terms), ]
+    
+    # sd_x_list <-  sapply(data_set[,num_cols],sd)
+    sd_x_list <-  sapply(data_set, function(x)
+      sd(as.numeric(x)))
+    for (var in exposure_vars) {
+      xwas_list[grepl(var, xwas_list$term), c('estimate', 'std.error')] <-
+        xwas_list[grepl(var, xwas_list$term), c('estimate', 'std.error')] * sd_x_list[var]
+    }
+    
+    
+    
+    xwas_list$fdr <-
+      p.adjust(xwas_list$p.value, method = 'BY')
+    
+    
+    
+    xwas_list <- xwas_list |>
+      mutate(lower = estimate - 1.96 * std.error)  |>
+      mutate(upper = estimate + 1.96 * std.error)
+    
+    return (list(model_list = model_list, enwas_res = xwas_list))
+    
   }
-  
-  
-  xwas_list <-
-    association_list[association_list$term %in% c(exposure_vars,factor_terms),]
-  
-  sd_x_list <-  sapply(data_set[,num_cols],sd)
-  for(c in num_cols){
-    xwas_list[xwas_list$term==c,c('estimate','std.error')] <- xwas_list[xwas_list$term==c,c('estimate','std.error')]*sd_x_list[c]
-  }
-
-
-
-  xwas_list$fdr <-
-    p.adjust(xwas_list$p.value, method = 'BY')
-  
-  
-  
-  xwas_list <- xwas_list |>
-    mutate(lower = estimate - 1.96 * std.error)  |>
-    mutate(upper = estimate + 1.96 * std.error)
-  
-  return (list(model_list= model_list, enwas_res = xwas_list))
-  
-}
 
 
 
@@ -230,5 +237,20 @@ forest_plot_mult(
     ns_inv = ns_inverse_res$enwas_res
   )
 )
+
+forest_plot_mult(
+  list(
+    linear = linear_res2$enwas_res,
+    lm_inv = lm_inverse_res$enwas_res
+  )
+)
+
+forest_plot_mult(
+  list(
+    ns = all_ns_res$enwas_res,
+    ns_inv = ns_inverse_res$enwas_res
+  )
+)
+
   
 ```

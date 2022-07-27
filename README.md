@@ -43,7 +43,7 @@ Imputation methods for biomedical data
   - [Pre EnWAS 3 (split plots for lines)](https://ccb-hms.github.io/Imputation/7_enwas/pre_try/EnWAS3_split_plots_for_lines.html)
   - [Pre EnWAS 4 (EnWAS with Survey package)](https://ccb-hms.github.io/Imputation/7_enwas/pre_try/EnWAS4_survey_package.html)
   - [Variable Selection](https://ccb-hms.github.io/Imputation/7_enwas/diet_var_selection.html)
-  - [Simple EnWAS](https://ccb-hms.github.io/7_enwas/Imputation/EnWAS_simple.html)
+  - [Simple EnWAS](https://ccb-hms.github.io/Imputation/7_enwas/EnWAS_simple.html)
 
 
 #### Update Notes:
