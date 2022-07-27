@@ -204,18 +204,33 @@ forest_plot_mult <- function(xwas_result_list) {
 ```
 
 
-## EnWAS Results
+## Run EnWAS 
 
 ```{r func3, echo=TRUE,warning=F}
 
 linear_model <- 'BMXWAIST ~ RIDAGEYR+RIAGENDR + BMXBMI'
 linear_res2 <- enwas(linear_model, exposure_vars, data)
-forest_plot(linear_res2$enwas_res)
+
 
 
 all_ns_model <-
   'BMXWAIST ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10)) * RIAGENDR + ns(BMXBMI,knots = seq(30, 80, by = 10))'
 all_ns_res <- enwas(all_ns_model, exposure_vars, data)
+
+
+lm_inverse_res <- enwas(linear_model, exposure_vars, data,inv = TRUE)
+ns_inverse_res <- enwas(all_ns_model, exposure_vars, data,inv = TRUE)
+
+
+
+  
+```
+
+## Run EnWAS 
+
+```{r func3_plots, echo=TRUE,warning=F}
+
+forest_plot(linear_res2$enwas_res)
 
 
 forest_plot_mult(
@@ -225,11 +240,6 @@ forest_plot_mult(
   )
 )
 
-
-
-
-lm_inverse_res <- enwas(linear_model, exposure_vars, data,inv = TRUE)
-ns_inverse_res <- enwas(all_ns_model, exposure_vars, data,inv = TRUE)
 
 
 forest_plot_mult(
@@ -253,8 +263,8 @@ forest_plot_mult(
   )
 )
 
-  
 ```
+
 ## EnWAS Results numerical only
 
 ```{r func4, echo=TRUE,warning=F}
@@ -303,4 +313,48 @@ forest_plot_mult(
   
 ```
 
+
+## EnWAS show interesting variables
+
+```{r func_intes_var, echo=TRUE,warning=F}
+
+xwas_res_list <- list(linear = linear,ns = ns,lm_inv = lm_inv,ns_inv = ns_inv)
+xwas_result <- do.call("rbind",xwas_res_list )
+xwas_result$EnWAS <-
+  rep(names(xwas_res_list), each = nrow(xwas_res_list[[1]]))
+
+xwas_result$postive <- xwas_result$lower * xwas_result$upper
+xwas_result$postive <- xwas_result$postive >=0
+
+# show the false positive raised in linear base model
+ns_vs_linear <- xwas_result[xwas_result$EnWAS=="linear",]$postive != xwas_result[xwas_result$EnWAS=="ns",]$postive
+num_cols[ns_vs_linear]
+
+ggplot(data, aes(x=RIDAGEYR, y=DR1TM201,colour=RIAGENDR)) + 
+  geom_point(alpha=0.1)+
+  geom_smooth(method = lm, formula = y ~ ns(x, knots = seq(30, 80, by = 10)), size = 1)
+
+
+ggplot(data, aes(x=RIDAGEYR, y=DR1EXMER,colour=RIAGENDR)) + 
+  geom_point(alpha=0.1)+
+  geom_smooth(method = lm, formula = y ~ ns(x, knots = seq(30, 80, by = 10)), size = 1)
+
+
+ns_vs_ns_inv <- xwas_result[xwas_result$EnWAS=="ns_inv",]$postive != xwas_result[xwas_result$EnWAS=="ns",]$postive
+num_cols[ns_vs_ns_inv]
+
+
+ggplot(data, aes(x=RIDAGEYR, y=invNorm(DR1EXMER),colour=RIAGENDR)) + 
+  geom_point(alpha=0.1)+
+  geom_smooth(method = lm, formula = y ~ ns(x, knots = seq(30, 80, by = 10)), size = 1)
+
+ggplot(data, aes(x=RIDAGEYR, y=DR1TPROT,colour=RIAGENDR)) + 
+  geom_point(alpha=0.1)+
+  geom_smooth(method = lm, formula = y ~ ns(x, knots = seq(30, 80, by = 10)), size = 1)
+
+ggplot(data, aes(x=RIDAGEYR, y=invNorm(DR1TPROT),colour=RIAGENDR)) + 
+  geom_point(alpha=0.1)+
+  geom_smooth(method = lm, formula = y ~ ns(x, knots = seq(30, 80, by = 10)), size = 1)
+
+````
 
