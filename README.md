@@ -13,8 +13,8 @@ Imputation methods for biomedical data
 #### 3. Plot Imputation comparison
   - [compare](https://ccb-hms.github.io/Imputation/3_plot_impt_comp/compare_preds.html)
   - [more compare](https://ccb-hms.github.io/Imputation/3_plot_impt_comp/more_compare.html)
-  - [Adult data imputation](https://ccb-hms.github.io/Imputation/3_plot_impt_com/imputation_adult.html)
-  - [Generalized Additive Models](https://ccb-hms.github.io/Imputation/3_plot_impt_com/gamlss_mice.html)
+  - [Adult data imputation](https://ccb-hms.github.io/Imputation/3_plot_impt_comp/imputation_adult.html)
+  - [Generalized Additive Models](https://ccb-hms.github.io/Imputation/3_plot_impt_comp/gamlss_mice.html)
   
 #### 4. GAIN
   - [Notebook: fdgs](https://github.com/ccb-hms/Imputation/blob/main/4_gain/run_gain_fgds.ipynb)

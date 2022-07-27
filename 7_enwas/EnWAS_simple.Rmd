@@ -316,7 +316,7 @@ forest_plot_mult(
 
 ## EnWAS show interesting variables
 
-```{r func_intes_var, echo=TRUE,warning=F}
+```{r func_intes_var, echo=TRUE,results = "asis"}
 
 xwas_res_list <- list(linear = linear,ns = ns,lm_inv = lm_inv,ns_inv = ns_inv)
 xwas_result <- do.call("rbind",xwas_res_list )
@@ -330,31 +330,25 @@ xwas_result$postive <- xwas_result$postive >=0
 ns_vs_linear <- xwas_result[xwas_result$EnWAS=="linear",]$postive != xwas_result[xwas_result$EnWAS=="ns",]$postive
 num_cols[ns_vs_linear]
 
-ggplot(data, aes(x=RIDAGEYR, y=DR1TM201,colour=RIAGENDR)) + 
+for(c in num_cols[ns_vs_linear]){
+  g <- ggplot(data, aes_string(x="RIDAGEYR", y=paste0("invNorm(",c,")"), colour="RIAGENDR")) + 
   geom_point(alpha=0.1)+
   geom_smooth(method = lm, formula = y ~ ns(x, knots = seq(30, 80, by = 10)), size = 1)
+  print(g)
+}
 
-
-ggplot(data, aes(x=RIDAGEYR, y=DR1EXMER,colour=RIAGENDR)) + 
-  geom_point(alpha=0.1)+
-  geom_smooth(method = lm, formula = y ~ ns(x, knots = seq(30, 80, by = 10)), size = 1)
-
-
+# ns vs inverse norm transformation 
 ns_vs_ns_inv <- xwas_result[xwas_result$EnWAS=="ns_inv",]$postive != xwas_result[xwas_result$EnWAS=="ns",]$postive
 num_cols[ns_vs_ns_inv]
 
-
-ggplot(data, aes(x=RIDAGEYR, y=invNorm(DR1EXMER),colour=RIAGENDR)) + 
+for(c in num_cols[ns_vs_ns_inv]){
+  g <- ggplot(data, aes_string(x="RIDAGEYR", y=paste0("invNorm(",c,")"), colour="RIAGENDR")) + 
   geom_point(alpha=0.1)+
   geom_smooth(method = lm, formula = y ~ ns(x, knots = seq(30, 80, by = 10)), size = 1)
+  print(g)
+}
 
-ggplot(data, aes(x=RIDAGEYR, y=DR1TPROT,colour=RIAGENDR)) + 
-  geom_point(alpha=0.1)+
-  geom_smooth(method = lm, formula = y ~ ns(x, knots = seq(30, 80, by = 10)), size = 1)
 
-ggplot(data, aes(x=RIDAGEYR, y=invNorm(DR1TPROT),colour=RIAGENDR)) + 
-  geom_point(alpha=0.1)+
-  geom_smooth(method = lm, formula = y ~ ns(x, knots = seq(30, 80, by = 10)), size = 1)
 
 ````
 
