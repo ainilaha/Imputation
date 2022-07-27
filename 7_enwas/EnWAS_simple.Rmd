@@ -105,7 +105,7 @@ enwas <-
     num_var <- length(exposure_vars)
     
     model_list <- vector(mode = "list", length = num_var)
-    num_cols <- sapply(data[, exposure_vars], is.numeric)
+    num_cols <- sapply(data_set[, exposure_vars], is.numeric)
     num_cols <- names(num_cols[num_cols == TRUE])
     if (inv_norm) {
       data_set[, num_cols] <- lapply(data_set[, num_cols], invNorm)
@@ -137,6 +137,7 @@ enwas <-
     
     xwas_list <-
       association_list[association_list$term %in% c(exposure_vars, factor_terms), ]
+
     
     # sd_x_list <-  sapply(data_set[,num_cols],sd)
     sd_x_list <-  sapply(data_set, function(x)
@@ -254,3 +255,52 @@ forest_plot_mult(
 
   
 ```
+## EnWAS Results numerical only
+
+```{r func4, echo=TRUE,warning=F}
+num_cols <- sapply(data[, exposure_vars], is.numeric)
+num_cols <- names(num_cols[num_cols == TRUE])
+
+
+linear <- linear_res2$enwas_res
+linear <- linear[linear$term %in% num_cols,]
+ns <- all_ns_res$enwas_res
+ns <- ns[ns$term %in% num_cols,]
+    
+lm_inv <- lm_inverse_res$enwas_res
+lm_inv <- lm_inv[lm_inv$term %in% num_cols,]
+ns_inv <- ns_inverse_res$enwas_res
+ns_inv <- ns_inv[ns_inv$term %in% num_cols,]
+
+forest_plot_mult(
+  list(
+    ns = ns,
+    linear = linear
+  )
+)
+
+forest_plot_mult(
+  list(
+    lm_inv = lm_inv,
+    ns_inv = ns_inv
+  )
+)
+
+forest_plot_mult(
+  list(
+    linear = linear,
+    lm_inv = lm_inv
+  )
+)
+
+forest_plot_mult(
+  list(
+    ns = ns,
+    ns_inv = ns_inv
+  )
+)
+
+  
+```
+
+
