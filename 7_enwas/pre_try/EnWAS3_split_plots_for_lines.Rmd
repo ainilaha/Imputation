@@ -40,8 +40,8 @@ data <- na.omit(data)
 dbDisconnect(nhanes_db)
 
 
-train_ix <- sample(x = 1:nrow(data), size = 5000)
-test_ix <- sample(x = setdiff(1:nrow(data), train_ix), 20000)
+train_ix <- sample(x = 1:nrow(data), size = 15000)
+test_ix <- sample(x = setdiff(1:nrow(data), train_ix), 5000)
 
 train_data <- data[train_ix, ]
 test_data <- data[test_ix, ]
@@ -69,54 +69,38 @@ It is challenging to select testing data to test the model by fixing some terms 
 
 ```{r spline_test, echo=TRUE}
 
-plot_base_model <-  function(x,
-                             y = "BMXWAIST",
-                             fixed_terms,
+plot_base_model <-  function(var,
+                             out = "BMXWAIST",
                              lm_mod,
-                             test_set = test_data) {
+                             test_set) {
   
-  # test_df <- test_set
   
-  for(c in fixed_terms){
-    m <- mean(test_set[,c], na.rm=T)
-    std <- sd(test_set[,c], na.rm=T)
-    test_set <- test_set[m-std/5 <= test_set[,c] & test_set[,c]<= m+std/5,]
- 
-  }
-  print(dim(test_set))
-
   lm_pred <- predict(lm_mod, newdata = test_set, se = T)
-  
+   
   
   # save prediction results
   pred_df <- data.frame(
+    x = test_set[,var],
     fit = lm_pred$fit,
     lower = lm_pred$fit - 1.96 * lm_pred$se.fit,
     upper = lm_pred$fit + 1.96 * lm_pred$se.fit,
-    sex = test_set$RIAGENDR,
-    x = test_set[, x],
-    y = test_set[, y]
+    sex = test_set$RIAGENDR
   )
   
   
   
-  # compute MSE
-  mse <- mean_square_error(pred_df$fit, pred_df$y)
-  
-  #plot results
+#plot results
   g <-
-    ggplot(pred_df, aes(x = x, y = y)) + geom_point(colour = "black", alpha = 0.1) +
+    ggplot(pred_df, aes(x = x, y = fit)) + 
     geom_line(aes(
       x = x,
       y = fit,
-      colour = sex,
-      alpha = 0.1
+      colour = sex
     ), size = 1.5) +
-    ylab(y) + xlab(x)
-  
-  g + ggtitle(paste("MSE = ", mse))
-  
-  
+    geom_ribbon(aes(ymin = lower, ymax = upper,colour = sex),alpha = 0.1)+
+    ylab(out) + xlab(var)
+
+  g
 }
 
 
@@ -127,52 +111,29 @@ plot_base_model <-  function(x,
 
 ### regression models weight
 
-`MXWAIST ~ bs(RIDAGEYR, df = 7)*RIAGENDR + bs(BMXWT) + BMXHT`
+`BMXWAIST ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10)) * RIAGENDR + ns(BMXBMI,knots = seq(30, 80, by = 10))`
 
 ```{r spline_test_weith, echo=TRUE}
-lm_model <- lm(formula=BMXWAIST ~ bs(RIDAGEYR, df = 7)*RIAGENDR + bs(BMXWT) + BMXHT,train_data)
-# summary(lm_model)
-
-
-fixed_terms=c('RIDAGEYR','BMXHT')
-# fixed_values <- colMeans(test_data[, fixed_terms],na.rm = TRUE)
-
-plot_base_model(x='BMXWT',fixed_terms=fixed_terms,lm_mod=lm_model)
-
-
-fixed_terms=c('RIDAGEYR','BMXWT')
-
-plot_base_model(x='BMXHT',fixed_terms=fixed_terms,lm_mod=lm_model)
-```
-
-
-
-
-### regression models natural spline
-
-```{r spline_models, echo=TRUE}
-age_knots <- seq(10, 90, by = 10)
-q <- 10
-bmi_knots = quantile(unique(data$BMXBMI),1:(q-2)/(q-1))
-
-
-ns_model <-
+lm_model <-
   lm(
-    formula = BMXWAIST ~ ns(
-      RIDAGEYR,
-      knots = age_knots,
-      Boundary.knots = c(10, 120)
-    ) * RIAGENDR + ns(BMXBMI,knots = bmi_knots) + BMXWT + BMXHT,
+    formula = BMXWAIST ~ ns(RIDAGEYR,knots = seq(30, 80, by = 10))*RIAGENDR + ns(BMXBMI,df=7),
     train_data
   )
 
-plot_base_model(x='BMXWT',fixed_terms=fixed_terms,lm_mod=ns_model)
+cols <- c('RIDAGEYR','BMXBMI','RIDAGEYR')
+
+test_set <- test_data
+
+test_set$BMXBMI <- mean(test_set$BMXBMI,na.rm = TRUE)
+  
+plot_base_model(var="RIDAGEYR",lm_mod = lm_model,test_set = test_set)
 
 
-fixed_terms=c('RIDAGEYR','BMXWT','BMXBMI')
-fixed_values <- colMeans(test_data[, fixed_terms],na.rm = TRUE)
-plot_base_model(x='BMXHT',fixed_terms=fixed_terms,lm_mod=ns_model)
+test_set <- test_data
 
-fixed_terms=c('RIDAGEYR','BMXWT','BMXHT')
-plot_base_model(x='BMXBMI',fixed_terms=fixed_terms,lm_mod=ns_model)
+test_set$RIDAGEYR <- mean(test_set$RIDAGEYR,na.rm = TRUE)
+  
+plot_base_model(var="BMXBMI",lm_mod = lm_model,test_set = test_set)
+
 ```
+
