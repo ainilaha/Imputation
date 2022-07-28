@@ -208,7 +208,7 @@ forest_plot_mult <- function(xwas_result_list) {
 
 ```{r func3, echo=TRUE,warning=F}
 
-linear_model <- 'BMXWAIST ~ RIDAGEYR+RIAGENDR + BMXBMI'
+linear_model <- 'BMXWAIST ~ RIDAGEYR*RIAGENDR + BMXBMI'
 linear_res2 <- enwas(linear_model, exposure_vars, data)
 
 
