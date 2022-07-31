@@ -228,7 +228,7 @@ forest_plot_mult <- function(xwas_result_list) {
 
 ## Run EnWAS 
 
-```{r func3, echo=TRUE,warning=F}
+```{r func3, echo=TRUE,warning=F, out.width = '90%'}
 
 linear_model <- 'BMXWAIST ~ RIDAGEYR*RIAGENDR + BMXBMI'
 linear_res2 <- enwas(linear_model, exposure_vars, data)
@@ -250,7 +250,7 @@ ns_inverse_res <- enwas(all_ns_model, exposure_vars, data,inv = TRUE)
 
 ## Run EnWAS 
 
-```{r func3_plots, echo=TRUE,warning=F}
+```{r func3_plots, echo=TRUE,warning=F,out.width = '99%'}
 
 forest_plot(linear_res2$enwas_res)
 
@@ -289,7 +289,7 @@ forest_plot_mult(
 
 ## EnWAS Results numerical only
 
-```{r func4, echo=TRUE,warning=F}
+```{r func4, echo=TRUE,warning=F,out.width = '99%'}
 num_cols <- sapply(data[, exposure_vars], is.numeric)
 num_cols <- names(num_cols[num_cols == TRUE])
 
@@ -338,6 +338,7 @@ forest_plot_mult(
 
 ## EnWAS show interesting variables
 
+
 ```{r func_intes_var, echo=TRUE,results = "asis"}
 
 xwas_res_list <- list(linear = linear,ns = ns,lm_inv = lm_inv,ns_inv = ns_inv)
@@ -368,6 +369,9 @@ for(c in num_cols[ns_vs_ns_inv]){
   geom_point(alpha=0.1)+
   geom_smooth(method = lm, formula = y ~ ns(x, knots = seq(30, 80, by = 10)), size = 1)
   print(g)
+  par(mfrow=c(1,2))
+  hist(data[,c])
+  hist(invNorm(data[,c]))
 }
 
 
