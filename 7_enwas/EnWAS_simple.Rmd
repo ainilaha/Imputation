@@ -370,8 +370,8 @@ for(c in num_cols[ns_vs_ns_inv]){
   geom_smooth(method = lm, formula = y ~ ns(x, knots = seq(30, 80, by = 10)), size = 1)
   print(g)
   par(mfrow=c(1,2))
-  hist(data[,c])
-  hist(invNorm(data[,c]))
+  hist(data[,c],main = c)
+  hist(invNorm(data[,c]), main = paste0("invNorm:",c))
 }
 
 
