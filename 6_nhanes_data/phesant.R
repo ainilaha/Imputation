@@ -1,5 +1,24 @@
+n_unique <- function (df,cols){
+  if (length(cols) == 0)
+    return
+  else{
+    cols <- names(cols[cols==TRUE])
+  }
+  
+  if(length(cols) == 1){
+    n <- length(unique(df[,cols]))
+    names(n) <- cols[1]
+    return (n)
+  }else{
+    n <- sapply(df[,cols], function(x)
+      n_distinct(x))
+    return (n)
+  }
+  
+}
 
-library(dplyr)
+# nums <- sapply(data, is.numeric)
+# nums <- unlist(lapply(data, is.numeric), use.names = FALSE)
 
 phesant <- function(df) {
   cnt_data <- nrow(df)
@@ -9,19 +28,17 @@ phesant <- function(df) {
   names(data_types) <- colnames(df)
   
   # **********************continuous started*******************************
-  num_data <-
-    df |> select_if(is.numeric) |> select_if( ~ !is.integer(.x))
+  # note the the following process including continuous and integers
+  # int_cols <- sapply(df, is.integer)
+  num_cols <- sapply(df, is.numeric)
+  
+  distinct_cnt <- n_unique(df,num_cols)
   same_ratio <-
-    round(1 - sapply(num_data, function(x)
-      n_distinct(x)) / cnt_data, 4)
+    round(1 - distinct_cnt / cnt_data, 4)
   
   continous_cols <- names(same_ratio[same_ratio < 0.35])
   
-  
-  
-  num_data <- num_data |> select(-all_of(continous_cols))
-  distinct_cnt <- sapply(num_data, function(x)
-    n_distinct(x))
+
   ex_continous_cols <- names(distinct_cnt[distinct_cnt > 20])
   continous_cols <- c(continous_cols, ex_continous_cols)
   
@@ -32,9 +49,6 @@ phesant <- function(df) {
   
   
   # assign to order and binary
-  num_data <- num_data |> select(-all_of(ex_continous_cols))
-  distinct_cnt <- sapply(num_data, function(x)
-    n_distinct(x))
   bin_cols <- names(distinct_cnt[distinct_cnt <= 2])
   
   order_cols <- names(distinct_cnt[distinct_cnt > 2 & distinct_cnt <= 20])
@@ -44,38 +58,19 @@ phesant <- function(df) {
   # **********************continuous end***********************************
   
   
-  # **********************integer started*********************************
-  int_data <- df |> select_if(is.integer)
-  distinct_cnt <- sapply(int_data, function(x)
-    n_distinct(x))
-  
-  
-  bin_cols <- c(bin_cols, names(distinct_cnt[distinct_cnt <= 2]))
-  order_cols <- c(order_cols, names(distinct_cnt[distinct_cnt > 2 & distinct_cnt <= 20]))
-  
-  continous_cols <-
-    c(continous_cols, names(distinct_cnt[distinct_cnt > 20]))
-  
-  # **********************integer end*************************************
-  
-  
-  
   
   # **********************categorical (single) started*******************
-  cat_data <-
-    df |> select_if(function(x)
-      is.factor(x) || is.character(x))
+  cat_cols <- sapply(df, is.character)
   
   # remove categories than less than 10 participants:
-  for (col in colnames(cat_data)) {
-    cnt <- cat_data |> count(!!as.name(col))
-    cnt <- cnt[cnt$n > 10, ]
-    cat_data <- cat_data[cat_data[, col] %in% cnt[, col], ]
+  cols <- names(cat_cols[cat_cols==TRUE])
+  for (col in cols) {
+    cnt <- table(df[,col])
+    df[!df[,col] %in% names(cnt[cnt<=10]),]
   }
   # ordered or un-ordered:
   
-  distinct_cnt <- sapply(cat_data, function(x)
-    n_distinct(x))
+  distinct_cnt <- n_unique(df,cat_cols)
   bin_cols <- c(bin_cols, names(distinct_cnt[distinct_cnt <= 2]))
   
   # NEEDS FURTHER VERY TO BE ORDER

@@ -21,7 +21,7 @@ library(DBI)
 - `nhanes.sqlite` can download [here](https://github.com/ccb-hms/Imputation/blob/main/nhanes.sqlite) or generate by run [notebook](https://ccb-hms.github.io/Imputation/nhanes_exploratory.html)
 
 ```{r data, echo=TRUE}
-nhanes_db <- dbConnect(RSQLite::SQLite(), "nhanes.sqlite")
+nhanes_db <- dbConnect(RSQLite::SQLite(), "../nhanes.sqlite")
 
 # list all of the tables
 dbListTables(nhanes_db)
@@ -42,7 +42,7 @@ diet_data <- data[, diet_cols]
 
 ```{r func, echo=TRUE}
 invNorm <- function(x) {qnorm((rank(x) - 3/8)/(length(x) +1 - 6/8))}
-source("phesant.R")
+source("../6_nhanes_data/phesant.R")
 
 # generate the variable selection metrices
 select_matrice <- function(df){
@@ -259,7 +259,7 @@ select_vars <- select_vars[!(select_vars %in% c( "DR1TS140",'DR1TS100',"DR1TS060
 
 select_vars
 
-write(select_vars, "data/select_vars.txt")
+write(select_vars, "../data/select_vars.txt")
 
 # we can read them varibles later by
 # selected_cols <- read.delim("data/select_vars.txt",header = FALSE)$V1

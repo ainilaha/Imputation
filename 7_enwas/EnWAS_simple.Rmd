@@ -1,5 +1,5 @@
 ---
-title: "EnWAS"
+title: "EnWAS simple version"
 
 output: html_document
 ---
