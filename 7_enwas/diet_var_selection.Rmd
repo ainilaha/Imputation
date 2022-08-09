@@ -65,7 +65,7 @@ select_matrice <- function(df){
     rept_n = sapply(df, function(x) max(table(x))),
   
     # number of NAs
-    na_n = sapply(df, function(x) sum(is.na(x))),
+    na_ratio = round(sapply(df, function(x) sum(is.na(x)))/nrow(df),4),
 
     # number of 0
     zero_n = sapply(df, function(x) sum(na.omit(x)==0)),
@@ -87,15 +87,19 @@ select_matrice <- function(df){
 
 
 ## Selection process
-![variable selection process](images/selection_process.png)
+
+ eg. data$DRABF only contains 2
+![variable selection process](../images/selection_process.png)
 
 ```{r func2, echo=TRUE,warning=FALSE}
 library(knitr)
 select_df <- select_matrice(diet_data)
 kable(head(select_df))
-select_vars <- select_df |> filter((phesant != 'binary' & rept_ratio < 0.5) |
-                                     (phesant == 'binary' & rept_ratio < 0.7)) |>
-              filter(!(phesant=='continuous' & rept_ratio > 0.1 & zero_ratio > 0.1)) 
+select_vars <- select_df |> filter(std!=0)|>
+  filter((phesant == 'binary' & rept_ratio < 0.95) | 
+           (phesant=='continuous' & rept_ratio < 0.1 & zero_ratio < 0.1)|
+           (phesant %in% c('ordered', 'unordered') & rept_ratio < 0.8)
+                                               )
 
 select_vars <- rownames(select_vars)
 

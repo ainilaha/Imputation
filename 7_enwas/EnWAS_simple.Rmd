@@ -119,6 +119,7 @@ enwas <-
     num_var <- length(exposure_vars)
     for (i in 1:num_var) {
       exposure <- exposure_vars[i]
+      # print(exposure)
       
       if (is.factor(data_set[, exposure])) {
         factor_terms <-

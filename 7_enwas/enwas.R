@@ -23,6 +23,17 @@ library(splines)
 library(Rsge)
 library(purrr)
 
+ph.list = c('num1',"num2","bin")
+model_var = c('age',"sex",'pc.0')
+data = data_enwas
+outcome = "outcome1"
+gen_cat = "age_sex"
+sex_spec_cat = "age_cat"
+ss.out = "No"
+ss.out.cat = "M/F"
+n_cutoff= 10 
+
+i = 1
 
 ENWAS_general=function(i,
                        ph.list, # list of variables to run through as independent variables
@@ -78,7 +89,7 @@ ENWAS_general=function(i,
     mod = c("bs(age, knots = seq(-20,20, by = 10), Boundary.knots = c(-30,40))",model_var[which(!model_var %in% c('age','sex'))])
     sex_specific = "Yes"
     sex_cat = ss.out.cat
-    X1 # # here it gets dicey - would need to think about structure of users database
+    X1 = data[,c("ID",ph.list)] # # here it gets dicey - would need to think about structure of users database
       #get.pheno.data(names = c(ph.list[i])) %>% mutate(ID = rownames(.)) %>% dplyr::select(ID, everything()) 
   }else{
     # if not sex specific, pull phenotype and sex, do checks that we have enough of each variable. 
@@ -335,60 +346,41 @@ ENWAS_general=function(i,
 
 
 
-library(Rsge)
-library(purrr)
-
-nj3 = min(length(el.fin),200)
-
-enwas.summary<- sge.wrap(
- sge.parLapply(
-    1:length(el.fin1), #index
-    ENWAS_general,    #function
-    el.fin1,          #ph.list
-    data_enwas,       #data
-    cache.location,   #cachpath
-    model_variables,  #model_var
-    ps.cat,           #post_stratified_cat
-    outcome.var,      #outcome
-    ss.cat,  #sex_spec_cat
-    sex_specific, #is outcome sex specific
-    sex_cat_out, #if so which sex
-    n_cut, #n_cutoff
-    packages=c('survey','sandwich','dplyr','rlang','survival','splines'),
-    njobs=nj3
-    )
-  
-  ,tmpdir = getwd())
-
-
-enwas.result=do.call('rbind',map(enwas.summary,1))
-full_mod=do.call('rbind',map(enwas.summary,2))
-
-
-enwas.result$san_pvalue_fdr=p.adjust(enwas.result$san_pvalue,method="fdr")
-
-enwas.result = enwas.result %>% arrange(desc(abs_post_beta_SD)) %>% mutate(ranking = 1:nrow(.))
-
-rm(data_enwas)
+## Make fake ENWAS data
+N = 100000
+set.seed(234729374)
+data_enwas = 
+  data.frame(
+    ID = 1:N,
+    outcome1 = rnorm(n = N,mean = 10, sd = 3),
+    outcome2 = rbinom(n = N, size = 1,prob = 0.2),
+    age = rnorm(n = N,mean = 60, sd = 10),
+    sex = sample(c('M','F'),size = N,replace = TRUE),
+    pc.0 = rnorm(n = N, mean = 0, sd = 1),
+    num1 = rnorm(n = N, mean = 0, sd = 1),
+    num2 = rnorm(n = N, mean = 0, sd = 1),
+    bin1 = rbinom(n = N, size = 1,prob = 0.2)
+  ) %>% filter(age>20, age<90) %>% 
+  mutate(
+    age_cat = cut(age,breaks = seq(20, 90,by = 10),include.lowest = TRUE),
+    age_sex = paste0(sex,"-",age_cat),
+    age_50 = age-50
+  )
 
 
 
-nNA = enwas.result %>% filter(is.na(post_stratified_beta)) %>% count() %>% .$n
-nCase = enwas.result %>% filter(error == "Case/Control count <100") %>% count() %>% .$n
-nSmall = enwas.result %>% filter(error == paste0("N<",n_cut)) %>% count() %>% .$n
-nOMF = enwas.result %>% filter(error == "Model failed to converge") %>% count() %>% .$n
-nRF = enwas.result %>% filter(error == "Post-stratification error: rake failure") %>% count() %>% .$n
 
 
 
-cat(paste(" Count phenotypes submitted for ENWAS: ",length(el.fin), 
-          "\n Count phenotypes failed: ",nNA,", see 'error' column in final results csv for specific reason",
-          "\n   Failed: Case/Control count <100: ",nCase,
-          "\n   Failed: Small count, N< n_cut: ",nSmall,
-          "\n   Failed: Post-stratification error: rake failure: ",nRF,
-          "\n   Failed: Post-stratified model failed to converge: ",nOMF,
-          "\n Count successful phenotypes analyzed: ", nrow(enwas.result) - nNA,"\n\n",sep="" ),
-    file = paste(getwd(),'/log_enwas.txt', sep = ''), append = TRUE)
 
 
-rm(enwas.result)
+i=1
+ph.list=exposure_vars # list of variables to run through as independent variables
+data # dataframe with ID, outcome,age (age centered at 50),exposures, poststratification variable
+model_var=c("BMXWT","BMXHT") #character vector, list of variable to include in model********，and just variable?
+gen_cat="SDMVSTRA" #name of post stratification variable
+outcome="BMXWAIST" #name of outcome variable
+sex_spec_cat="RIAGENDR" # if sex specific, name of post-stratification variable
+ss.out="Yes" # "Yes" or "No", is outcome sex-specific
+ss.out.cat="M/F" # "M/F", "M", "F"
+n_cutoff=10 # minimum sample size required to run model.
