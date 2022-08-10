@@ -237,7 +237,7 @@ linear_res2 <- enwas(linear_model, exposure_vars, data)
 
 
 all_ns_model <-
-  'BMXWAIST ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10)) * RIAGENDR + ns(BMXBMI,knots = seq(15, 65, by = 5))'
+  'BMXWAIST ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)))'
 all_ns_res <- enwas(all_ns_model, exposure_vars, data)
 
 
