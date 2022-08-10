@@ -38,7 +38,7 @@ load_data <- function(exposure_cols) {
   nhanes_db <- dbConnect(RSQLite::SQLite(), "../nhanes.sqlite")
   
   cols <-
-    'BMXWAIST, RIDAGEYR, BMXHT, BMXBMI, BMXWT, RIAGENDR,SDMVPSU,SDMVSTRA, years,'
+    'BMXWAIST, RIDAGEYR, BMXHT, BMXBMI, BMXWT, RIAGENDR,SDMVPSU,SDMVSTRA,RIDRETH1, years,'
   data_sql <-
     paste('SELECT', cols, exposure_cols, 'FROM merged_table')
   
@@ -237,7 +237,7 @@ linear_res2 <- enwas(linear_model, exposure_vars, data)
 
 
 all_ns_model <-
-  'BMXWAIST ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10)) * RIAGENDR + ns(BMXBMI,knots = seq(30, 80, by = 10))'
+  'BMXWAIST ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10)) * RIAGENDR + ns(BMXBMI,knots = seq(15, 65, by = 5))'
 all_ns_res <- enwas(all_ns_model, exposure_vars, data)
 
 
@@ -377,5 +377,26 @@ for(c in num_cols[ns_vs_ns_inv]){
 
 
 
-````
+```
 
+## Testing Enthnic Groups Linear Model
+```{r enthic, echo=TRUE,results = "asis"}
+enthics <- c('Mexican American','Other Hispanic','Non-Hispanic White','Non-Hispanic Black','Other Race')
+lm_base <- lm(as.formula(linear_model),data)
+lm_df <- data_frame(residuals=lm_base$residual,ethnic = data$RIDRETH1,gender=data$RIAGENDR)
+levels(lm_df$ethnic) <- enthics
+ggplot(lm_df, aes(x=ethnic, y=residuals, fill=gender)) + geom_boxplot()+
+  scale_x_discrete(guide = guide_axis(angle = 45)) 
+
+```
+
+
+## Testing Enthnic Groups Spline Model
+```{r enthic2, echo=TRUE,results = "asis"}
+ns_base <- lm(as.formula(all_ns_model),data)
+ns_df <- data_frame(residuals=ns_base$residual,ethnic = data$RIDRETH1,gender=data$RIAGENDR)
+levels(ns_df$ethnic) <- enthics
+ggplot(ns_df, aes(x=ethnic, y=residuals, fill=gender)) + geom_boxplot()+
+  scale_x_discrete(guide = guide_axis(angle = 45)) 
+
+```
