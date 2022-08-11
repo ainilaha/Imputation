@@ -26,7 +26,7 @@ load_data <- function(exposure_cols) {
   nhanes_db <- dbConnect(RSQLite::SQLite(), "../nhanes.sqlite")
   
   cols <-
-    'BMXWAIST, RIDAGEYR, BMXHT, BMXBMI, BMXWT, RIAGENDR,SDMVPSU,SDMVSTRA, years,'
+    'BMXWAIST, RIDAGEYR, BMXHT, BMXBMI, BMXWT, RIAGENDR, SDMVPSU, SDMVSTRA, years,'
   data_sql <-
     paste('SELECT', cols, exposure_cols, 'FROM merged_table')
   

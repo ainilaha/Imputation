@@ -88,11 +88,20 @@ select_matrice <- function(df){
 
 ## Selection process
 
+Manually remove some the columns according to documents:
+WTDRD1: Dietary day one sample weight
+DR1EXMER: Interviewer ID code
+DR1IFDCD:USDA food code
+
  eg. data$DRABF only contains 2
 ![variable selection process](../images/selection_process.png)
 
+
+
 ```{r func2, echo=TRUE,warning=FALSE}
 library(knitr)
+diet_data <- diet_data[, -which(names(diet_data) %in% c( "WTDRD1","DR1EXMER","DR1IFDCD"))]
+
 select_df <- select_matrice(diet_data)
 kable(head(select_df))
 select_vars <- select_df |> filter(std!=0)|>
@@ -259,7 +268,6 @@ autoplot(
 
 
 ```{r func4, echo=TRUE,warning=FALSE}
-select_vars <- select_vars[!(select_vars %in% c( "DR1TS140",'DR1TS100',"DR1TS060","DR1TP182"))]
 
 select_vars
 

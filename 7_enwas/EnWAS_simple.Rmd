@@ -135,9 +135,12 @@ enwas <-
         rbind(association_list, mod_df) # step 3b of algorithm
     }
     
-    
+    # comments the following code out for ignore the categorical phenotypes for now
+    # xwas_list <-
+    #   association_list[association_list$term %in% c(exposure_vars, factor_terms), ]
     xwas_list <-
-      association_list[association_list$term %in% c(exposure_vars, factor_terms), ]
+      association_list[association_list$term %in% exposure_vars, ]
+
 
     
     # sd_x_list <-  sapply(data_set[,num_cols],sd)
@@ -182,17 +185,35 @@ enwas <-
 # }
 
 
+
 forest_plot <- function(xwas_result) {
-  xwas_result |>
-    ggplot(aes(
-      x = term,
-      y = estimate,
-      colour = estimate
-    )) +
-     geom_point(size = 2, position = position_dodge(width = 1)) + 
-     geom_errorbar(aes(ymin = lower, ymax = upper), 
-                position = position_dodge(width = 1), width=0.5,cex=1) + 
+  xwas_result$col <- as.numeric(rownames(xwas_result)) %% 2
+  n <- nrow(xwas_result)
+  xwas_result |> mutate(xmin = seq(0.5, n - 0.5, by = 1),
+                        xmax = seq(1.5, n + 0.5, by = 1)) |>
+    ggplot(aes(x = term,
+               y = estimate,
+               colour = estimate)) +
+    geom_point(size = 2, position = position_dodge(width = 1)) +
+    geom_errorbar(
+      aes(ymin = lower, ymax = upper),
+      position = position_dodge(width = 1),
+      width = 0.5,
+      cex = 1
+    ) +
     geom_hline(yintercept = 0, linetype = 'dashed') +
+    geom_rect(
+      aes(
+        xmin = xmin,
+        xmax = xmax,
+        ymin = -Inf,
+        ymax = +Inf,
+        fill = factor(col)
+      ),
+      color = 'black',
+      alpha = 0.3
+    ) +
+    scale_fill_manual(values = c('white', 'grey78'), guide = 'none') +
     coord_flip() +  # flip coordinates (puts labels on y axis)
     xlab("Exposures") + ylab("Estimate (95% CI)") +
     theme_bw()  # use a white background
@@ -208,8 +229,12 @@ forest_plot_mult <- function(xwas_result_list) {
   xwas_result$EnWAS <-
     rep(names(xwas_result_list), each = nrow(xwas_result_list[[1]]))
   
-  xwas_result |>
-    ggplot(aes(
+  tem_df <- xwas_result_list[[1]]
+  n <- nrow(tem_df)
+  tem_df$col <- as.numeric(rownames(tem_df)) %% 2
+  tem_df <- tem_df|> mutate(xmin = seq(0.5, n - 0.5, by = 1),
+                        xmax = seq(1.5, n + 0.5, by = 1)) 
+  xwas_result |>  ggplot(aes(
       x = term,
       y = estimate,
       colour = EnWAS
@@ -218,6 +243,18 @@ forest_plot_mult <- function(xwas_result_list) {
      geom_errorbar(aes(ymin = lower, ymax = upper), 
                 position = position_dodge(width = 1), width=0.5,cex=1) + 
     geom_hline(yintercept = 0, linetype = 'dashed') +
+    geom_rect(data=tem_df,
+      aes(
+        xmin = xmin,
+        xmax = xmax,
+        ymin = -Inf,
+        ymax = +Inf,
+        fill = factor(col)
+      ),
+      color = 'black',
+      alpha = 0.3
+    ) +
+    scale_fill_manual(values = c('white', 'grey78'), guide = 'none') +
     coord_flip() +  # flip coordinates (puts labels on y axis)
     xlab("Exposures") + ylab("Estimate (95% CI)") +
     theme_bw()  # use a white background
@@ -237,7 +274,7 @@ linear_res2 <- enwas(linear_model, exposure_vars, data)
 
 
 all_ns_model <-
-  'BMXWAIST ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)))'
+  'BMXWAIST ~ ns(RIDAGEYR, knots = seq(20, 80, by = 10)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)))'
 all_ns_res <- enwas(all_ns_model, exposure_vars, data)
 
 
@@ -246,95 +283,35 @@ ns_inverse_res <- enwas(all_ns_model, exposure_vars, data,inv = TRUE)
 
 
 
-  
-```
-
-## Run EnWAS 
-
-```{r func3_plots, echo=TRUE,warning=F,out.width = '99%'}
-
 forest_plot(linear_res2$enwas_res)
-
-
 forest_plot_mult(
   list(
     linear = linear_res2$enwas_res,
     ns = all_ns_res$enwas_res
   )
 )
-
-
-
 forest_plot_mult(
   list(
     lm_inv = lm_inverse_res$enwas_res,
     ns_inv = ns_inverse_res$enwas_res
   )
 )
-
 forest_plot_mult(
   list(
     linear = linear_res2$enwas_res,
     lm_inv = lm_inverse_res$enwas_res
   )
 )
-
 forest_plot_mult(
   list(
     ns = all_ns_res$enwas_res,
     ns_inv = ns_inverse_res$enwas_res
   )
 )
-
-```
-
-## EnWAS Results numerical only
-
-```{r func4, echo=TRUE,warning=F,out.width = '99%'}
-num_cols <- sapply(data[, exposure_vars], is.numeric)
-num_cols <- names(num_cols[num_cols == TRUE])
-
-
-linear <- linear_res2$enwas_res
-linear <- linear[linear$term %in% num_cols,]
-ns <- all_ns_res$enwas_res
-ns <- ns[ns$term %in% num_cols,]
-    
-lm_inv <- lm_inverse_res$enwas_res
-lm_inv <- lm_inv[lm_inv$term %in% num_cols,]
-ns_inv <- ns_inverse_res$enwas_res
-ns_inv <- ns_inv[ns_inv$term %in% num_cols,]
-
-forest_plot_mult(
-  list(
-    ns = ns,
-    linear = linear
-  )
-)
-
-forest_plot_mult(
-  list(
-    lm_inv = lm_inv,
-    ns_inv = ns_inv
-  )
-)
-
-forest_plot_mult(
-  list(
-    linear = linear,
-    lm_inv = lm_inv
-  )
-)
-
-forest_plot_mult(
-  list(
-    ns = ns,
-    ns_inv = ns_inv
-  )
-)
-
   
 ```
+
+
 
 
 ## EnWAS show interesting variables
@@ -342,37 +319,70 @@ forest_plot_mult(
 
 ```{r func_intes_var, echo=TRUE,results = "asis"}
 
-xwas_res_list <- list(linear = linear,ns = ns,lm_inv = lm_inv,ns_inv = ns_inv)
-xwas_result <- do.call("rbind",xwas_res_list )
+
+xwas_res_list <-
+  list(
+    linear = lm_inverse_res$enwas_res,
+    ns = all_ns_res$enwas_res,
+    lm_inv = lm_inverse_res$enwas_res,
+    ns_inv = ns_inverse_res$enwas_res
+  )
+xwas_result <- do.call("rbind", xwas_res_list)
 xwas_result$EnWAS <-
   rep(names(xwas_res_list), each = nrow(xwas_res_list[[1]]))
 
 xwas_result$postive <- xwas_result$lower * xwas_result$upper
-xwas_result$postive <- xwas_result$postive >=0
+xwas_result$postive <- xwas_result$postive >= 0.0001
 
 # show the false positive raised in linear base model
-ns_vs_linear <- xwas_result[xwas_result$EnWAS=="linear",]$postive != xwas_result[xwas_result$EnWAS=="ns",]$postive
+num_cols <- sapply(data[, exposure_vars], is.numeric)
+num_cols <- names(num_cols[num_cols == TRUE])
+ns_vs_linear <-
+  xwas_result[xwas_result$EnWAS == "linear", ]$postive != xwas_result[xwas_result$EnWAS ==
+                                                                       "ns", ]$postive
 num_cols[ns_vs_linear]
 
-for(c in num_cols[ns_vs_linear]){
-  g <- ggplot(data, aes_string(x="RIDAGEYR", y=paste0("invNorm(",c,")"), colour="RIAGENDR")) + 
-  geom_point(alpha=0.1)+
-  geom_smooth(method = lm, formula = y ~ ns(x, knots = seq(30, 80, by = 10)), size = 1)
+for (c in num_cols[ns_vs_linear]) {
+  g <-
+    ggplot(data,
+           aes_string(
+             x = "RIDAGEYR",
+             y = paste0("invNorm(", c, ")"),
+             colour = "RIAGENDR"
+           )) +
+    geom_point(alpha = 0.1) +
+    geom_smooth(
+      method = lm,
+      formula = y ~ ns(x, knots = seq(30, 80, by = 10)),
+      size = 1
+    )
   print(g)
 }
 
-# ns vs inverse norm transformation 
-ns_vs_ns_inv <- xwas_result[xwas_result$EnWAS=="ns_inv",]$postive != xwas_result[xwas_result$EnWAS=="ns",]$postive
+# ns vs inverse norm transformation
+ns_vs_ns_inv <-
+  xwas_result[xwas_result$EnWAS == "ns_inv", ]$postive != xwas_result[xwas_result$EnWAS ==
+                                                                        "ns", ]$postive
 num_cols[ns_vs_ns_inv]
 
-for(c in num_cols[ns_vs_ns_inv]){
-  g <- ggplot(data, aes_string(x="RIDAGEYR", y=paste0("invNorm(",c,")"), colour="RIAGENDR")) + 
-  geom_point(alpha=0.1)+
-  geom_smooth(method = lm, formula = y ~ ns(x, knots = seq(30, 80, by = 10)), size = 1)
+for (c in num_cols[ns_vs_ns_inv]) {
+  g <-
+    ggplot(data,
+           aes_string(
+             x = "RIDAGEYR",
+             y = paste0("invNorm(", c, ")"),
+             colour = "RIAGENDR"
+           )) +
+    geom_point(alpha = 0.1) +
+    geom_smooth(
+      method = lm,
+      formula = y ~ ns(x, knots = seq(20, 80, by = 10)),
+      size = 1
+    )
   print(g)
-  par(mfrow=c(1,2))
-  hist(data[,c],main = c)
-  hist(invNorm(data[,c]), main = paste0("invNorm:",c))
+  par(mfrow = c(1, 2))
+  hist(data[, c], main = c)
+  hist(invNorm(data[, c]), main = paste0("invNorm:", c))
 }
 
 
