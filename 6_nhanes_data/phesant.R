@@ -11,7 +11,7 @@ n_unique <- function (df,cols){
     return (n)
   }else{
     n <- sapply(df[,cols], function(x)
-      n_distinct(x))
+      unique(x))
     return (n)
   }
   

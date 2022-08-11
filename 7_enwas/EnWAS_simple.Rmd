@@ -11,11 +11,12 @@ knitr::opts_chunk$set(echo = TRUE)
 ## load libs
 ```{r libs,warning=FALSE,message=FALSE}
 library(DBI)
-library(broom)
+# library(broom)
 library(splines)
-library(stringr)
+# library(stringr)
 library(dplyr)
 library(ggplot2)
+library(EnWAS)
 
 ```
 
@@ -25,7 +26,7 @@ library(ggplot2)
 - `nhanes.sqlite` can download [here](https://github.com/ccb-hms/Imputation/blob/main/nhanes.sqlite) or generate by run [notebook](https://ccb-hms.github.io/Imputation/6_nhanes_data/nhanes_exploratory.html)
 
 ```{r data, echo=TRUE}
-source("../6_nhanes_data/phesant.R")
+# source("../6_nhanes_data/phesant.R")
 
 exposure_vars <-
   read.delim("../data/select_vars.txt", header = FALSE)$V1
@@ -46,225 +47,25 @@ load_data <- function(exposure_cols) {
   data <- na.omit(data)
   dbDisconnect(nhanes_db)
   
-  phs_res <- phesant(data)
-  
-  data[, names(phs_res[phs_res %in% c("ordered", "unordered", "binary")])] <-
-    lapply(data[, names(phs_res[phs_res %in% c("ordered", "unordered", "binary")])], as.factor)
-  
-  data[, names(phs_res[phs_res == "continuous"])] <-
-    lapply(data[, names(phs_res[phs_res == "continuous"])], as.numeric)
-  
-  return(list(data = data, phs_res = phs_res))
+  data
   
 }
 
-data_phs <- load_data(exposure_cols)
+nhanes_data <- load_data(exposure_cols) 
+data_phs <- phesant(nhanes_data)
 
 data <- data_phs$data
-phs_res <- data_phs$phs_res
+phs_res <- data_phs$data_types
 
 ```
 
-
-## Inverse Normal Distribution and build formula
-
-```{r func, echo=TRUE}
-invNorm <- function(x) {qnorm((rank(x) - 3/8)/(length(x) +1 - 6/8))}
-min_max_norm <- function(x) {
-  (x - min(x)) / (max(x) - min(x))
-}
-
-
-build_formula <- function(base_model,exposure_var,inv=FALSE) {
-  var <- "+ %s"
-  if(inv) var <- " + invNorm(%s)" 
-  
-  as.formula(
-    sprintf(paste0(base_model, var),
-      exposure_var
-    )
-  )
-}
-
-
-```
-
-
-
-## EnWAS
-
-```{r func2, echo=TRUE}
-
-
-
-enwas <-
-  function(base_model,
-           exposure_vars,
-           data_set,
-           inv_norm = FALSE) {
-    num_var <- length(exposure_vars)
-    
-    model_list <- vector(mode = "list", length = num_var)
-    num_cols <- sapply(data_set[, exposure_vars], is.numeric)
-    num_cols <- names(num_cols[num_cols == TRUE])
-    if (inv_norm) {
-      data_set[, num_cols] <- lapply(data_set[, num_cols], invNorm)
-    }
-    
-    
-    
-    
-    association_list <- data.frame()
-    factor_terms <- c() # to hold the factors terms
-    num_var <- length(exposure_vars)
-    for (i in 1:num_var) {
-      exposure <- exposure_vars[i]
-      # print(exposure)
-      
-      if (is.factor(data_set[, exposure])) {
-        factor_terms <-
-          c(factor_terms, paste0(exposure, levels(data_set[, exposure])))
-      }
-      
-      model <- build_formula(base_model, exposure)
-      
-      mod <- lm(model, data_set)
-      model_list[[i]] <- mod
-      mod_df <- tidy(mod)
-      association_list <-
-        rbind(association_list, mod_df) # step 3b of algorithm
-    }
-    
-    # comments the following code out for ignore the categorical phenotypes for now
-    # xwas_list <-
-    #   association_list[association_list$term %in% c(exposure_vars, factor_terms), ]
-    xwas_list <-
-      association_list[association_list$term %in% exposure_vars, ]
-
-
-    
-    # sd_x_list <-  sapply(data_set[,num_cols],sd)
-    sd_x_list <-  sapply(data_set, function(x)
-      sd(as.numeric(x)))
-    for (var in exposure_vars) {
-      xwas_list[grepl(var, xwas_list$term), c('estimate', 'std.error')] <-
-        xwas_list[grepl(var, xwas_list$term), c('estimate', 'std.error')] * sd_x_list[var]
-    }
-    
-    
-    
-    xwas_list$fdr <-
-      p.adjust(xwas_list$p.value, method = 'BY')
-    
-    
-    
-    xwas_list <- xwas_list |>
-      mutate(lower = estimate - 1.96 * std.error)  |>
-      mutate(upper = estimate + 1.96 * std.error)
-    
-    return (list(model_list = model_list, enwas_res = xwas_list))
-    
-  }
-
-
-
-
-# forest_plot <- function(xwas_result) {
-#   xwas_result |>
-#     ggplot(aes(
-#       x = term,
-#       y = estimate,
-#       ymin = lower,
-#       ymax = upper,
-#       colour = estimate
-#     )) +
-#     geom_pointrange() +
-#     coord_flip() +  # flip coordinates (puts labels on y axis)
-#     xlab("Exposures") + ylab("Estimate (95% CI)") +
-#     theme_bw()  # use a white background
-# }
-
-
-
-forest_plot <- function(xwas_result) {
-  xwas_result$col <- as.numeric(rownames(xwas_result)) %% 2
-  n <- nrow(xwas_result)
-  xwas_result |> mutate(xmin = seq(0.5, n - 0.5, by = 1),
-                        xmax = seq(1.5, n + 0.5, by = 1)) |>
-    ggplot(aes(x = term,
-               y = estimate,
-               colour = estimate)) +
-    geom_point(size = 2) +
-    geom_errorbar(
-      aes(ymin = lower, ymax = upper),
-      width = 0.5,
-      cex = 1
-    ) +
-    geom_hline(yintercept = 0, linetype = 'dashed') +
-    geom_rect(
-      aes(
-        xmin = xmin,
-        xmax = xmax,
-        ymin = -Inf,
-        ymax = +Inf,
-        fill = factor(col)
-      ),
-      color = 'black',
-      alpha = 0.3
-    ) +
-    scale_fill_manual(values = c('white', 'grey78'), guide = 'none') +
-    coord_flip() +  # flip coordinates (puts labels on y axis)
-    xlab("Exposures") + ylab("Estimate (95% CI)") +
-    theme_bw()  # use a white background
-}
-
-
-
-
-
-
-forest_plot_mult <- function(xwas_result_list) {
-  xwas_result <- do.call("rbind", xwas_result_list)
-  xwas_result$EnWAS <-
-    rep(names(xwas_result_list), each = nrow(xwas_result_list[[1]]))
-  
-  tem_df <- xwas_result_list[[1]]
-  n <- nrow(tem_df)
-  tem_df$col <- as.numeric(rownames(tem_df)) %% 2
-  tem_df <- tem_df|> mutate(xmin = seq(0.5, n - 0.5, by = 1),
-                        xmax = seq(1.5, n + 0.5, by = 1)) 
-  xwas_result |>  ggplot(aes(
-      x = term,
-      y = estimate,
-      colour = EnWAS
-    ))  +
-     geom_point(size = 2,) + 
-     geom_errorbar(aes(ymin = lower, ymax = upper), width=0.5,cex=1) + 
-    geom_hline(yintercept = 0, linetype = 'dashed') +
-    geom_rect(data=tem_df,
-      aes(
-        xmin = xmin,
-        xmax = xmax,
-        ymin = -Inf,
-        ymax = +Inf,
-        fill = factor(col)
-      ),
-      color = 'black',
-      alpha = 0.3
-    ) +
-    scale_fill_manual(values = c('white', 'grey78'), guide = 'none') +
-    coord_flip() +  # flip coordinates (puts labels on y axis)
-    xlab("Exposures") + ylab("Estimate (95% CI)") +
-    theme_bw()  # use a white background
-}
-
-
-```
 
 
 ## Run EnWAS 
 
 ```{r func3, echo=TRUE,warning=F, out.width = '90%'}
+
+
 
 linear_model <- 'BMXWAIST ~ RIDAGEYR*RIAGENDR + BMXBMI'
 linear_res2 <- enwas(linear_model, exposure_vars, data)

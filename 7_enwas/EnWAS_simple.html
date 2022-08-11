@@ -365,11 +365,12 @@ pre code {
 <div id="load-libs" class="section level2">
 <h2>load libs</h2>
 <pre class="r"><code>library(DBI)
-library(broom)
+# library(broom)
 library(splines)
-library(stringr)
+# library(stringr)
 library(dplyr)
-library(ggplot2)</code></pre>
+library(ggplot2)
+library(EnWAS)</code></pre>
 </div>
 <div id="load-exploration" class="section level2">
 <h2>Load exploration</h2>
@@ -379,7 +380,7 @@ selection process</a></li>
 <li><code>nhanes.sqlite</code> can download <a href="https://github.com/ccb-hms/Imputation/blob/main/nhanes.sqlite">here</a>
 or generate by run <a href="https://ccb-hms.github.io/Imputation/6_nhanes_data/nhanes_exploratory.html">notebook</a></li>
 </ul>
-<pre class="r"><code>source(&quot;../6_nhanes_data/phesant.R&quot;)
+<pre class="r"><code># source(&quot;../6_nhanes_data/phesant.R&quot;)
 
 exposure_vars &lt;-
   read.delim(&quot;../data/select_vars.txt&quot;, header = FALSE)$V1
@@ -400,203 +401,15 @@ load_data &lt;- function(exposure_cols) {
   data &lt;- na.omit(data)
   dbDisconnect(nhanes_db)
   
-  phs_res &lt;- phesant(data)
-  
-  data[, names(phs_res[phs_res %in% c(&quot;ordered&quot;, &quot;unordered&quot;, &quot;binary&quot;)])] &lt;-
-    lapply(data[, names(phs_res[phs_res %in% c(&quot;ordered&quot;, &quot;unordered&quot;, &quot;binary&quot;)])], as.factor)
-  
-  data[, names(phs_res[phs_res == &quot;continuous&quot;])] &lt;-
-    lapply(data[, names(phs_res[phs_res == &quot;continuous&quot;])], as.numeric)
-  
-  return(list(data = data, phs_res = phs_res))
+  data
   
 }
 
-data_phs &lt;- load_data(exposure_cols)
+nhanes_data &lt;- load_data(exposure_cols) 
+data_phs &lt;- phesant(nhanes_data)
 
 data &lt;- data_phs$data
-phs_res &lt;- data_phs$phs_res</code></pre>
-</div>
-<div id="inverse-normal-distribution-and-build-formula" class="section level2">
-<h2>Inverse Normal Distribution and build formula</h2>
-<pre class="r"><code>invNorm &lt;- function(x) {qnorm((rank(x) - 3/8)/(length(x) +1 - 6/8))}
-min_max_norm &lt;- function(x) {
-  (x - min(x)) / (max(x) - min(x))
-}
-
-
-build_formula &lt;- function(base_model,exposure_var,inv=FALSE) {
-  var &lt;- &quot;+ %s&quot;
-  if(inv) var &lt;- &quot; + invNorm(%s)&quot; 
-  
-  as.formula(
-    sprintf(paste0(base_model, var),
-      exposure_var
-    )
-  )
-}</code></pre>
-</div>
-<div id="enwas" class="section level2">
-<h2>EnWAS</h2>
-<pre class="r"><code>enwas &lt;-
-  function(base_model,
-           exposure_vars,
-           data_set,
-           inv_norm = FALSE) {
-    num_var &lt;- length(exposure_vars)
-    
-    model_list &lt;- vector(mode = &quot;list&quot;, length = num_var)
-    num_cols &lt;- sapply(data_set[, exposure_vars], is.numeric)
-    num_cols &lt;- names(num_cols[num_cols == TRUE])
-    if (inv_norm) {
-      data_set[, num_cols] &lt;- lapply(data_set[, num_cols], invNorm)
-    }
-    
-    
-    
-    
-    association_list &lt;- data.frame()
-    factor_terms &lt;- c() # to hold the factors terms
-    num_var &lt;- length(exposure_vars)
-    for (i in 1:num_var) {
-      exposure &lt;- exposure_vars[i]
-      # print(exposure)
-      
-      if (is.factor(data_set[, exposure])) {
-        factor_terms &lt;-
-          c(factor_terms, paste0(exposure, levels(data_set[, exposure])))
-      }
-      
-      model &lt;- build_formula(base_model, exposure)
-      
-      mod &lt;- lm(model, data_set)
-      model_list[[i]] &lt;- mod
-      mod_df &lt;- tidy(mod)
-      association_list &lt;-
-        rbind(association_list, mod_df) # step 3b of algorithm
-    }
-    
-    # comments the following code out for ignore the categorical phenotypes for now
-    # xwas_list &lt;-
-    #   association_list[association_list$term %in% c(exposure_vars, factor_terms), ]
-    xwas_list &lt;-
-      association_list[association_list$term %in% exposure_vars, ]
-
-    
-    # sd_x_list &lt;-  sapply(data_set[,num_cols],sd)
-    sd_x_list &lt;-  sapply(data_set, function(x)
-      sd(as.numeric(x)))
-    for (var in exposure_vars) {
-      xwas_list[grepl(var, xwas_list$term), c(&#39;estimate&#39;, &#39;std.error&#39;)] &lt;-
-        xwas_list[grepl(var, xwas_list$term), c(&#39;estimate&#39;, &#39;std.error&#39;)] * sd_x_list[var]
-    }
-    
-    
-    
-    xwas_list$fdr &lt;-
-      p.adjust(xwas_list$p.value, method = &#39;BY&#39;)
-    
-    
-    
-    xwas_list &lt;- xwas_list |&gt;
-      mutate(lower = estimate - 1.96 * std.error)  |&gt;
-      mutate(upper = estimate + 1.96 * std.error)
-    
-    return (list(model_list = model_list, enwas_res = xwas_list))
-    
-  }
-
-
-
-
-# forest_plot &lt;- function(xwas_result) {
-#   xwas_result |&gt;
-#     ggplot(aes(
-#       x = term,
-#       y = estimate,
-#       ymin = lower,
-#       ymax = upper,
-#       colour = estimate
-#     )) +
-#     geom_pointrange() +
-#     coord_flip() +  # flip coordinates (puts labels on y axis)
-#     xlab(&quot;Exposures&quot;) + ylab(&quot;Estimate (95% CI)&quot;) +
-#     theme_bw()  # use a white background
-# }
-
-
-
-forest_plot &lt;- function(xwas_result) {
-  xwas_result$col &lt;- as.numeric(rownames(xwas_result)) %% 2
-  n &lt;- nrow(xwas_result)
-  xwas_result |&gt; mutate(xmin = seq(0.5, n - 0.5, by = 1),
-                        xmax = seq(1.5, n + 0.5, by = 1)) |&gt;
-    ggplot(aes(x = term,
-               y = estimate,
-               colour = estimate)) +
-    geom_point(size = 2) +
-    geom_errorbar(
-      aes(ymin = lower, ymax = upper),
-      width = 0.5,
-      cex = 1
-    ) +
-    geom_hline(yintercept = 0, linetype = &#39;dashed&#39;) +
-    geom_rect(
-      aes(
-        xmin = xmin,
-        xmax = xmax,
-        ymin = -Inf,
-        ymax = +Inf,
-        fill = factor(col)
-      ),
-      color = &#39;black&#39;,
-      alpha = 0.3
-    ) +
-    scale_fill_manual(values = c(&#39;white&#39;, &#39;grey78&#39;), guide = &#39;none&#39;) +
-    coord_flip() +  # flip coordinates (puts labels on y axis)
-    xlab(&quot;Exposures&quot;) + ylab(&quot;Estimate (95% CI)&quot;) +
-    theme_bw()  # use a white background
-}
-
-
-
-
-
-
-forest_plot_mult &lt;- function(xwas_result_list) {
-  xwas_result &lt;- do.call(&quot;rbind&quot;, xwas_result_list)
-  xwas_result$EnWAS &lt;-
-    rep(names(xwas_result_list), each = nrow(xwas_result_list[[1]]))
-  
-  tem_df &lt;- xwas_result_list[[1]]
-  n &lt;- nrow(tem_df)
-  tem_df$col &lt;- as.numeric(rownames(tem_df)) %% 2
-  tem_df &lt;- tem_df|&gt; mutate(xmin = seq(0.5, n - 0.5, by = 1),
-                        xmax = seq(1.5, n + 0.5, by = 1)) 
-  xwas_result |&gt;  ggplot(aes(
-      x = term,
-      y = estimate,
-      colour = EnWAS
-    ))  +
-     geom_point(size = 2,) + 
-     geom_errorbar(aes(ymin = lower, ymax = upper), width=0.5,cex=1) + 
-    geom_hline(yintercept = 0, linetype = &#39;dashed&#39;) +
-    geom_rect(data=tem_df,
-      aes(
-        xmin = xmin,
-        xmax = xmax,
-        ymin = -Inf,
-        ymax = +Inf,
-        fill = factor(col)
-      ),
-      color = &#39;black&#39;,
-      alpha = 0.3
-    ) +
-    scale_fill_manual(values = c(&#39;white&#39;, &#39;grey78&#39;), guide = &#39;none&#39;) +
-    coord_flip() +  # flip coordinates (puts labels on y axis)
-    xlab(&quot;Exposures&quot;) + ylab(&quot;Estimate (95% CI)&quot;) +
-    theme_bw()  # use a white background
-}</code></pre>
+phs_res &lt;- data_phs$data_types</code></pre>
 </div>
 <div id="run-enwas" class="section level2">
 <h2>Run EnWAS</h2>
