@@ -194,10 +194,9 @@ forest_plot <- function(xwas_result) {
     ggplot(aes(x = term,
                y = estimate,
                colour = estimate)) +
-    geom_point(size = 2, position = position_dodge(width = 1)) +
+    geom_point(size = 2) +
     geom_errorbar(
       aes(ymin = lower, ymax = upper),
-      position = position_dodge(width = 1),
       width = 0.5,
       cex = 1
     ) +
@@ -239,9 +238,8 @@ forest_plot_mult <- function(xwas_result_list) {
       y = estimate,
       colour = EnWAS
     ))  +
-     geom_point(size = 2, position = position_dodge(width = 1)) + 
-     geom_errorbar(aes(ymin = lower, ymax = upper), 
-                position = position_dodge(width = 1), width=0.5,cex=1) + 
+     geom_point(size = 2,) + 
+     geom_errorbar(aes(ymin = lower, ymax = upper), width=0.5,cex=1) + 
     geom_hline(yintercept = 0, linetype = 'dashed') +
     geom_rect(data=tem_df,
       aes(
@@ -283,7 +281,7 @@ ns_inverse_res <- enwas(all_ns_model, exposure_vars, data,inv = TRUE)
 
 
 
-forest_plot(linear_res2$enwas_res)
+# forest_plot(linear_res2$enwas_res)
 forest_plot_mult(
   list(
     linear = linear_res2$enwas_res,
@@ -322,7 +320,7 @@ forest_plot_mult(
 
 xwas_res_list <-
   list(
-    linear = lm_inverse_res$enwas_res,
+    linear = linear_res2$enwas_res,
     ns = all_ns_res$enwas_res,
     lm_inv = lm_inverse_res$enwas_res,
     ns_inv = ns_inverse_res$enwas_res
@@ -332,7 +330,7 @@ xwas_result$EnWAS <-
   rep(names(xwas_res_list), each = nrow(xwas_res_list[[1]]))
 
 xwas_result$postive <- xwas_result$lower * xwas_result$upper
-xwas_result$postive <- xwas_result$postive >= 0.0001
+xwas_result$postive <- xwas_result$postive >= 0.00001
 
 # show the false positive raised in linear base model
 num_cols <- sapply(data[, exposure_vars], is.numeric)
@@ -366,20 +364,6 @@ ns_vs_ns_inv <-
 num_cols[ns_vs_ns_inv]
 
 for (c in num_cols[ns_vs_ns_inv]) {
-  g <-
-    ggplot(data,
-           aes_string(
-             x = "RIDAGEYR",
-             y = paste0("invNorm(", c, ")"),
-             colour = "RIAGENDR"
-           )) +
-    geom_point(alpha = 0.1) +
-    geom_smooth(
-      method = lm,
-      formula = y ~ ns(x, knots = seq(20, 80, by = 10)),
-      size = 1
-    )
-  print(g)
   par(mfrow = c(1, 2))
   hist(data[, c], main = c)
   hist(invNorm(data[, c]), main = paste0("invNorm:", c))
@@ -389,24 +373,24 @@ for (c in num_cols[ns_vs_ns_inv]) {
 
 ```
 
-## Testing Enthnic Groups Linear Model
+## Testing ethnicity Groups Linear Model
 ```{r enthic, echo=TRUE,results = "asis"}
-enthics <- c('Mexican American','Other Hispanic','Non-Hispanic White','Non-Hispanic Black','Other Race')
+ethnicity <- c('Mexican American','Other Hispanic','Non-Hispanic White','Non-Hispanic Black','Other Race')
 lm_base <- lm(as.formula(linear_model),data)
-lm_df <- data_frame(residuals=lm_base$residual,ethnic = data$RIDRETH1,gender=data$RIAGENDR)
-levels(lm_df$ethnic) <- enthics
-ggplot(lm_df, aes(x=ethnic, y=residuals, fill=gender)) + geom_boxplot()+
+lm_df <- data_frame(residuals=lm_base$residual,ethnicity = data$RIDRETH1,gender=data$RIAGENDR)
+levels(lm_df$ethnicity) <- ethnicity
+ggplot(lm_df, aes(x=ethnicity, y=residuals, fill=gender)) + geom_boxplot()+
   scale_x_discrete(guide = guide_axis(angle = 45)) 
 
 ```
 
 
-## Testing Enthnic Groups Spline Model
+## Testing ethnicity Groups Spline Model
 ```{r enthic2, echo=TRUE,results = "asis"}
 ns_base <- lm(as.formula(all_ns_model),data)
-ns_df <- data_frame(residuals=ns_base$residual,ethnic = data$RIDRETH1,gender=data$RIAGENDR)
-levels(ns_df$ethnic) <- enthics
-ggplot(ns_df, aes(x=ethnic, y=residuals, fill=gender)) + geom_boxplot()+
+ns_df <- data_frame(residuals=ns_base$residual,ethnicity = data$RIDRETH1,gender=data$RIAGENDR)
+levels(ns_df$ethnicity) <- ethnicity
+ggplot(ns_df, aes(x=ethnicity, y=residuals, fill=gender)) + geom_boxplot()+
   scale_x_discrete(guide = guide_axis(angle = 45)) 
 
 ```
