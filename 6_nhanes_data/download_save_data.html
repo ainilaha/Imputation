@@ -369,8 +369,8 @@ pre code {
 <div id="load-libs" class="section level2">
 <h2>Load libs</h2>
 <pre class="r"><code>library(DBI)
-library(nhanesA)</code></pre>
-<pre><code>## Warning: package &#39;nhanesA&#39; was built under R version 4.1.3</code></pre>
+library(nhanesA)
+# library(haven)</code></pre>
 </div>
 <div id="define-the-load-data-functions" class="section level2">
 <h2>Define the load data functions</h2>
@@ -433,7 +433,7 @@ read_combine_data &lt;- function(year_names, table_name) {
 </div>
 <div id="download-and-save-data-to-sqlite" class="section level2">
 <h2>Download and Save data to SqLite</h2>
-<pre class="r"><code>nhanes_db &lt;- dbConnect(RSQLite::SQLite(), &quot;nhanes.sqlite&quot;)
+<pre class="r"><code>nhanes_db &lt;- dbConnect(RSQLite::SQLite(), &quot;../nhanes.sqlite&quot;)
 
 # Demographics
 demo_data &lt;- read_combine_data(names(years),&#39;DEMO&#39;)
@@ -465,30 +465,32 @@ dbWriteTable(nhanes_db, &quot;current_health_status&quot;, current_health_status
 
 # Medical Conditions
 medical_conditions &lt;- read_combine_data(names(years),&#39;MCQ&#39;)
-dbWriteTable(nhanes_db, &quot;medical_conditions&quot;, medical_conditions)</code></pre>
+dbWriteTable(nhanes_db, &quot;medical_conditions&quot;, medical_conditions)
+
+# Blood Pressure
+blood_pressure &lt;- read_combine_data(names(years),&#39;BPX&#39;)
+dbWriteTable(nhanes_db, &quot;blood_pressure&quot;, blood_pressure)
+
+
+# Cholesterol - Total
+# cmx &lt;- read_xpt(&quot;https://wwwn.cdc.gov/Nchs/Nhanes/2003-2004/L13_C.XPT&quot;)
+# write.csv(cmx,&quot;../data/TCHOL_C.csv&quot;,row.names = FALSE)
+cholesterol &lt;- read_combine_data(names(years),&#39;TCHOL&#39;)
+dbWriteTable(nhanes_db, &quot;cholesterol&quot;, cholesterol)
+
+# Alcohol Use Questionnaire 
+alcohol &lt;- read_combine_data(names(years),&#39;ALQ&#39;)
+dbWriteTable(nhanes_db, &quot;alcohol&quot;, alcohol)</code></pre>
 </div>
 <div id="quick-check-database" class="section level2">
 <h2>Quick check database</h2>
 <pre class="r"><code># list all of the tables
-dbListTables(nhanes_db)</code></pre>
-<pre><code>## [1] &quot;blood_cholesterol&quot;     &quot;body_measures&quot;         &quot;current_health_status&quot;
-## [4] &quot;demo&quot;                  &quot;diabetes&quot;              &quot;diet_total&quot;           
-## [7] &quot;medical_conditions&quot;</code></pre>
-<pre class="r"><code>test_blood_cholesterol &lt;- dbGetQuery(nhanes_db, &#39;SELECT * FROM blood_cholesterol LIMIT 5&#39;)
-test_blood_cholesterol</code></pre>
-<pre><code>##    SEQN BPQ020 BPQ030 BPQ040A BPQ050A BPQ060 BPQ070 BPQ080 BPQ090D BPQ100D
-## 1 21005      2     NA      NA      NA     NA     NA     NA      NA      NA
-## 2 21006      2     NA      NA      NA     NA     NA     NA      NA      NA
-## 3 21008      2     NA      NA      NA     NA     NA     NA      NA      NA
-## 4 21009      2     NA      NA      NA      1      2      9      NA      NA
-## 5 21010      2     NA      NA      NA      1      3      2      NA      NA
-##       years
-## 1 2003-2004
-## 2 2003-2004
-## 3 2003-2004
-## 4 2003-2004
-## 5 2003-2004</code></pre>
-<pre class="r"><code># close the connection
+dbListTables(nhanes_db)
+
+test_blood_cholesterol &lt;- dbGetQuery(nhanes_db, &#39;SELECT * FROM blood_cholesterol LIMIT 5&#39;)
+test_blood_cholesterol
+
+# close the connection
 dbDisconnect(nhanes_db)</code></pre>
 </div>
 
