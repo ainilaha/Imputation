@@ -1,5 +1,5 @@
 ---
-title: "exploring nonlinear associations"
+title: "exploring nonlinear : Systolic: Blood pres (1st rdg) mm Hg"
 output: html_document
 ---
 
@@ -39,7 +39,7 @@ load_data <- function(exposure_cols) {
   nhanes_db <- dbConnect(RSQLite::SQLite(), "../../nhanes.sqlite")
   
   cols <-
-    'SEQN,BMXWAIST, RIDAGEYR, BMXHT, BMXBMI, BMXWT, RIAGENDR,SDMVPSU,SDMVSTRA,RIDRETH1, years,'
+    'SEQN,BMXWAIST, RIDAGEYR, BMXHT, BMXBMI, BMXWT, RIAGENDR,SDMVPSU,SDMVSTRA,RIDRETH1, INDFMPIR, years,'
   data_sql <-
     paste('SELECT', cols, exposure_cols, 'FROM merged_table')
   
@@ -63,13 +63,15 @@ phs_res <- data_phs$data_types
 
 ```{r query, echo=TRUE}
 nhanes_db <- dbConnect(RSQLite::SQLite(), "../../nhanes.sqlite")
-cholesterol <- dbGetQuery(nhanes_db, "select * from cholesterol")
-blood_pressure <- dbGetQuery(nhanes_db, "select SEQN,BPXDI1,BPXDI2,BPXSY1,years from blood_pressure")
+# demo <- dbGetQuery(nhanes_db, "select * from demo")
+# cholesterol <- dbGetQuery(nhanes_db, "select * from cholesterol")
+# BPXDI2,BPXSY1
+blood_pressure <- dbGetQuery(nhanes_db, "select SEQN,BPXDI1,years from blood_pressure where BPXDI1 IS NOT NULL")
 dbDisconnect(nhanes_db)
 
 ```
 
-# BPXDI1 - Diastolic: Blood pres (1st rdg) mm Hg
+## BPXDI1 - Diastolic: Blood pres (1st rdg) mm Hg
 
 ```{r BPXDI1, echo=TRUE,warning=FALSE}
 
@@ -154,6 +156,27 @@ forest_plot_mult(
 )
   
 ```
+
+## Testing ethnicity Groups Linear Model
+```{r enthic, echo=TRUE,results = "asis"}
+ethnicity <- c('Mexican American','Other Hispanic','Non-Hispanic White','Non-Hispanic Black','Other Race')
+lm_base <- lm(as.formula(linear_model),data)
+lm_df <- data_frame(residuals=lm_base$residual,ethnicity = data$RIDRETH1,gender=data$RIAGENDR)
+levels(lm_df$ethnicity) <- ethnicity
+ggplot(lm_df, aes(x=ethnicity, y=residuals, fill=gender)) + geom_boxplot()+
+  scale_x_discrete(guide = guide_axis(angle = 45)) 
+
+```
+
+
+## Testing ethnicity Groups Spline Model
+```{r enthic2, echo=TRUE,results = "asis"}
+ns_base <- lm(as.formula(all_ns_model),data)
+ns_df <- data_frame(residuals=ns_base$residual,ethnicity = data$RIDRETH1,gender=data$RIAGENDR)
+levels(ns_df$ethnicity) <- ethnicity
+ggplot(ns_df, aes(x=ethnicity, y=residuals, fill=gender)) + geom_boxplot()+
+  scale_x_discrete(guide = guide_axis(angle = 45)) 
+
 
 
 
