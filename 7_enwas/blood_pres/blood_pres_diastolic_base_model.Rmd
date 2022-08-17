@@ -158,6 +158,8 @@ ethnicity <-
   )
 lm_base <- lm(as.formula(linear_model), data)
 # summary(lm_base)
+
+
 lm_df <-
   data.frame(
     residuals = lm_base$residual,
@@ -170,7 +172,7 @@ ns_base <- lm(as.formula(all_ns_model), data)
 # summary(ns_base)
 ns_df <-
   data.frame(
-    residuals = scale(ns_base$residual),
+    residuals = ns_base$residual,
     ethnicity = data$RIDRETH1,
     gender = data$RIAGENDR,
     years = data$years,
@@ -180,7 +182,20 @@ levels(ns_df$ethnicity) <- ethnicity
 
 ```
 
-The residual of the spline model is significantly smaller than the linear model, which indicates that the spline model performs much better in this case.
+The residual of the spline model is slightly smaller than the linear model.
+
+linear model:
+
+`Residual standard error: 12.91 on 31242 degrees of freedom`  <br>
+`Multiple R-squared:  0.03146,	Adjusted R-squared:  0.03134` <br>
+`F-statistic: 253.7 on 4 and 31242 DF,  p-value: < 2.2e-16`  <br>
+
+Spline model:
+
+`Residual standard error: 12.27 on 31220 degrees of freedom`  <br>
+`Multiple R-squared:  0.1252,	Adjusted R-squared:  0.1245 `  <br>
+`F-statistic: 171.8 on 26 and 31220 DF,  p-value: < 2.2e-16` <br> 
+
 
 ```{r resid3, echo=TRUE,results = "asis"}
 res_df <- rbind(lm_df, ns_df)

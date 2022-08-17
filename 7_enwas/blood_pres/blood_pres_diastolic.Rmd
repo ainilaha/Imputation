@@ -115,3 +115,35 @@ forest_plot_mult(
   
 ```
 
+
+## Residuals
+
+```{r resid2, echo=TRUE,results = "asis"}
+library(ggpubr)
+
+lm_base <- lm(as.formula(linear_model), data)
+lm_df <-
+  data.frame(
+    residuals = lm_base$residual,
+    gender = data$RIAGENDR,
+    DR1TMOIS = data$DR1TMOIS
+  )
+ns_base <- lm(as.formula(all_ns_model), data)
+ns_df <-
+  data.frame(
+    residuals = ns_base$residual,
+    DR1TMOIS = data$DR1TMOIS,
+    gender = data$RIAGENDR
+  )
+
+g_lm <- ggplot(lm_df, aes(x=DR1TMOIS, y=residuals) ) + 
+  geom_point(aes(colour=gender),alpha=0.1)+
+  geom_smooth(method = lm,formula = y ~ ns(x,df=7)) + ggtitle("linear")
+
+g_ns <- ggplot(lm_df, aes(x=DR1TMOIS, y=residuals) ) + 
+  geom_point(aes(colour=gender),alpha=0.1)+
+  geom_smooth(method = lm,formula = y ~ ns(x,df=7))+ggtitle("spline")
+
+ggarrange(g_lm,g_ns,common.legend = TRUE)
+```
+

@@ -105,7 +105,7 @@ ns_base <- lm(as.formula(all_ns_model), data)
 # summary(ns_base)
 ns_df <-
   data.frame(
-    residuals = scale(ns_base$residual),
+    residuals = ns_base$residual,
     ethnicity = data$RIDRETH1,
     gender = data$RIAGENDR,
     years = data$years,
