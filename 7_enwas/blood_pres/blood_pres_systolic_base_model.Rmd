@@ -1,6 +1,5 @@
 ---
-title: "EnWAS Base Model Verification on Waist Circumference"
-
+title: "EnWAS: Systolic-Blood Pressure"
 output: html_document
 ---
 
@@ -8,10 +7,13 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+
 ## Load libs and Load data
 The process of load libs and data is the same as [EnWAS sample](https://ccb-hms.github.io/Imputation/7_enwas/EnWAS_simple.html).
 
 ```{r data, warning=FALSE,message=FALSE,echo=FALSE}
+# source("../6_nhanes_data/phesant.R")
+
 library(DBI)
 # library(broom)
 library(splines)
@@ -19,20 +21,19 @@ library(splines)
 library(dplyr)
 library(ggplot2)
 library(EnWAS)
-# source("../6_nhanes_data/phesant.R")
 
 exposure_vars <-
-  read.delim("../data/select_vars.txt", header = FALSE)$V1
+  read.delim("../../data/select_vars.txt", header = FALSE)$V1
 exposure_cols <- paste(exposure_vars, collapse = ", ")
 
 
 # Load data and convert data types according to PHESEANT.
 # Return data set and PHESEANT results.
 load_data <- function(exposure_cols) {
-  nhanes_db <- dbConnect(RSQLite::SQLite(), "../nhanes.sqlite")
+  nhanes_db <- dbConnect(RSQLite::SQLite(), "../../nhanes.sqlite")
   
   cols <-
-    'BMXWAIST, RIDAGEYR, BMXHT, BMXBMI, BMXWT, RIAGENDR,SDMVPSU,SDMVSTRA,RIDRETH1, years,'
+    'SEQN,BMXWAIST, RIDAGEYR, BMXHT, BMXBMI, BMXWT, RIAGENDR,SDMVPSU,SDMVSTRA,RIDRETH1, INDFMPIR, years,'
   data_sql <-
     paste('SELECT', cols, exposure_cols, 'FROM merged_table')
   
@@ -52,21 +53,63 @@ phs_res <- data_phs$data_types
 
 ```
 
+## Query Extra data 
+This part loads the blood pressure data and merges it with the dietary and demographic data in the above section.
+
+```{r query, echo=TRUE}
+nhanes_db <- dbConnect(RSQLite::SQLite(), "../../nhanes.sqlite")
+# demo <- dbGetQuery(nhanes_db, "select * from demo")
+# cholesterol <- dbGetQuery(nhanes_db, "select * from cholesterol")
+# BPXDI2,BPXSY1
+blood_pressure <- dbGetQuery(nhanes_db, "select SEQN,BPXSY1,years from blood_pressure where BPXSY1 IS NOT NULL")
+dbDisconnect(nhanes_db)
+
+```
+
+## BPXSY1 - Systolic: Blood pres (1st rdg) mm Hg
+
+The following plot shows that the 
+
+```{r BPXSY1, echo=TRUE,warning=FALSE}
+
+data <- merge(blood_pressure, data, by = c("SEQN",'years'))
+
+ggplot(data,
+         aes(
+           x = RIDAGEYR,
+           y = BPXSY1,
+           colour = RIAGENDR
+         )) +
+  geom_point(alpha = 0.1) +
+  geom_smooth(
+    method = lm,
+    formula = y ~ ns(x, knots = seq(20, 80, by = 5)),
+    size = 1
+  )+
+  geom_smooth(method = lm, formula = y ~ x)
 
 
-## EnWAS: Base Models
-
-```{r func3, echo=TRUE,warning=F, out.width = '90%'}
-linear_model <- 'BMXWAIST ~ RIDAGEYR*RIAGENDR + BMXBMI'
-
-all_ns_model <-
-  'BMXWAIST ~ ns(RIDAGEYR, knots = seq(20, 80, by = 10)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)))'
+ggplot(data, aes(x=BMXBMI, y=BPXSY1) ) + 
+  geom_point(aes(colour=RIAGENDR),alpha=0.1)+
+  geom_density_2d()+geom_smooth(method = lm,formula = y ~ ns(x,df=7))
 
 ```
 
 
+## Base Model
 
-## Testing ethnicity Groups Linear Model
+```{r func3, echo=TRUE,warning=F, out.width = '90%'}
+linear_model <- 'BPXSY1 ~ RIDAGEYR*RIAGENDR + BMXBMI'
+
+
+all_ns_model <-
+  'BPXSY1 ~ ns(RIDAGEYR, knots = seq(20, 80, by = 10)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)))'
+
+
+
+```
+
+## Plot residuals
 
 ```{r enthic, echo=TRUE,results = "asis"}
 ethnicity <-
@@ -80,27 +123,13 @@ ethnicity <-
 lm_base <- lm(as.formula(linear_model), data)
 # summary(lm_base)
 lm_df <-
-  data_frame(
+  data.frame(
     residuals = lm_base$residual,
     ethnicity = data$RIDRETH1,
     gender = data$RIAGENDR,
     years = data$years,
     model = "lm"
   )
-levels(lm_df$ethnicity) <- ethnicity
-ggplot(lm_df, aes(x = ethnicity, y = residuals, fill = gender)) + geom_boxplot() +
-  scale_x_discrete(guide = guide_axis(angle = 45)) 
-
-```
-
-
-## Testing ethnicity Groups Spline Model
-
-The residual of Non-Hispanic White ethnic group has much higher than the other groups.
-
-Spline model has much less range of residual than the linear model.
-
-```{r enthic2, echo=TRUE,results = "asis"}
 ns_base <- lm(as.formula(all_ns_model), data)
 # summary(ns_base)
 ns_df <-
@@ -112,6 +141,11 @@ ns_df <-
     model = "ns"
   )
 levels(ns_df$ethnicity) <- ethnicity
+
+```
+
+```{r enthic2, echo=TRUE,results = "asis"}
+
 ggplot(ns_df, aes(x = ethnicity, y = residuals, fill = gender)) + geom_boxplot() +
   scale_x_discrete(guide = guide_axis(angle = 45))
 
@@ -137,10 +171,10 @@ bin_mean <- function(bin){
   mean(bin)
 }
 
-plot_residual <- function(model,ncalss=900){
+plot_residual <- function(model,ncalss=600){
   
   df <-
-  data_frame(
+  data.frame(
     residuals = model$residuals,
     breaks = cut(model$fitted.values,breaks = ncalss)
   )

@@ -62,38 +62,12 @@ nhanes_db <- dbConnect(RSQLite::SQLite(), "../../nhanes.sqlite")
 # BPXDI2,BPXSY1
 blood_pressure <- dbGetQuery(nhanes_db, "select SEQN,BPXDI1,years from blood_pressure where BPXDI1 IS NOT NULL")
 dbDisconnect(nhanes_db)
-
-```
-
-## BPXDI1 - Diastolic: Blood pres (1st rdg) mm Hg
-
-```{r BPXDI1, echo=TRUE,warning=FALSE}
-
 data <- merge(blood_pressure, data, by = c("SEQN",'years'))
 
-ggplot(data,
-         aes(
-           x = RIDAGEYR,
-           y = BPXDI1,
-           colour = RIAGENDR
-         )) +
-  geom_point(alpha = 0.1) +
-  geom_smooth(
-    method = lm,
-    formula = y ~ ns(x, knots = seq(20, 80, by = 5)),
-    size = 1
-  )+
-  geom_smooth(method = lm, formula = y ~ x)
-
-
-ggplot(data, aes(x=BMXBMI, y=BPXDI1) ) + 
-  geom_point(aes(colour=RIAGENDR),alpha=0.1)+
-  geom_density_2d()+geom_smooth(method = lm,formula = y ~ x)
-
 ```
 
 
-## Run EnWAS 
+## Run EnWAS ( BPXDI1 - Diastolic: Blood pres (1st rdg) mm Hg )
 
 ```{r func3, echo=TRUE,warning=F, out.width = '90%'}
 linear_model <- 'BPXDI1 ~ RIDAGEYR*RIAGENDR + BMXBMI'

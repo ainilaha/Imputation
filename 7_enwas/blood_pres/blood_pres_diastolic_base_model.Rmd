@@ -1,0 +1,233 @@
+---
+title: "EnWAS: Diasatolic-Blood Pressure"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Load libs and Load data
+The process of load libs and data is the same as [EnWAS sample](https://ccb-hms.github.io/Imputation/7_enwas/EnWAS_simple.html).
+
+```{r data, warning=FALSE,message=FALSE,echo=FALSE}
+# source("../6_nhanes_data/phesant.R")
+
+library(DBI)
+# library(broom)
+library(splines)
+# library(stringr)
+library(dplyr)
+library(ggplot2)
+library(EnWAS)
+
+exposure_vars <-
+  read.delim("../../data/select_vars.txt", header = FALSE)$V1
+exposure_cols <- paste(exposure_vars, collapse = ", ")
+
+
+# Load data and convert data types according to PHESEANT.
+# Return data set and PHESEANT results.
+load_data <- function(exposure_cols) {
+  nhanes_db <- dbConnect(RSQLite::SQLite(), "../../nhanes.sqlite")
+  
+  cols <-
+    'SEQN,BMXWAIST, RIDAGEYR, BMXHT, BMXBMI, BMXWT, RIAGENDR,SDMVPSU,SDMVSTRA,RIDRETH1, INDFMPIR, years,'
+  data_sql <-
+    paste('SELECT', cols, exposure_cols, 'FROM merged_table')
+  
+  data <- dbGetQuery(nhanes_db, data_sql)
+  data <- na.omit(data)
+  dbDisconnect(nhanes_db)
+  
+  data
+  
+}
+
+nhanes_data <- load_data(exposure_cols) 
+data_phs <- phesant(nhanes_data)
+
+data <- data_phs$data
+phs_res <- data_phs$data_types
+
+```
+
+## Query Extra data 
+This part loads the blood pressure data and merges it with the dietary and demographic data in the above section.
+
+```{r query, echo=TRUE}
+nhanes_db <- dbConnect(RSQLite::SQLite(), "../../nhanes.sqlite")
+# demo <- dbGetQuery(nhanes_db, "select * from demo")
+# cholesterol <- dbGetQuery(nhanes_db, "select * from cholesterol")
+# BPXDI2,BPXSY1
+blood_pressure <- dbGetQuery(nhanes_db, "select SEQN,BPXDI1,years from blood_pressure where BPXDI1 IS NOT NULL")
+dbDisconnect(nhanes_db)
+
+```
+
+## BPXDI1 - Diastolic: Blood pres (1st rdg) mm Hg
+
+This section compares linear and spline regression of Diastolic blood pressure against age and BMI.
+
+```{r BPXDI1, echo=TRUE,warning=FALSE}
+library(ggpubr)
+data <- merge(blood_pressure, data, by = c("SEQN",'years'))
+
+g1 <- ggplot(data,
+         aes(
+           x = RIDAGEYR,
+           y = BPXDI1,
+           colour = RIAGENDR
+         )) +
+  geom_point(alpha = 0.1) +
+  geom_smooth(
+    method = lm,
+    formula = y ~ ns(x, knots = seq(20, 80, by = 5)),
+    size = 1
+  )+
+  geom_smooth(method = lm, formula = y ~ x)
+
+g2 <- ggplot(data,
+         aes(
+           x = RIDAGEYR,
+           y = invNorm(BPXDI1),
+           colour = RIAGENDR
+         )) +
+  geom_point(alpha = 0.1) +
+  geom_smooth(
+    method = lm,
+    formula = y ~ ns(x, knots = seq(20, 80, by = 5)),
+    size = 1
+  )+
+  geom_smooth(method = lm, formula = y ~ x)
+
+
+g3 <- ggplot(data, aes(x=BMXBMI, y=BPXDI1) ) + 
+  geom_point(aes(colour=RIAGENDR),alpha=0.1)+
+  geom_density_2d()+geom_smooth(method = lm,formula = y ~ ns(x,df=7))+
+  geom_smooth(method = lm, formula = y ~ x)
+
+g4 <- ggplot(data, aes(x=BMXBMI, y=invNorm(BPXDI1))) + 
+  geom_point(aes(colour=RIAGENDR),alpha=0.1)+
+  geom_density_2d()+geom_smooth(method = lm,formula = y ~ ns(x,df=7))+
+  geom_smooth(method = lm, formula = y ~ x)
+
+```
+
+
+As shown in the below plots, the Diastolic has a parabola-like relation with age. The left shows the regressions without raw Diastolic values, and Diastolic values have transformed with inverse normal transformation in the second plot. The inverse normal transformation shows a better scale and reveal the differences. The linear regression model has a significant residual overall, performing even worse for participants younger than 30 and older than 70.
+Therefore, apply linear regression could miss leading in EnWAS.
+
+
+
+```{r BPXDI12, echo=TRUE,warning=FALSE,out.width = '90%'}
+ggarrange(g1,g2,common.legend = TRUE)
+
+```
+
+
+Similarly, the following two plots show Diastolic with respect to BMI. Although the spline and linear regressions are very close in this case, they still have some divergence at the early and late age. It may accept to use linear regression on BMI, but spline still would improve the accuracy. Note that the gender does not make much difference in this model.
+
+
+```{r BPXDI13, echo=TRUE,warning=FALSE,out.width = '90%'}
+ggarrange(g3,g4,common.legend = TRUE)
+
+```
+
+
+## Base Model
+
+```{r func3, echo=TRUE,warning=F, out.width = '90%'}
+linear_model <- 'BPXDI1 ~ RIDAGEYR*RIAGENDR + BMXBMI'
+all_ns_model <-
+  'BPXDI1 ~ ns(RIDAGEYR, knots = seq(20, 80, by = 10)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)))'
+
+```
+
+## Plot residuals
+
+```{r enthic, echo=TRUE,results = "asis"}
+ethnicity <-
+  c(
+    'Mexican American',
+    'Other Hispanic',
+    'Non-Hispanic White',
+    'Non-Hispanic Black',
+    'Other Race'
+  )
+lm_base <- lm(as.formula(linear_model), data)
+# summary(lm_base)
+lm_df <-
+  data.frame(
+    residuals = lm_base$residual,
+    ethnicity = data$RIDRETH1,
+    gender = data$RIAGENDR,
+    years = data$years,
+    model = "lm"
+  )
+ns_base <- lm(as.formula(all_ns_model), data)
+# summary(ns_base)
+ns_df <-
+  data.frame(
+    residuals = scale(ns_base$residual),
+    ethnicity = data$RIDRETH1,
+    gender = data$RIAGENDR,
+    years = data$years,
+    model = "ns"
+  )
+levels(ns_df$ethnicity) <- ethnicity
+
+```
+
+```{r enthic2, echo=TRUE,results = "asis"}
+
+ggplot(ns_df, aes(x = ethnicity, y = residuals, fill = gender)) + geom_boxplot() +
+  scale_x_discrete(guide = guide_axis(angle = 45))
+
+ggplot(ns_df, aes(x = years, y = residuals, fill = gender)) + geom_boxplot() +
+  scale_x_discrete(guide = guide_axis(angle = 45))
+
+res_df <- rbind(lm_df, ns_df)
+ggplot(res_df, aes(x = model, y = residuals, fill = model)) + geom_boxplot() +
+  scale_x_discrete(guide = guide_axis(angle = 45)) 
+
+```
+
+
+
+
+
+
+```{r residual1, echo=TRUE,warning=FALSE,message=FALSE,results = "asis"}
+bin_mean <- function(bin){
+  bin <- stringi::stri_replace_all_fixed(as.character(bin),'(','')
+  bin <- stringi::stri_replace_all_fixed(as.character(bin),']','')
+  bin <- as.numeric(unlist(stringi::stri_split_coll(bin,",")))
+  mean(bin)
+}
+
+plot_residual <- function(model,ncalss=600){
+  
+  df <-
+  data.frame(
+    residuals = model$residuals,
+    breaks = cut(model$fitted.values,breaks = ncalss)
+  )
+  df <- df %>% 
+  group_by(breaks) %>% 
+  summarize(mean = mean(residuals)
+            )
+  df$expected_value <- sapply(df$breaks, bin_mean)
+  
+ggplot(df,aes(expected_value,mean)) + geom_point() +
+  geom_smooth(aes(expected_value,mean),method = "lm", formula = y ~  ns(x, df=7))+
+  ylab("Average Risidual") + xlab("Expected Values")
+}
+
+
+plot_residual(lm_base)
+plot_residual(ns_base)
+
+
+```
