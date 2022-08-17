@@ -1,0 +1,163 @@
+---
+title: "EnWAS Base Model Verification on Waist Circumference"
+
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load libs and Load data
+The process of load libs and data is the same as [EnWAS sample](https://ccb-hms.github.io/Imputation/7_enwas/EnWAS_simple.html).
+
+```{r data, warning=FALSE,message=FALSE,echo=FALSE}
+library(DBI)
+# library(broom)
+library(splines)
+# library(stringr)
+library(dplyr)
+library(ggplot2)
+library(EnWAS)
+# source("../6_nhanes_data/phesant.R")
+
+exposure_vars <-
+  read.delim("../data/select_vars.txt", header = FALSE)$V1
+exposure_cols <- paste(exposure_vars, collapse = ", ")
+
+
+# Load data and convert data types according to PHESEANT.
+# Return data set and PHESEANT results.
+load_data <- function(exposure_cols) {
+  nhanes_db <- dbConnect(RSQLite::SQLite(), "../nhanes.sqlite")
+  
+  cols <-
+    'BMXWAIST, RIDAGEYR, BMXHT, BMXBMI, BMXWT, RIAGENDR,SDMVPSU,SDMVSTRA,RIDRETH1, years,'
+  data_sql <-
+    paste('SELECT', cols, exposure_cols, 'FROM merged_table')
+  
+  data <- dbGetQuery(nhanes_db, data_sql)
+  data <- na.omit(data)
+  dbDisconnect(nhanes_db)
+  
+  data
+  
+}
+
+nhanes_data <- load_data(exposure_cols) 
+data_phs <- phesant(nhanes_data)
+
+data <- data_phs$data
+phs_res <- data_phs$data_types
+
+```
+
+
+
+## EnWAS: Base Models
+
+```{r func3, echo=TRUE,warning=F, out.width = '90%'}
+linear_model <- 'BMXWAIST ~ RIDAGEYR*RIAGENDR + BMXBMI'
+
+all_ns_model <-
+  'BMXWAIST ~ ns(RIDAGEYR, knots = seq(20, 80, by = 10)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)))'
+
+```
+
+
+
+## Testing ethnicity Groups Linear Model
+
+```{r enthic, echo=TRUE,results = "asis"}
+ethnicity <-
+  c(
+    'Mexican American',
+    'Other Hispanic',
+    'Non-Hispanic White',
+    'Non-Hispanic Black',
+    'Other Race'
+  )
+lm_base <- lm(as.formula(linear_model), data)
+# summary(lm_base)
+lm_df <-
+  data_frame(
+    residuals = lm_base$residual,
+    ethnicity = data$RIDRETH1,
+    gender = data$RIAGENDR,
+    years = data$years,
+    model = "lm"
+  )
+levels(lm_df$ethnicity) <- ethnicity
+ggplot(lm_df, aes(x = ethnicity, y = residuals, fill = gender)) + geom_boxplot() +
+  scale_x_discrete(guide = guide_axis(angle = 45)) 
+
+```
+
+
+## Testing ethnicity Groups Spline Model
+
+The residual of Non-Hispanic White ethnic group has much higher than the other groups.
+
+Spline model has much less range of residual than the linear model.
+
+```{r enthic2, echo=TRUE,results = "asis"}
+ns_base <- lm(as.formula(all_ns_model), data)
+# summary(ns_base)
+ns_df <-
+  data_frame(
+    residuals = scale(ns_base$residual),
+    ethnicity = data$RIDRETH1,
+    gender = data$RIAGENDR,
+    years = data$years,
+    model = "ns"
+  )
+levels(ns_df$ethnicity) <- ethnicity
+ggplot(ns_df, aes(x = ethnicity, y = residuals, fill = gender)) + geom_boxplot() +
+  scale_x_discrete(guide = guide_axis(angle = 45))
+
+ggplot(ns_df, aes(x = years, y = residuals, fill = gender)) + geom_boxplot() +
+  scale_x_discrete(guide = guide_axis(angle = 45))
+
+res_df <- rbind(lm_df, ns_df)
+ggplot(res_df, aes(x = model, y = residuals, fill = model)) + geom_boxplot() +
+  scale_x_discrete(guide = guide_axis(angle = 45)) 
+
+```
+
+
+
+
+
+
+```{r residual1, echo=TRUE,warning=FALSE,message=FALSE,results = "asis"}
+bin_mean <- function(bin){
+  bin <- stringi::stri_replace_all_fixed(as.character(bin),'(','')
+  bin <- stringi::stri_replace_all_fixed(as.character(bin),']','')
+  bin <- as.numeric(unlist(stringi::stri_split_coll(bin,",")))
+  mean(bin)
+}
+
+plot_residual <- function(model,ncalss=900){
+  
+  df <-
+  data_frame(
+    residuals = model$residuals,
+    breaks = cut(model$fitted.values,breaks = ncalss)
+  )
+  df <- df %>% 
+  group_by(breaks) %>% 
+  summarize(mean = mean(residuals)
+            )
+  df$expected_value <- sapply(df$breaks, bin_mean)
+  
+ggplot(df,aes(expected_value,mean)) + geom_point() +
+  geom_smooth(aes(expected_value,mean),method = "lm", formula = y ~  ns(x, df=7))+
+  ylab("Average Risidual") + xlab("Expected Values")
+}
+
+
+plot_residual(lm_base)
+plot_residual(ns_base)
+
+
+```

@@ -81,7 +81,9 @@ ns_inverse_res <- enwas(all_ns_model, exposure_vars, data,inv = TRUE)
 
 
 ## Compare linear regression with spline regression.
-In the following plot, EnWAS results with linear and spline base models as defined in the above section. Although the spline model does not significantly differ from the linear model in this dataset, we still observed some differences. For example, Eicosenoic (DR1TM201, 0 ~ 5.489 gm) false negative in the linear regression.
+In the following plot, EnWAS results with linear and spline base models as defined in the above section. As shown in [the notebook](https://ccb-hms.github.io/Imputation/7_enwas/pre_try/EnWAS2_splines_data_distribution.html), the spline and linear models are not significantly different because the relations of waist circumference with age and BMI are close to linearity. Although the spline model does not significantly differ from the linear model in this dataset, we still observed some differences. 
+
+For example, Eicosenoic (DR1TM201, 0 ~ 5.489 gm) false negative in the linear regression.
 
 
 ```{r res3, echo=TRUE,warning=F, out.width = '90%'}
@@ -96,40 +98,17 @@ forest_plot_mult(
 )
 ```
 
-## Post process the results for compare
 
-```{r func31, echo=TRUE,warning=F, out.width = '90%'}
-xwas_res_list <-
-  list(
-    linear = linear_res2$enwas_res,
-    ns = all_ns_res$enwas_res,
-    lm_inv = lm_inverse_res$enwas_res,
-    ns_inv = ns_inverse_res$enwas_res
-  )
-xwas_result <- do.call("rbind", xwas_res_list)
-xwas_result$EnWAS <-
-  rep(names(xwas_res_list), each = nrow(xwas_res_list[[1]]))
-
-
-xwas_result$postive <- xwas_result$lower * xwas_result$upper
-xwas_result$postive <- xwas_result$postive >= 0.00001
-num_cols <- sapply(data[, exposure_vars], is.numeric)
-num_cols <- names(num_cols[num_cols == TRUE])
-ns_vs_linear <-
-  xwas_result[xwas_result$EnWAS == "linear", ]$postive != xwas_result[xwas_result$EnWAS ==
-                                                                       "ns", ]$postive
-```
 
 ## Variables that have different responses in linear and spline model
 
 We can filter out the false positive or false negative responses with the above operation.
 Eicosenoic (DR1TM201, 0 ~ 5.489 gm) is a false negative in the linear regression because people gent to consume less Eicosenoic after 60 and drop dramatically at 80, which is not linear with respect to age. (but why?)
 
+
 Both models show that Lutein and zeaxanthin (DR1TLZ, 0~102251 mcg) negatively affect the outcome, but the spline model shows it has much less impact. Again, Lutein and zeaxanthin have a non-linear association with ages, especially between 20 to 30, because people do not pay too much attention to eye health at that age.
 
 ```{r res32, echo=TRUE,warning=F, out.width = '90%'}
-
-num_cols[ns_vs_linear]
 
 ggplot(data,
          aes(
@@ -138,41 +117,16 @@ ggplot(data,
            colour = RIAGENDR
          )) +
   geom_point(alpha = 0.1) +
-  geom_smooth(
-    method = lm,
-    formula = y ~ ns(x, knots = seq(20, 80, by = 10)),
-    size = 1
-  )
-
-ggplot(data,
-       aes(
-           x = RIDAGEYR,
-           y = invNorm(DR1TLZ),
-           colour = RIAGENDR
-       )) +
-    geom_point(alpha = 0.1) +
-    geom_smooth(
+   geom_smooth (
+      method = lm,
+      formula = y ~ x
+      ) +
+   geom_smooth(
         method = lm,
         formula = y ~ ns(x, knots = seq(20, 80, by = 10)),
         size = 1
     )
 
-# for (c in num_cols[ns_vs_linear]) {
-#   g <-
-#     ggplot(data,
-#            aes_string(
-#              x = "RIDAGEYR",
-#              y = paste0("invNorm(", c, ")"),
-#              colour = "RIAGENDR"
-#            )) +
-#     geom_point(alpha = 0.1) +
-#     geom_smooth(
-#       method = lm,
-#       formula = y ~ ns(x, knots = seq(20, 80, by = 10)),
-#       size = 1
-#     )
-#   print(g)
-# }
 ```
 
 ```{r res4, echo=TRUE,warning=F, out.width = '90%'}
@@ -198,45 +152,3 @@ forest_plot_mult(
 ```
 
 
-
-
-## EnWAS show interesting variables
-
-
-```{r func_intes_var, echo=TRUE,results = "asis"}
-
-# ns vs inverse norm transformation
-ns_vs_ns_inv <-
-  xwas_result[xwas_result$EnWAS == "ns_inv", ]$postive != xwas_result[xwas_result$EnWAS ==
-                                                                        "ns", ]$postive
-num_cols[ns_vs_ns_inv]
-
-for (c in c(num_cols[ns_vs_ns_inv],'DR1TS120')) {
-  par(mfrow = c(1, 2))
-  hist(data[, c], main = c)
-  hist(invNorm(data[, c]), main = paste0("invNorm:", c))
-}
-
-```
-
-## Testing ethnicity Groups Linear Model
-```{r enthic, echo=TRUE,results = "asis"}
-ethnicity <- c('Mexican American','Other Hispanic','Non-Hispanic White','Non-Hispanic Black','Other Race')
-lm_base <- lm(as.formula(linear_model),data)
-lm_df <- data_frame(residuals=lm_base$residual,ethnicity = data$RIDRETH1,gender=data$RIAGENDR)
-levels(lm_df$ethnicity) <- ethnicity
-ggplot(lm_df, aes(x=ethnicity, y=residuals, fill=gender)) + geom_boxplot()+
-  scale_x_discrete(guide = guide_axis(angle = 45)) 
-
-```
-
-
-## Testing ethnicity Groups Spline Model
-```{r enthic2, echo=TRUE,results = "asis"}
-ns_base <- lm(as.formula(all_ns_model),data)
-ns_df <- data_frame(residuals=ns_base$residual,ethnicity = data$RIDRETH1,gender=data$RIAGENDR)
-levels(ns_df$ethnicity) <- ethnicity
-ggplot(ns_df, aes(x=ethnicity, y=residuals, fill=gender)) + geom_boxplot()+
-  scale_x_discrete(guide = guide_axis(angle = 45)) 
-
-```

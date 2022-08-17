@@ -75,12 +75,12 @@ ggplot(data, aes(x=RIDAGEYR, y=BMXWAIST,colour=RIAGENDR)) +
 
 ggplot(data, aes(x=RIDAGEYR, y=BMXWAIST,colour=RIAGENDR)) + 
   geom_point(alpha=0.1)+
-  geom_smooth(method = lm, formula = y ~ bs(x, df=7), size = 1)
+  geom_smooth(method = lm, formula = y ~ ns(x, df=7), size = 1)
 
 
 ggplot(data, aes(x=RIDAGEYR, y=BMXWAIST,colour=RIAGENDR)) + 
   geom_point(alpha=0.1)+
-  geom_smooth(method = lm, formula = y ~ bs(x, df=7), size = 1)+
+  geom_smooth(method = lm, formula = y ~ ns(x, df=7), size = 1)+
   geom_smooth(method = lm, formula = y ~ x)
 
 
@@ -90,57 +90,15 @@ ggplot(data, aes(x=RIDAGEYR, y=BMXWAIST) ) +
 
 
 ggplot(data, aes(x=BMXWT, y=BMXWAIST,colour=RIAGENDR) ) + 
+  geom_smooth(method = lm, formula = y ~ ns(x, df=7), size = 1)+
   geom_point(alpha=0.1)+geom_smooth(method = lm,formula = y ~ x)
 
 
-ggplot(data, aes(x=BMXWT, y=BMXWAIST) ) + 
-  geom_point(aes(colour=RIAGENDR),alpha=0.1)+
-  geom_density_2d()
-
 ggplot(data, aes(x=BMXBMI, y=BMXWAIST) ) + 
   geom_point(aes(colour=RIAGENDR),alpha=0.1)+
-  geom_density_2d()
-```
-
-Regression models
-
-```{r train_pred, echo=TRUE}
- 
-```
-Regression models with age
-
-```{r data4, echo=TRUE}
-test_df <- test_data |> select(-BMXWAIST)
-lm_reg = lm(formula = BMXWAIST ~ BMXWT + RIDAGEYR, train_data)
-
-lm_pred = predict(lm_reg, newdata = test_df, se = T)
-
-lm_reg2 = lm(formula = BMXWAIST ~ BMXWT + bs(RIDAGEYR,df=7), train_data)
-lm_pred2 = predict(lm_reg2, newdata = test_df, se = T)
-
-
-
-# save prediction results
-pred_df = data.frame(
-  fit1 = lm_pred$fit,
-  fit2 = lm_pred2$fit,
-  weight = test_data$BMXWT,
-  sex = test_data$RIAGENDR,
-  age <- train_data$RIDAGEYR,
-  label = test_data$BMXWAIST
-)
-
-
-ggplot(pred_df, aes(x = weight, y = label)) + geom_point(colour = "black",alpha = 0.1) +
-  geom_point(aes(y=fit1,x= weight,color=sex),alpha = 0.3)
-
-
-
-ggplot(pred_df, aes(x = weight, y = label)) + geom_point(colour = "black",alpha = 0.1) +
-  geom_point(data=pred_df,aes(y=fit1,x= weight,colour="lm"),alpha = 0.1)+
-  geom_point(data=pred_df,aes(y=fit2,x= weight,colour="lm_bs"),alpha = 0.1) +
-  scale_color_manual(name = "models", values = c("lm" = "darkblue", "lm_bs" = "red"))
-
-qplot(x=fit1,y=fit2,data=pred_df,colour=sex,alpha=I(0.1))
+  geom_density_2d()+
+  geom_smooth(method = lm, formula = y ~ ns(x, df=7), size = 1)+
+  geom_smooth(method = lm, formula = y ~ x)
 
 ```
+
