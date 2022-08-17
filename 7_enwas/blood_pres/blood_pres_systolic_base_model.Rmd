@@ -101,11 +101,8 @@ ggplot(data, aes(x=BMXBMI, y=BPXSY1) ) +
 ```{r func3, echo=TRUE,warning=F, out.width = '90%'}
 linear_model <- 'BPXSY1 ~ RIDAGEYR*RIAGENDR + BMXBMI'
 
-
 all_ns_model <-
   'BPXSY1 ~ ns(RIDAGEYR, knots = seq(20, 80, by = 10)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)))'
-
-
 
 ```
 
@@ -142,6 +139,8 @@ ns_df <-
   )
 levels(ns_df$ethnicity) <- ethnicity
 
+
+
 ```
 
 ```{r enthic2, echo=TRUE,results = "asis"}
@@ -171,7 +170,9 @@ bin_mean <- function(bin){
   mean(bin)
 }
 
-plot_residual <- function(model,ncalss=600){
+plot_residual <- function(model,ncalss=0){
+  if (ncalss==0)
+    ncalss <- floor(sqrt(length(model$fitted.values)))
   
   df <-
   data.frame(
@@ -188,6 +189,7 @@ ggplot(df,aes(expected_value,mean)) + geom_point() +
   geom_smooth(aes(expected_value,mean),method = "lm", formula = y ~  ns(x, df=7))+
   ylab("Average Risidual") + xlab("Expected Values")
 }
+
 
 
 plot_residual(lm_base)

@@ -1,5 +1,5 @@
 ---
-title: "EnWAS: Diasatolic-Blood Pressure"
+title: "EnWAS Base Model: Diasatolic-Blood Pressure"
 output: html_document
 ---
 
@@ -180,19 +180,33 @@ levels(ns_df$ethnicity) <- ethnicity
 
 ```
 
-```{r enthic2, echo=TRUE,results = "asis"}
+The residual of the spline model is significantly smaller than the linear model, which indicates that the spline model performs much better in this case.
 
-ggplot(ns_df, aes(x = ethnicity, y = residuals, fill = gender)) + geom_boxplot() +
-  scale_x_discrete(guide = guide_axis(angle = 45))
-
-ggplot(ns_df, aes(x = years, y = residuals, fill = gender)) + geom_boxplot() +
-  scale_x_discrete(guide = guide_axis(angle = 45))
-
+```{r resid3, echo=TRUE,results = "asis"}
 res_df <- rbind(lm_df, ns_df)
 ggplot(res_df, aes(x = model, y = residuals, fill = model)) + geom_boxplot() +
   scale_x_discrete(guide = guide_axis(angle = 45)) 
 
 ```
+
+
+The following plot shows the compassion of residuals across ethnic groups. The Non-Hispanic Black and Non-Hispanic White are slightly different from the rest of groups.
+
+```{r enthic2, echo=TRUE,results = "asis"}
+
+ggplot(ns_df, aes(x = ethnicity, y = residuals, fill = gender)) + geom_boxplot() +
+  scale_x_discrete(guide = guide_axis(angle = 45))
+```
+
+
+We also notice that the residuals across the years are almost the same, indicating that we can combine the data and analysis over the years.
+
+```{r resid2, echo=TRUE,results = "asis"}
+ggplot(ns_df, aes(x = years, y = residuals, fill = gender)) + geom_boxplot() +
+  scale_x_discrete(guide = guide_axis(angle = 45))
+```
+
+
 
 
 
@@ -207,7 +221,9 @@ bin_mean <- function(bin){
   mean(bin)
 }
 
-plot_residual <- function(model,ncalss=600){
+plot_residual <- function(model,ncalss=0){
+  if (ncalss==0)
+    ncalss <- floor(sqrt(length(model$fitted.values)))
   
   df <-
   data.frame(
