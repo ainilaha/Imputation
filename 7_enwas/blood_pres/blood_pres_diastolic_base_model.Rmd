@@ -90,8 +90,8 @@ g1 <- ggplot(data,
 
 g2 <- ggplot(data,
          aes(
-           x = RIDAGEYR,
-           y = invNorm(BPXDI1),
+           x = invNorm(RIDAGEYR),
+           y = BPXDI1,
            colour = RIAGENDR
          )) +
   geom_point(alpha = 0.1) +
@@ -236,7 +236,7 @@ bin_mean <- function(bin){
   mean(bin)
 }
 
-plot_residual <- function(model,ncalss=0){
+plot_residual <- function(model,ncalss=500){
   if (ncalss==0)
     ncalss <- floor(sqrt(length(model$fitted.values)))
   

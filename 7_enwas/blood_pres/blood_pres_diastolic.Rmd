@@ -55,6 +55,8 @@ phs_res <- data_phs$data_types
 
 ## Query Extra data 
 
+This part loads the blood pressure data and merges it with the dietary and demographic data in the above section.
+
 ```{r query, echo=TRUE}
 nhanes_db <- dbConnect(RSQLite::SQLite(), "../../nhanes.sqlite")
 # demo <- dbGetQuery(nhanes_db, "select * from demo")
@@ -69,13 +71,23 @@ data <- merge(blood_pressure, data, by = c("SEQN",'years'))
 
 ## Run EnWAS ( BPXDI1 - Diastolic: Blood pres (1st rdg) mm Hg )
 
+
+To run the EnWAS for BPXDI1 against the dietary data, we use age, gender, and BMI as the adjusted variables and the adopted age and gender as interaction terms. To show the line regression may perform poorly and miss leading findings, we apply spline on the continuous variable in the base model. We choose to apply [natural spline](https://towardsdatascience.com/numerical-interpolation-natural-cubic-spline-52c1157b98ac) because it can keep relatively smoother than other spline methods when the regression close to the boundaries.
+
+
+In addition, the EnWAS model can use inverse normal transformation on the wide association variables, which would be helpful to improve the models' performance when the distributions are skewed.
+
+$$
+\operatorname{INT}\left(W_{i}\right)=\Phi^{-1}\left\{\frac{\operatorname{rank}\left(W_{i}\right)-c}{n+1-2 c}\right\}, c \in[0,1 / 2]
+$$ where c=3/8 is recommended.
+
+
 ```{r func3, echo=TRUE,warning=F, out.width = '90%'}
 linear_model <- 'BPXDI1 ~ RIDAGEYR*RIAGENDR + BMXBMI'
 linear_res2 <- enwas(linear_model, exposure_vars, data)
 
-
 all_ns_model <-
-  'BPXDI1 ~ ns(RIDAGEYR, knots = seq(20, 80, by = 10)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)))'
+  'BPXDI1 ~ ns(RIDAGEYR, knots = seq(20, 80, by = 10)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10))) '
 all_ns_res <- enwas(all_ns_model, exposure_vars, data)
 
 
@@ -88,6 +100,10 @@ ns_inverse_res <- enwas(all_ns_model, exposure_vars, data,inv = TRUE)
 
 ## Compare linear regression with spline regression.
 
+The following plot shows the comparison of the estimation of dietary variables in the EnWAS. We have converted the estimate into the same scale.
+
+$$Estimate \leftarrow Estimate \times std(X)$$ where X is the input variable.
+$$Std.Error \leftarrow Std. Error \times std(X)$$
 
 
 ```{r res3, echo=TRUE,warning=F, out.width = '90%'}
@@ -107,8 +123,8 @@ forest_plot_mult(
 
 forest_plot_mult(
   list(
-    linear = linear_res2$enwas_res,
-    lm_inv = lm_inverse_res$enwas_res
+    ns = all_ns_res$enwas_res,
+    ns_inv = ns_inverse_res$enwas_res
   )
 )
 
@@ -118,32 +134,64 @@ forest_plot_mult(
 
 ## Residuals
 
-```{r resid2, echo=TRUE,results = "asis"}
-library(ggpubr)
+```{r resid2, echo=TRUE,message=FALSE,results = "asis"}
+
 
 lm_base <- lm(as.formula(linear_model), data)
 lm_df <-
   data.frame(
     residuals = lm_base$residual,
     gender = data$RIAGENDR,
-    DR1TMOIS = data$DR1TMOIS
+    DR1TMOIS = data$DR1TMOIS,
+    DR1TTFAT = data$DR1TTFAT
   )
 ns_base <- lm(as.formula(all_ns_model), data)
 ns_df <-
   data.frame(
     residuals = ns_base$residual,
     DR1TMOIS = data$DR1TMOIS,
-    gender = data$RIAGENDR
+    gender = data$RIAGENDR,
+    DR1TTFAT = data$DR1TTFAT
   )
+
+
+```
+
+
+## DR1TMOIS - Moisture (0 to 18266.25 gm)
+
+"Moisture in foods occurs in two forms: (1) water bound to ingredients in the food (proteins, salt, sugars), and (2) free or unbound water that is available for microbial growth. Water activity (Aw) describes water available for microbial growth and ranges from 0 (bone dry) to 1.0 (pure water)."
+[more infor](https://www.clemson.edu/extension/food/canning/canning-tips/39available-moisture.html)
+
+```{r resid22, echo=TRUE,message=FALSE,results = "asis"}
+library(ggpubr)
 
 g_lm <- ggplot(lm_df, aes(x=DR1TMOIS, y=residuals) ) + 
   geom_point(aes(colour=gender),alpha=0.1)+
   geom_smooth(method = lm,formula = y ~ ns(x,df=7)) + ggtitle("linear")
 
-g_ns <- ggplot(lm_df, aes(x=DR1TMOIS, y=residuals) ) + 
+g_ns <- ggplot(ns_df, aes(x=DR1TMOIS, y=residuals) ) + 
   geom_point(aes(colour=gender),alpha=0.1)+
   geom_smooth(method = lm,formula = y ~ ns(x,df=7))+ggtitle("spline")
 
 ggarrange(g_lm,g_ns,common.legend = TRUE)
+```
+
+
+## Beta-carotene (0 to 116313 mcg): inverse normal transformation
+
+"The human body converts beta carotene into vitamin A (retinol) – beta carotene is a precursor of vitamin A. We need vitamin A for healthy skin and mucus membranes, our immune system, and good eye health and vision." [more](https://www.medicalnewstoday.com/articles/252758#what_is_carotene)
+
+
+"If the residual distribution is asymmetric (skewed) or heavy-tailed (kurtotic) relative to the normal distribution, then standard linear regression may fail to control the type I error in moderate samples. Even if the sample is sufficiently large for standard linear regression to provide valid inference, it is not fully efficient when the residual distribution is non-normal. "
+[more](https://cran.r-project.org/web/packages/RNOmni/vignettes/RNOmni.html)
+
+
+As we can see from the below plots, the DR1TBCAR distribution is highly skewed and has a long tail before being transformed. On the other hand, the altered distribution has a typical normal distribution, which is very different from the original distribution.
+
+```{r ivn, echo=TRUE,message=FALSE,results = "asis"}
+par(mfrow=c(1,2))
+hist(data$DR1TBCAR)
+hist(invNorm(data$DR1TBCAR))
 ```
 
