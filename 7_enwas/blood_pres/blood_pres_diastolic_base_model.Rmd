@@ -198,9 +198,9 @@ Spline model:
 
 
 ```{r resid3, echo=TRUE,results = "asis"}
-res_df <- rbind(lm_df, ns_df)
-ggplot(res_df, aes(x = model, y = residuals, fill = model)) + geom_boxplot() +
-  scale_x_discrete(guide = guide_axis(angle = 45)) 
+# res_df <- rbind(lm_df, ns_df)
+# ggplot(res_df, aes(x = model, y = residuals, fill = model)) + geom_boxplot() +
+#   scale_x_discrete(guide = guide_axis(angle = 45)) 
 
 ```
 
@@ -221,7 +221,10 @@ ggplot(ns_df, aes(x = years, y = residuals, fill = gender)) + geom_boxplot() +
   scale_x_discrete(guide = guide_axis(angle = 45))
 ```
 
-Residual with Age
+## Residual ~ Age
+
+We plotted scatter plots of residuals from the linear regression and spline regression against age to verify the base models. As we can see from the smoothed scatter plots, the residuals from the linear model have a clear trend with age, which indicates the model does not capture the age pattern, whereas the residuals from the spline model have no obvious pattern. Therefore, spline regression (other non-linear functions) is necessary to capture the age trend.
+
 
 ```{r resid2_age, echo=TRUE,results = "asis"}
 par(mfrow=c(1,2))
@@ -234,7 +237,9 @@ smoothScatter(data$RIDAGEYR,ns_base$residuals,
 
 
 
+## Bins Plot
 
+The following implement function plot by bins
 
 
 
@@ -246,14 +251,14 @@ bin_mean <- function(bin){
   mean(bin)
 }
 
-plot_bins<- function(x,y,xlab="bin avg",ylab="residuals",ncalss=100){
-  if (ncalss==0)
-    ncalss <- floor(sqrt(length(x)))
+plot_bins<- function(x,y,xlab="bin avg",ylab="residuals",nbin=100){
+  if (nbin==0)
+    nbin <- floor(sqrt(length(x)))
   
   df <-
   data.frame(
     y = y,
-    breaks = cut(x,breaks = ncalss)
+    breaks = cut(x,breaks = nbin)
   )
   df <- df %>% 
   group_by(breaks) %>% 
@@ -274,15 +279,35 @@ g
 }
 
 
+```
 
 
-lm_bmi <- plot_bins(data$BMXBMI, lm_base$residuals,500)
-ns_bmi <- plot_bins(data$BMXBMI, ns_base$residuals,500)
 
-ggarrange(lm_bmi,ns_bmi,common.legend = TRUE)
+## Bins Residual Plot
 
-lm_age <- plot_bins(data$RIDAGEYR, lm_base$residuals,500)
-ns_age <- plot_bins(data$RIDAGEYR, ns_base$residuals,500)
+The following plots show the residuals binned and plotted with respect to BMI ($kg/m^2$) and age. 
+Each bin contains about 150 data points on average. The number of data points in each could be very different, as we can see from the distributions of the AGE and BMI. We have fewer participants who are older than 70. Similarly, most participants' BMI is between 20-40, meaning the bins in this range contain more data points than other bins; especially, the number of participants with BMI in the range of 50-80 is much less than the rest.
 
-ggarrange(lm_age,ns_age,common.legend = TRUE)
+
+```{r residual12, echo=TRUE,warning=FALSE,message=FALSE,results = "asis",dpi = 200}
+age_dist <- ggplot(data=data, aes(x=RIDAGEYR, group=RIAGENDR, fill=RIAGENDR)) +
+    geom_density(adjust=1.5, alpha=.25)
+bmi_dist <- ggplot(data=data, aes(x=BMXBMI, group=RIAGENDR, fill=RIAGENDR)) +
+    geom_density(adjust=1.5, alpha=.25)
+ggarrange(age_dist,bmi_dist,common.legend = TRUE)
+```
+
+The residuals of the linear regression against age have an apparent trend (parabola-like shape), and residuals of spline regression have no apparent tendency. The residuals of the spline model have significant for the participant older than 70 because we have fewer participants for those age groups.
+
+
+There are fewer data points when BMI is greater than 50, which makes the residual considerably large and vary. However, we do not see a noticeable tendency in both models, indicating that linear and spline regressions for diastolic against BMI are very similar.
+
+```{r residual122, echo=TRUE,warning=FALSE,message=FALSE,results = "asis",dpi = 200}
+lm_bmi <- plot_bins(data$BMXBMI, lm_base$residuals,xlab="BMI(kg/m²)",nbin=200)
+ns_bmi <- plot_bins(data$BMXBMI, ns_base$residuals,xlab="BMI(kg/m²)",nbin=200)
+lm_age <- plot_bins(data$RIDAGEYR, lm_base$residuals,xlab="Age",nbin=200)
+ns_age <- plot_bins(data$RIDAGEYR, ns_base$residuals,xlab="Age",nbin=200)
+
+ggarrange(lm_age,ns_age,lm_bmi,ns_bmi,ncol = 2,nrow = 2,common.legend = TRUE)
+
 ```
