@@ -61,7 +61,7 @@ nhanes_db <- dbConnect(RSQLite::SQLite(), "../../nhanes.sqlite")
 # demo <- dbGetQuery(nhanes_db, "select * from demo")
 # cholesterol <- dbGetQuery(nhanes_db, "select * from cholesterol")
 # BPXDI2,BPXSY1
-blood_pressure <- dbGetQuery(nhanes_db, "select SEQN,BPXDI1,years from blood_pressure where BPXDI1 IS NOT NULL")
+blood_pressure <- dbGetQuery(nhanes_db, "select SEQN,BPXDI1,years from blood_pressure where BPXDI1 IS NOT NULL and BPXDI1 <> 0")
 dbDisconnect(nhanes_db)
 
 ```
@@ -221,6 +221,16 @@ ggplot(ns_df, aes(x = years, y = residuals, fill = gender)) + geom_boxplot() +
   scale_x_discrete(guide = guide_axis(angle = 45))
 ```
 
+Residual with Age
+
+```{r resid2_age, echo=TRUE,results = "asis"}
+par(mfrow=c(1,2))
+smoothScatter(data$RIDAGEYR,lm_base$residuals,
+              nrpoints=100,pch = 10, col = "red")
+smoothScatter(data$RIDAGEYR,ns_base$residuals,
+              nrpoints=100,pch = 10, col = "red")
+```
+
 
 
 
@@ -236,29 +246,43 @@ bin_mean <- function(bin){
   mean(bin)
 }
 
-plot_residual <- function(model,ncalss=500){
+plot_bins<- function(x,y,xlab="bin avg",ylab="residuals",ncalss=100){
   if (ncalss==0)
-    ncalss <- floor(sqrt(length(model$fitted.values)))
+    ncalss <- floor(sqrt(length(x)))
   
   df <-
   data.frame(
-    residuals = model$residuals,
-    breaks = cut(model$fitted.values,breaks = ncalss)
+    y = y,
+    breaks = cut(x,breaks = ncalss)
   )
   df <- df %>% 
   group_by(breaks) %>% 
-  summarize(mean = mean(residuals)
-            )
-  df$expected_value <- sapply(df$breaks, bin_mean)
+  summarize(mean = mean(y),
+            std = sd(y)
+            ) %>% mutate(y_min=mean-std, y_max = mean+std)
+  df$bin_avg <- sapply(df$breaks, bin_mean)
   
-ggplot(df,aes(expected_value,mean)) + geom_point() +
-  geom_smooth(aes(expected_value,mean),method = "lm", formula = y ~  ns(x, df=7))+
-  ylab("Average Risidual") + xlab("Expected Values")
+  
+  g <- ggplot(df,aes(bin_avg,mean)) + geom_point() +
+  # geom_errorbar(aes(ymin=y_min,ymax=y_max))+
+  geom_smooth(aes(bin_avg,mean),method = "lm", formula = y ~  ns(x, df=7))+
+  ylab(ylab) + xlab(xlab)
+
+g
+
+  
 }
 
 
-plot_residual(lm_base)
-plot_residual(ns_base)
 
 
+lm_bmi <- plot_bins(data$BMXBMI, lm_base$residuals,500)
+ns_bmi <- plot_bins(data$BMXBMI, ns_base$residuals,500)
+
+ggarrange(lm_bmi,ns_bmi,common.legend = TRUE)
+
+lm_age <- plot_bins(data$RIDAGEYR, lm_base$residuals,500)
+ns_age <- plot_bins(data$RIDAGEYR, ns_base$residuals,500)
+
+ggarrange(lm_age,ns_age,common.legend = TRUE)
 ```

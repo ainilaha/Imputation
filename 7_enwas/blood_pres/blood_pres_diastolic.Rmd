@@ -62,7 +62,7 @@ nhanes_db <- dbConnect(RSQLite::SQLite(), "../../nhanes.sqlite")
 # demo <- dbGetQuery(nhanes_db, "select * from demo")
 # cholesterol <- dbGetQuery(nhanes_db, "select * from cholesterol")
 # BPXDI2,BPXSY1
-blood_pressure <- dbGetQuery(nhanes_db, "select SEQN,BPXDI1,years from blood_pressure where BPXDI1 IS NOT NULL")
+blood_pressure <- dbGetQuery(nhanes_db, "select SEQN,BPXDI1,years from blood_pressure where BPXDI1 IS NOT NULL and BPXDI1 <> 0")
 dbDisconnect(nhanes_db)
 data <- merge(blood_pressure, data, by = c("SEQN",'years'))
 
@@ -166,15 +166,53 @@ ns_df <-
 ```{r resid22, echo=TRUE,message=FALSE,results = "asis"}
 library(ggpubr)
 
-g_lm <- ggplot(lm_df, aes(x=DR1TMOIS, y=residuals) ) + 
-  geom_point(aes(colour=gender),alpha=0.1)+
-  geom_smooth(method = lm,formula = y ~ ns(x,df=7)) + ggtitle("linear")
+bin_mean <- function(bin){
+  bin <- stringi::stri_replace_all_fixed(as.character(bin),'(','')
+  bin <- stringi::stri_replace_all_fixed(as.character(bin),']','')
+  bin <- as.numeric(unlist(stringi::stri_split_coll(bin,",")))
+  mean(bin)
+}
 
-g_ns <- ggplot(ns_df, aes(x=DR1TMOIS, y=residuals) ) + 
-  geom_point(aes(colour=gender),alpha=0.1)+
-  geom_smooth(method = lm,formula = y ~ ns(x,df=7))+ggtitle("spline")
+plot_bins<- function(x,y,xlab="bin avg",ylab="residuals",ncalss=100){
+  if (ncalss==0)
+    ncalss <- floor(sqrt(length(x)))
+  
+  df <-
+  data.frame(
+    y = y,
+    breaks = cut(x,breaks = ncalss)
+  )
+  df <- df %>% 
+  group_by(breaks) %>% 
+  summarize(mean = mean(y),
+            std = sd(y)
+            ) %>% mutate(y_min=mean-std, y_max = mean+std)
+  df$bin_avg <- sapply(df$breaks, bin_mean)
+  
+  
+  g <- ggplot(df,aes(bin_avg,mean)) + geom_point() +
+  # geom_errorbar(aes(ymin=y_min,ymax=y_max))+
+  geom_smooth(aes(bin_avg,mean),method = "lm", formula = y ~  ns(x, df=7))+
+  ylab(ylab) + xlab(xlab)
 
-ggarrange(g_lm,g_ns,common.legend = TRUE)
+g
+
+  
+}
+
+
+lm_mos <- lm(as.formula(paste0(linear_model," + DR1TMOIS")), data)
+ns_mos <- lm(as.formula(paste0(all_ns_model," + DR1TMOIS")), data)
+
+g_lm_mos <- plot_bins(data$DR1TMOIS, lm_mos$residuals,500)
+g_ns_mos <- plot_bins(data$DR1TMOIS, ns_mos$residuals,500)
+
+ggarrange(g_lm_mos,g_ns_mos,common.legend = TRUE)
+
+g_lm_mos <- plot_bins(invNorm(data$DR1TMOIS), lm_mos$residuals,500)
+g_ns_mos <- plot_bins(invNorm(data$DR1TMOIS), ns_mos$residuals,500)
+
+ggarrange(g_lm_mos,g_ns_mos,common.legend = TRUE)
 ```
 
 
