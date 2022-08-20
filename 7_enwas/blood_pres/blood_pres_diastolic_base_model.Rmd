@@ -251,7 +251,7 @@ bin_mean <- function(bin){
   mean(bin)
 }
 
-plot_bins<- function(x,y,xlab="bin avg",ylab="residuals",nbin=100){
+plot_bins<- function(x,y,xlab="bin avg",ylab="residuals",title="linear",nbin=100){
   if (nbin==0)
     nbin <- floor(sqrt(length(x)))
   
@@ -271,7 +271,7 @@ plot_bins<- function(x,y,xlab="bin avg",ylab="residuals",nbin=100){
   g <- ggplot(df,aes(bin_avg,mean)) + geom_point() +
   # geom_errorbar(aes(ymin=y_min,ymax=y_max))+
   geom_smooth(aes(bin_avg,mean),method = "lm", formula = y ~  ns(x, df=7))+
-  ylab(ylab) + xlab(xlab)
+  ylab(ylab) + xlab(xlab) + labs(title = title)
 
 g
 
@@ -297,17 +297,75 @@ bmi_dist <- ggplot(data=data, aes(x=BMXBMI, group=RIAGENDR, fill=RIAGENDR)) +
 ggarrange(age_dist,bmi_dist,common.legend = TRUE)
 ```
 
-The residuals of the linear regression against age have an apparent trend (parabola-like shape), and residuals of spline regression have no apparent tendency. The residuals of the spline model have significant for the participant older than 70 because we have fewer participants for those age groups.
+The residuals of the linear regression against age have an apparent trend (parabola-like shape), and residuals of spline regression have no apparent tendency. In other words, the non-linear relationship was not explained by the the linear regression and was left out in the residuals. The residuals of the spline model have significant for the participant older than 70 because we have fewer participants for those age groups.
 
 
 There are fewer data points when BMI is greater than 50, which makes the residual considerably large and vary. However, we do not see a noticeable tendency in both models, indicating that linear and spline regressions for diastolic against BMI are very similar.
 
 ```{r residual122, echo=TRUE,warning=FALSE,message=FALSE,results = "asis",dpi = 200}
 lm_bmi <- plot_bins(data$BMXBMI, lm_base$residuals,xlab="BMI(kg/m²)",nbin=200)
-ns_bmi <- plot_bins(data$BMXBMI, ns_base$residuals,xlab="BMI(kg/m²)",nbin=200)
+ns_bmi <- plot_bins(data$BMXBMI, ns_base$residuals,xlab="BMI(kg/m²)",title="spline",nbin=200)
 lm_age <- plot_bins(data$RIDAGEYR, lm_base$residuals,xlab="Age",nbin=200)
-ns_age <- plot_bins(data$RIDAGEYR, ns_base$residuals,xlab="Age",nbin=200)
+ns_age <- plot_bins(data$RIDAGEYR, ns_base$residuals,xlab="Age",title="spline",nbin=200)
 
 ggarrange(lm_age,ns_age,lm_bmi,ns_bmi,ncol = 2,nrow = 2,common.legend = TRUE)
 
 ```
+
+## Scale-Location
+
+The following plots show spread points equally (randomly) along the horizontal line, which indicates equal variance (homoscedasticity).
+
+```{r Scale, echo=TRUE,warning=FALSE,message=FALSE,results = "asis"}
+par(mfrow=c(1,2))
+plot(lm_base, which = 3,main = "Linear")
+plot(ns_base, which = 3,main = "Spline")
+```
+
+
+
+A clear versions of the above plots with bins.
+
+```{r Scale1, echo=TRUE,warning=FALSE,message=FALSE,results = "asis",dpi = 200}
+library(latex2exp)
+sacle_g_lm <- plot_bins(
+  lm_base$fitted.values,
+  sqrt(abs(scale(lm_base$residuals))),
+  xlab = "fitted value",
+  ylab = TeX(r'($\sqrt{|standardize\ residuals|}$)'),
+  nbin = 200
+)
+sacle_g_ns <- plot_bins(
+  ns_base$fitted.values,
+  sqrt(abs(scale(ns_base$residuals))),
+  xlab = "fitted value",
+  ylab = TeX(r'($\sqrt{|standardize\ residuals|}$)'),
+  title="spline",
+  nbin = 200
+)
+
+ggarrange(sacle_g_lm, sacle_g_ns,common.legend = TRUE)
+```
+
+
+
+## Residuals vs Leverage
+
+As we can see from the lower left corner, some outliers are influential in linear regression.
+
+```{r Leverage, echo=TRUE,warning=FALSE,message=FALSE,results = "asis",dpi = 200}
+par(mfrow=c(1,2))
+plot(lm_base, which = 5,main = "Linear")
+plot(ns_base, which = 5,main = "Spline")
+```
+
+
+Both the outliers have extremely low Diastolic-Blood Pressure according to the distribution plotted above.
+In addition, both cases are the age ranges (younger than 40 and older than 65), which are off from the linear regression. By removing these two outliers from the linear regression, the $R^2$ change from 0.03276 to 0.03277, which is a pretty minor impact because we can see more than these two outliers shown in the lower left corner of the plots because the linear regression fails to capture those points.
+
+```{r Leverage1, echo=TRUE,warning=FALSE,message=FALSE,results = "asis",dpi = 200}
+library(knitr)
+kable(data[c(1738,3196),c('BPXDI1','RIAGENDR','BMXBMI','RIDAGEYR')])
+
+```
+
