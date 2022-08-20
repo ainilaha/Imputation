@@ -635,7 +635,8 @@ ggarrange(sacle_g_lm, sacle_g_ns,common.legend = TRUE)</code></pre>
 <div id="residuals-vs-leverage" class="section level2">
 <h2>Residuals vs Leverage</h2>
 <p>As we can see from the lower left corner, some outliers are
-influential in linear regression.</p>
+influential in linear regression. There are no obvious outliers in the
+spline regression.</p>
 <pre class="r"><code>par(mfrow=c(1,2))
 plot(lm_base, which = 5,main = &quot;Linear&quot;)
 plot(ns_base, which = 5,main = &quot;Spline&quot;)</code></pre>
@@ -646,8 +647,8 @@ the age ranges (younger than 40 and older than 65), which are off from
 the linear regression. By removing these two outliers from the linear
 regression, the <span class="math inline">\(R^2\)</span> change from
 0.03276 to 0.03277, which is a pretty minor impact because we can see
-more than these two outliers shown in the lower left corner of the plots
-because the linear regression fails to capture those points.</p>
+more than these two outliers shown in the lower left corner of the
+plots, and the linear regression fails to capture those points.</p>
 <pre class="r"><code>library(knitr)
 kable(data[c(1738,3196),c(&#39;BPXDI1&#39;,&#39;RIAGENDR&#39;,&#39;BMXBMI&#39;,&#39;RIDAGEYR&#39;)])</code></pre>
 <table>

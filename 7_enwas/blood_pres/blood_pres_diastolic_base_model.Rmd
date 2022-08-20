@@ -352,6 +352,7 @@ ggarrange(sacle_g_lm, sacle_g_ns,common.legend = TRUE)
 ## Residuals vs Leverage
 
 As we can see from the lower left corner, some outliers are influential in linear regression.
+There are no obvious outliers in the spline regression. 
 
 ```{r Leverage, echo=TRUE,warning=FALSE,message=FALSE,results = "asis",dpi = 200}
 par(mfrow=c(1,2))
@@ -361,7 +362,7 @@ plot(ns_base, which = 5,main = "Spline")
 
 
 Both the outliers have extremely low Diastolic-Blood Pressure according to the distribution plotted above.
-In addition, both cases are the age ranges (younger than 40 and older than 65), which are off from the linear regression. By removing these two outliers from the linear regression, the $R^2$ change from 0.03276 to 0.03277, which is a pretty minor impact because we can see more than these two outliers shown in the lower left corner of the plots because the linear regression fails to capture those points.
+In addition, both cases are the age ranges (younger than 40 and older than 65), which are off from the linear regression. By removing these two outliers from the linear regression, the $R^2$ change from 0.03276 to 0.03277, which is a pretty minor impact because we can see more than these two outliers shown in the lower left corner of the plots, and the linear regression fails to capture those points.
 
 ```{r Leverage1, echo=TRUE,warning=FALSE,message=FALSE,results = "asis",dpi = 200}
 library(knitr)
