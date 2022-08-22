@@ -182,28 +182,6 @@ levels(ns_df$ethnicity) <- ethnicity
 
 ```
 
-The residual of the spline model is slightly smaller than the linear model.
-
-linear model:
-
-`Residual standard error: 12.91 on 31242 degrees of freedom`  <br>
-`Multiple R-squared:  0.03146,	Adjusted R-squared:  0.03134` <br>
-`F-statistic: 253.7 on 4 and 31242 DF,  p-value: < 2.2e-16`  <br>
-
-Spline model:
-
-`Residual standard error: 12.27 on 31220 degrees of freedom`  <br>
-`Multiple R-squared:  0.1252,	Adjusted R-squared:  0.1245 `  <br>
-`F-statistic: 171.8 on 26 and 31220 DF,  p-value: < 2.2e-16` <br> 
-
-
-```{r resid3, echo=TRUE,results = "asis"}
-# res_df <- rbind(lm_df, ns_df)
-# ggplot(res_df, aes(x = model, y = residuals, fill = model)) + geom_boxplot() +
-#   scale_x_discrete(guide = guide_axis(angle = 45)) 
-
-```
-
 
 The following plot shows the compassion of residuals across ethnic groups. The Non-Hispanic Black and Non-Hispanic White are slightly different from the rest of groups.
 
@@ -366,14 +344,6 @@ plot(lm_base, which = 5,main = "Linear")
 plot(ns_base, which = 5,main = "Spline")
 ```
 
-
-Both the outliers have extremely low Diastolic-Blood Pressure according to the distribution plotted above.
-In addition, both cases are the age ranges (younger than 40 and older than 65), which are off from the linear regression. By removing these two outliers from the linear regression, the $R^2$ change from 0.03276 to 0.03277, which is a pretty minor impact because we can see more than these two outliers shown in the lower left corner of the plots, and the linear regression fails to capture those points.
-
-```{r Leverage1, echo=TRUE,warning=FALSE,message=FALSE,results = "asis",dpi = 200}
-library(knitr)
-kable(data[c(1738,3196),c('BPXDI1','RIAGENDR','BMXBMI','RIDAGEYR')])
-```
 
 Further, we can filter out the outliers defined by their Cook's distance greater than 5 times the mean of Cook's distance.
 And we can find that the dataset has a very different distribution from the whole data set. First, most participants are older than 80 and younger than 40. Second, the Diastolic-Blood Pressure distributions are like parabola concave up, whereas the whole data set is like a bell curve distribution (parabola concave down shape).

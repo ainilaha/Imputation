@@ -173,14 +173,15 @@ bin_mean <- function(bin){
   mean(bin)
 }
 
-plot_bins<- function(x,y,xlab="bin avg",ylab="residuals",ncalss=100){
-  if (ncalss==0)
-    ncalss <- floor(sqrt(length(x)))
+
+make_bins <- function(x,y,nbin){
+  if (nbin==0)
+    nbin <- floor(sqrt(length(x)))
   
   df <-
   data.frame(
     y = y,
-    breaks = cut(x,breaks = ncalss)
+    breaks = cut(x,breaks = nbin)
   )
   df <- df %>% 
   group_by(breaks) %>% 
@@ -189,13 +190,18 @@ plot_bins<- function(x,y,xlab="bin avg",ylab="residuals",ncalss=100){
             ) %>% mutate(y_min=mean-std, y_max = mean+std)
   df$bin_avg <- sapply(df$breaks, bin_mean)
   
-  
+  df
+}
+
+plot_bins<- function(x,y,xlab="bin avg",ylab="residuals",title="linear",nbin=100){
+
+  df <- make_bins(x,y,nbin=100)
   g <- ggplot(df,aes(bin_avg,mean)) + geom_point() +
   # geom_errorbar(aes(ymin=y_min,ymax=y_max))+
   geom_smooth(aes(bin_avg,mean),method = "lm", formula = y ~  ns(x, df=7))+
-  ylab(ylab) + xlab(xlab)
+  ylab(ylab) + xlab(xlab) + labs(title = title)
 
-g
+ g
 
   
 }
@@ -204,17 +210,68 @@ g
 lm_mos <- lm(as.formula(paste0(linear_model," + DR1TMOIS")), data)
 ns_mos <- lm(as.formula(paste0(all_ns_model," + DR1TMOIS")), data)
 
-g_lm_mos <- plot_bins(data$DR1TMOIS, lm_mos$residuals,500)
-g_ns_mos <- plot_bins(data$DR1TMOIS, ns_mos$residuals,500)
-
-ggarrange(g_lm_mos,g_ns_mos,common.legend = TRUE)
-
-g_lm_mos <- plot_bins(invNorm(data$DR1TMOIS), lm_mos$residuals,500)
-g_ns_mos <- plot_bins(invNorm(data$DR1TMOIS), ns_mos$residuals,500)
-
-ggarrange(g_lm_mos,g_ns_mos,common.legend = TRUE)
 ```
+###  Cook's distance and leverage bin plots
+```{r cook_lev, echo=TRUE,message=FALSE,results = "asis",dpi = 200}
 
+lm_cook_mos <- plot_bins(
+  data$DR1TMOIS,
+  cooks.distance(lm_mos),
+  xlab = "Moisture",
+  ylab = "Cook's Distance",
+  nbin = 500
+)
+ns_cook_mos <- plot_bins(
+  data$DR1TMOIS,
+  cooks.distance(ns_mos),
+  xlab = "Moisture",
+  ylab = "Cook's Distance",
+  title="spline",
+  nbin = 500
+)
+
+lev_lm_mos <- plot_bins(
+  data$DR1TMOIS,
+  hatvalues(lm_mos),
+  xlab = "Moisture",
+  ylab = "Leverage",
+  nbin = 500
+)
+lev_ns_mos <- plot_bins(
+  data$DR1TMOIS,
+  hatvalues(ns_mos),
+  xlab = "Moisture",
+  ylab = "Leverage",
+  title="spline",
+  nbin = 500
+)
+ggarrange(lev_lm_mos, lev_ns_mos,lm_cook_mos,ns_cook_mos,common.legend = TRUE)
+
+
+
+
+plot_bins2<- function(df_list,nbin=500,xlab = "Moisture",ylab = "Cook's Distance"){
+  df <- do.call("rbind", df_list)
+  df$EnWAS <-
+  rep(names(df_list), each = nrow(df_list[[1]]))
+    
+  g <- ggplot(df,aes(bin_avg,mean,color=EnWAS)) + geom_point() +
+  geom_smooth(aes(bin_avg,mean),method = "lm", formula = y ~  ns(x, df=7))+
+  ylab(ylab) + xlab(xlab) 
+  g
+  
+}
+df_list_cook <- list("Linear"=make_bins(x=data$DR1TMOIS,y=cooks.distance(lm_mos),nbin=500),
+                "Spline"=make_bins(x=data$DR1TMOIS,y=cooks.distance(ns_mos),nbin=500)
+                )
+
+df_list_lev <- list("Linear"=make_bins(x=data$DR1TMOIS,y=hatvalues(lm_mos),nbin=500),
+                "Spline"=make_bins(x=data$DR1TMOIS,y=hatvalues(ns_mos),nbin=500)
+                )
+lev_g <- plot_bins2(df_list_lev,ylab = "Leverage")
+cook_g <- plot_bins2(df_list_cook)
+ggarrange(lev_g,cook_g,common.legend = TRUE)
+```
 
 ## Beta-carotene (0 to 116313 mcg): inverse normal transformation
 
@@ -227,9 +284,6 @@ ggarrange(g_lm_mos,g_ns_mos,common.legend = TRUE)
 
 As we can see from the below plots, the DR1TBCAR distribution is highly skewed and has a long tail before being transformed. On the other hand, the altered distribution has a typical normal distribution, which is very different from the original distribution.
 
-```{r ivn, echo=TRUE,message=FALSE,results = "asis"}
-par(mfrow=c(1,2))
-hist(data$DR1TBCAR)
-hist(invNorm(data$DR1TBCAR))
-```
+
+
 

@@ -43,9 +43,11 @@ Imputation methods for biomedical data
   - [Pre EnWAS 3 (split plots for lines)](https://ccb-hms.github.io/Imputation/7_enwas/pre_try/EnWAS3_split_plots_for_lines.html)
   - [Pre EnWAS 4 (EnWAS with Survey package)](https://ccb-hms.github.io/Imputation/7_enwas/pre_try/EnWAS4_survey_package.html)
   - [Variable Selection](https://ccb-hms.github.io/Imputation/7_enwas/diet_var_selection.html)
+  - [Simple EnWAS Base Model](https://ccb-hms.github.io/Imputation/7_enwas/EnWAS_base_model_waist.html)
   - [Simple EnWAS](https://ccb-hms.github.io/Imputation/7_enwas/EnWAS_simple.html)
-  - [Diastolic: Blood pres EnWAS](https://ccb-hms.github.io/Imputation/7_enwas/non_linear_search/blood_pres_diastolic.html)
-  - [Systolic: Blood pres EnWAS](https://ccb-hms.github.io/Imputation/7_enwas/non_linear_search/blood_pres_systolic.html)
+  - [Diastolic:EnWAS Base Model](https://ccb-hms.github.io/Imputation/7_enwas/blood_pres/blood_pres_diastolic_base_model.html)
+  - [Diastolic:EnWAS](https://ccb-hms.github.io/Imputation/7_enwas/blood_pres/blood_pres_diastolic.html)
+  - [Systolic: Blood pres EnWAS](https://ccb-hms.github.io/Imputation/7_enwas/blood_pres/blood_pres_systolic.html)
 
 
 #### Update Notes:

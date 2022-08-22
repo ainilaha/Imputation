@@ -482,25 +482,6 @@ ns_df &lt;-
     model = &quot;ns&quot;
   )
 levels(ns_df$ethnicity) &lt;- ethnicity</code></pre>
-<p>The residual of the spline model is slightly smaller than the linear
-model.</p>
-<p>linear model:</p>
-<p><code>Residual standard error: 12.91 on 31242 degrees of freedom</code>
-<br>
-<code>Multiple R-squared:  0.03146,  Adjusted R-squared:  0.03134</code>
-<br>
-<code>F-statistic: 253.7 on 4 and 31242 DF,  p-value: &lt; 2.2e-16</code>
-<br></p>
-<p>Spline model:</p>
-<p><code>Residual standard error: 12.27 on 31220 degrees of freedom</code>
-<br>
-<code>Multiple R-squared:  0.1252,   Adjusted R-squared:  0.1245</code>
-<br>
-<code>F-statistic: 171.8 on 26 and 31220 DF,  p-value: &lt; 2.2e-16</code>
-<br></p>
-<pre class="r"><code># res_df &lt;- rbind(lm_df, ns_df)
-# ggplot(res_df, aes(x = model, y = residuals, fill = model)) + geom_boxplot() +
-#   scale_x_discrete(guide = guide_axis(angle = 45)) </code></pre>
 <p>The following plot shows the compassion of residuals across ethnic
 groups. The Non-Hispanic Black and Non-Hispanic White are slightly
 different from the rest of groups.</p>
