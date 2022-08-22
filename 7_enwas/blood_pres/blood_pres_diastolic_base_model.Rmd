@@ -328,31 +328,37 @@ A clear versions of the above plots with bins.
 
 ```{r Scale1, echo=TRUE,warning=FALSE,message=FALSE,results = "asis",dpi = 200}
 library(latex2exp)
-sacle_g_lm <- plot_bins(
+std_g_lm <- plot_bins(
   lm_base$fitted.values,
-  sqrt(abs(scale(lm_base$residuals))),
+  rstandard(lm_base),
   xlab = "fitted value",
   ylab = TeX(r'($\sqrt{|standardize\ residuals|}$)'),
   nbin = 200
 )
-sacle_g_ns <- plot_bins(
+std_g_ns <- plot_bins(
   ns_base$fitted.values,
-  sqrt(abs(scale(ns_base$residuals))),
+  rstandard(ns_base),
   xlab = "fitted value",
   ylab = TeX(r'($\sqrt{|standardize\ residuals|}$)'),
   title="spline",
   nbin = 200
 )
 
-ggarrange(sacle_g_lm, sacle_g_ns,common.legend = TRUE)
+ggarrange(std_g_lm, std_g_ns,common.legend = TRUE)
 ```
 
 
 
 ## Residuals vs Leverage
+Leverage for linear regression:
+$$
+\frac{1}{n}+\frac{\left(X_{i}-\bar{X}\right)^{2}}{S S_{X X}}
+$$
+Influence: Cook's distance 
 
 As we can see from the lower left corner, some outliers are influential in linear regression.
 There are no obvious outliers in the spline regression. 
+
 
 ```{r Leverage, echo=TRUE,warning=FALSE,message=FALSE,results = "asis",dpi = 200}
 par(mfrow=c(1,2))
@@ -367,6 +373,139 @@ In addition, both cases are the age ranges (younger than 40 and older than 65), 
 ```{r Leverage1, echo=TRUE,warning=FALSE,message=FALSE,results = "asis",dpi = 200}
 library(knitr)
 kable(data[c(1738,3196),c('BPXDI1','RIAGENDR','BMXBMI','RIDAGEYR')])
+```
+
+Further, we can filter out the outliers defined by their Cook's distance greater than 5 times the mean of Cook's distance.
+And we can find that the dataset has a very different distribution from the whole data set. First, most participants are older than 80 and younger than 40. Second, the Diastolic-Blood Pressure distributions are like parabola concave up, whereas the whole data set is like a bell curve distribution (parabola concave down shape).
+
+```{r Leverage2, echo=TRUE,warning=FALSE,message=FALSE,results = "asis",dpi = 200}
+lm_cooks_ds <- cooks.distance(lm_base)
+lm_influential <- lm_cooks_ds[(lm_cooks_ds > (5 * mean(lm_cooks_ds, na.rm = TRUE)))]
+
+ns_cooks_ds <- cooks.distance(ns_base)
+ns_influential <- ns_cooks_ds[(ns_cooks_ds > (5 * mean(ns_cooks_ds, na.rm = TRUE)))]
+
+p_lm <- ggplot(data=data[names(lm_influential),], aes(x=BPXDI1, group=RIAGENDR, fill=RIAGENDR)) +
+  geom_density(adjust=1.5, alpha=.25)+labs(title = "linear")
+p_lm2 <- ggplot(data=data[names(lm_influential),], aes(x=RIDAGEYR, group=RIAGENDR, fill=RIAGENDR)) +
+  geom_density(adjust=1.5, alpha=.25)+labs(title = "linear")
+p_ns <- ggplot(data=data[names(ns_influential),], aes(x=BPXDI1, group=RIAGENDR, fill=RIAGENDR)) +
+  geom_density(adjust=1.5, alpha=.25)+labs(title = "spline")
+p_ns2 <- ggplot(data=data[names(ns_influential),], aes(x=RIDAGEYR, group=RIAGENDR, fill=RIAGENDR)) +
+  geom_density(adjust=1.5, alpha=.25)+labs(title = "spline")
+
+ggarrange(p_lm, p_ns,p_lm2,p_ns2,ncol = 2,nrow = 2, common.legend = TRUE)
+```
+
+By removing these two outliers from the linear regression, the $R^2$ change from 0.03276 to 0.03449 for linear regression , and 0.1273 to 0.08406 for spline regression
+
+```{r Leverage3, echo=TRUE,warning=FALSE,message=FALSE,results = "asis",dpi = 200}
+lm_base1 <- lm(as.formula(linear_model), data[names(lm_influential),])
+ns_base1 <- lm(as.formula(all_ns_model), data[names(ns_influential),])
+par(mfrow=c(1,2))
+plot(lm_base1, which = 5,main = "Linear")
+plot(ns_base1, which = 5,main = "Spline")
+```
+
+###  Cook's distance and leverage bin plots
+
+```{r Leverage4, echo=TRUE,warning=FALSE,message=FALSE,results = "asis",dpi = 200}
+
+lm_cook_age <- plot_bins(
+  data$RIDAGEYR,
+  cooks.distance(lm_base),
+  xlab = "Age",
+  ylab = "Cook's Distance",
+  nbin = 500
+)
+ns_cook_age <- plot_bins(
+  data$RIDAGEYR,
+  cooks.distance(ns_base),
+  xlab = "Age",
+  ylab = "Cook's Distance",
+  title="spline",
+  nbin = 500
+)
+
+
+lm_cook_bmi <- plot_bins(
+  data$BMXBMI,
+  cooks.distance(lm_base),
+  xlab = "BMI",
+  ylab = "Cook's Distance",
+  nbin = 500
+)
+ns_cook_bmi <- plot_bins(
+  data$BMXBMI,
+  cooks.distance(ns_base),
+  xlab = "BMI",
+  ylab = "Cook's Distance",
+  title="spline",
+  nbin = 500
+)
+
+# ggarrange(lm_cook_age,ns_cook_age,lm_cook_bmi,ns_cook_bmi,common.legend = TRUE)
+
+lev_lm_age <- plot_bins(
+  data$RIDAGEYR,
+  hatvalues(lm_base),
+  xlab = "Age",
+  ylab = "Leverage",
+  nbin = 500
+)
+lev_ns_age <- plot_bins(
+  data$RIDAGEYR,
+  hatvalues(ns_base),
+  xlab = "Age",
+  ylab = "Leverage",
+  title="spline",
+  nbin = 500
+)
+
+
+
+lev_lm_bmi <- plot_bins(
+  data$BMXBMI,
+  hatvalues(lm_base),
+  xlab = "BMI",
+  ylab = "Leverage",
+  nbin = 500
+)
+lev_ns_bmi <- plot_bins(
+  data$BMXBMI,
+  hatvalues(ns_base),
+  xlab = "BMI",
+  ylab = "Leverage",
+  title="spline",
+  nbin = 500
+)
+
+
+# ggarrange(lev_lm_age, lev_ns_age,lev_lm_bmi,lev_ns_bmi,common.legend = TRUE)
+
 
 ```
+
+
+
+As we can see from the bin plots, the participants who are younger ( < 40 ) or older (> 70) have high leverage and influence in the linear regression. On the other hand, the age variable does not have a significant impact on the spline regression model.
+
+However, the data points with BMI above 60 have high leverage and influence in both models because it has much fewer data, as shown in the above plots. As the BMI has a linear relation with Diastolic-Blood Pressure, the data points with BMI less than 20 or greater than 40 have higher leverage and influence in the linear regression than in the spline regression. 
+
+```{r Leverage5, echo=TRUE,warning=FALSE,message=FALSE,results = "asis",dpi = 200}
+
+ggarrange(lm_cook_age,ns_cook_age,lm_cook_bmi,ns_cook_bmi,common.legend = TRUE)
+
+```
+
+
+
+
+```{r Leverage6, echo=TRUE,warning=FALSE,message=FALSE,results = "asis",dpi = 200}
+
+ggarrange(lev_lm_age, lev_ns_age,lev_lm_bmi,lev_ns_bmi,common.legend = TRUE)
+
+```
+
+
 
