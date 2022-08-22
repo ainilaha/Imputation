@@ -342,6 +342,25 @@ There are no obvious outliers in the spline regression.
 par(mfrow=c(1,2))
 plot(lm_base, which = 5,main = "Linear")
 plot(ns_base, which = 5,main = "Spline")
+
+res_g_lv_lm <- plot_bins(
+  hatvalues(lm_base),
+  lm_base$residuals,
+  xlab = "Leverage",
+  ylab = "Residuals",
+  title="Linear",
+  nbin = 100
+)
+res_g_lv <- plot_bins(
+  hatvalues(ns_base),
+  ns_base$residuals,
+  xlab = "Leverage",
+  ylab = "Residuals",
+  title="spline",
+  nbin = 100
+)
+
+ggarrange(res_g_lv_lm, res_g_lv,common.legend = TRUE)
 ```
 
 

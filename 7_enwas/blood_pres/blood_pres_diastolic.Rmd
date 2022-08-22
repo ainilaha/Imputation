@@ -255,7 +255,7 @@ plot_bins2<- function(df_list,nbin=500,xlab = "Moisture",ylab = "Cook's Distance
   df$EnWAS <-
   rep(names(df_list), each = nrow(df_list[[1]]))
     
-  g <- ggplot(df,aes(bin_avg,mean,color=EnWAS)) + geom_point() +
+  g <- ggplot(df,aes(bin_avg,mean,color=EnWAS)) + geom_point(alpha=0.2) +
   geom_smooth(aes(bin_avg,mean),method = "lm", formula = y ~  ns(x, df=7))+
   ylab(ylab) + xlab(xlab) 
   g
@@ -270,7 +270,17 @@ df_list_lev <- list("Linear"=make_bins(x=data$DR1TMOIS,y=hatvalues(lm_mos),nbin=
                 )
 lev_g <- plot_bins2(df_list_lev,ylab = "Leverage")
 cook_g <- plot_bins2(df_list_cook)
-ggarrange(lev_g,cook_g,common.legend = TRUE)
+
+df_list_cook_iv <- list("Linear"=make_bins(x=invNorm(data$DR1TMOIS),y=cooks.distance(lm_mos),nbin=500),
+                "Spline"=make_bins(x=invNorm(data$DR1TMOIS),y=cooks.distance(ns_mos),nbin=500)
+                )
+
+df_list_lev_iv <- list("Linear"=make_bins(x=invNorm(data$DR1TMOIS),y=hatvalues(lm_mos),nbin=500),
+                "Spline"=make_bins(x=invNorm(data$DR1TMOIS),y=hatvalues(ns_mos),nbin=500)
+                )
+lev_g_iv <- plot_bins2(df_list_lev_iv,xlab="Inversed Moisture",ylab = "Leverage")
+cook_g_iv <- plot_bins2(df_list_cook_iv,xlab="Inversed Moisture")
+ggarrange(lev_g,cook_g,lev_g_iv,cook_g_iv,common.legend = TRUE)
 ```
 
 ## Beta-carotene (0 to 116313 mcg): inverse normal transformation
