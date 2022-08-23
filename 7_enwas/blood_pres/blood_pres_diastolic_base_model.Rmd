@@ -141,7 +141,7 @@ ggarrange(g3,g4,common.legend = TRUE)
 ```{r func3, echo=TRUE,warning=F, out.width = '90%'}
 linear_model <- 'BPXDI1 ~ RIDAGEYR*RIAGENDR + BMXBMI'
 all_ns_model <-
-  'BPXDI1 ~ ns(RIDAGEYR, knots = seq(20, 80, by = 10)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)))'
+  'BPXDI1 ~ ns(RIDAGEYR, knots = seq(20, 80, by = 10)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,75,by=10)))'
 
 ```
 
@@ -308,14 +308,14 @@ A clear versions of the above plots with bins.
 library(latex2exp)
 std_g_lm <- plot_bins(
   lm_base$fitted.values,
-  rstandard(lm_base),
+  sqrt(abs(rstandard(lm_base))),
   xlab = "fitted value",
   ylab = TeX(r'($\sqrt{|standardize\ residuals|}$)'),
   nbin = 200
 )
 std_g_ns <- plot_bins(
   ns_base$fitted.values,
-  rstandard(ns_base),
+  sqrt(abs(rstandard(ns_base))),
   xlab = "fitted value",
   ylab = TeX(r'($\sqrt{|standardize\ residuals|}$)'),
   title="spline",
@@ -394,6 +394,21 @@ ns_base1 <- lm(as.formula(all_ns_model), data[names(ns_influential),])
 par(mfrow=c(1,2))
 plot(lm_base1, which = 5,main = "Linear")
 plot(ns_base1, which = 5,main = "Spline")
+```
+
+As we can see from the above plot,  the data points are spitted into two groups in the standard deviation plot of the linear regression model. The following plots can further check those data. As Diastolic-Blood Pressure has parabola-like relation with age, the prediction of younger and elderly groups are higher than actual values, leading to negative residuals. The middle age groups produce positive residuals.
+
+```{r std_twog, echo=TRUE,warning=FALSE,message=FALSE,results = "asis",dpi = 200}
+std_lm <- rstandard(lm_base1)
+
+geater0 <- std_lm[std_lm>0]
+less0 <- std_lm[std_lm<0]
+
+par(mfrow=c(2,2))
+hist(data[names(geater0),]$BPXDI1, xlab="Diasatolic (std>0)",main = NULL)
+hist(data[names(less0),]$BPXDI1, xlab="Diasatolic (std<0)",main = NULL)
+hist(data[names(geater0),]$RIDAGEYR, xlab="Age (std>0)",main = NULL)
+hist(data[names(less0),]$RIDAGEYR, xlab="Age (std<0)",main = NULL)
 ```
 
 ###  Cook's distance and leverage bin plots
