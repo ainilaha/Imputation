@@ -21,7 +21,7 @@ library(splines)
 library(dplyr)
 library(ggplot2)
 library(EnWAS)
-
+library(Hmisc)
 exposure_vars <-
   read.delim("../../data/select_vars.txt", header = FALSE)$V1
 exposure_cols <- paste(exposure_vars, collapse = ", ")
@@ -90,8 +90,8 @@ g1 <- ggplot(data,
 
 g2 <- ggplot(data,
          aes(
-           x = invNorm(RIDAGEYR),
-           y = BPXDI1,
+           x = RIDAGEYR,
+           y = invNorm(BPXDI1),
            colour = RIAGENDR
          )) +
   geom_point(alpha = 0.1) +
@@ -187,7 +187,15 @@ The following plot shows the compassion of residuals across ethnic groups. The N
 
 ```{r enthic2, echo=TRUE,results = "asis"}
 
-ggplot(ns_df, aes(x = ethnicity, y = residuals, fill = gender)) + geom_boxplot() +
+ns_df %>% dplyr::group_by(ethnicity) %>%
+  dplyr::summarize(mean = mean(y),
+            std = sd(y)
+            ) %>% 
+ggplot(aes(x = ethnicity, y = mean,group = 1)) + 
+  geom_line() +
+  geom_point()+
+  geom_errorbar(aes(ymin=mean-std, ymax=mean+std), width=.2,
+                 position=position_dodge(0.05))+
   scale_x_discrete(guide = guide_axis(angle = 45))
 ```
 
@@ -195,7 +203,7 @@ ggplot(ns_df, aes(x = ethnicity, y = residuals, fill = gender)) + geom_boxplot()
 We also notice that the residuals across the years are almost the same, indicating that we can combine the data and analysis over the years.
 
 ```{r resid2, echo=TRUE,results = "asis"}
-ggplot(ns_df, aes(x = years, y = residuals, fill = gender)) + geom_boxplot() +
+ggplot(ns_df, aes(x = years, y = residuals, color = gender)) + geom_boxplot()+
   scale_x_discrete(guide = guide_axis(angle = 45))
 ```
 
@@ -222,12 +230,7 @@ The following implement function plot by bins
 
 
 ```{r residual1, echo=TRUE,warning=FALSE,message=FALSE,results = "asis"}
-bin_mean <- function(bin){
-  bin <- stringi::stri_replace_all_fixed(as.character(bin),'(','')
-  bin <- stringi::stri_replace_all_fixed(as.character(bin),']','')
-  bin <- as.numeric(unlist(stringi::stri_split_coll(bin,",")))
-  mean(bin)
-}
+
 
 plot_bins<- function(x,y,xlab="bin avg",ylab="residuals",title="linear",nbin=100){
   if (nbin==0)
@@ -236,19 +239,19 @@ plot_bins<- function(x,y,xlab="bin avg",ylab="residuals",title="linear",nbin=100
   df <-
   data.frame(
     y = y,
-    breaks = cut(x,breaks = nbin)
+    breaks = cut2(x,m=nbin,levels.mean=TRUE)
   )
   df <- df %>% 
-  group_by(breaks) %>% 
-  summarize(mean = mean(y),
+  dplyr::group_by(breaks) %>% 
+  dplyr::summarize(mean = mean(y),
             std = sd(y)
-            ) %>% mutate(y_min=mean-std, y_max = mean+std)
-  df$bin_avg <- sapply(df$breaks, bin_mean)
+            ) %>% dplyr::mutate(y_min=mean-std, y_max = mean+std)
   
+  df$breaks <- as.numeric(df$breaks)
   
-  g <- ggplot(df,aes(bin_avg,mean)) + geom_point() +
+  g <- ggplot(df,aes(breaks,mean)) + geom_point() +
   # geom_errorbar(aes(ymin=y_min,ymax=y_max))+
-  geom_smooth(aes(bin_avg,mean),method = "lm", formula = y ~  ns(x, df=7))+
+  geom_smooth(aes(breaks,mean),method = "lm", formula = y ~  ns(x, df=7))+
   ylab(ylab) + xlab(xlab) + labs(title = title)
 
 g
@@ -281,10 +284,10 @@ The residuals of the linear regression against age have an apparent trend (parab
 There are fewer data points when BMI is greater than 50, which makes the residual considerably large and vary. However, we do not see a noticeable tendency in both models, indicating that linear and spline regressions for diastolic against BMI are very similar.
 
 ```{r residual122, echo=TRUE,warning=FALSE,message=FALSE,results = "asis",dpi = 200}
-lm_bmi <- plot_bins(data$BMXBMI, lm_base$residuals,xlab="BMI(kg/m²)",nbin=200)
-ns_bmi <- plot_bins(data$BMXBMI, ns_base$residuals,xlab="BMI(kg/m²)",title="spline",nbin=200)
-lm_age <- plot_bins(data$RIDAGEYR, lm_base$residuals,xlab="Age",nbin=200)
-ns_age <- plot_bins(data$RIDAGEYR, ns_base$residuals,xlab="Age",title="spline",nbin=200)
+lm_bmi <- plot_bins(data$BMXBMI, lm_base$residuals,xlab="BMI(kg/m²)",nbin=300)
+ns_bmi <- plot_bins(data$BMXBMI, ns_base$residuals,xlab="BMI(kg/m²)",title="spline",nbin=300)
+lm_age <- plot_bins(data$RIDAGEYR, lm_base$residuals,xlab="Age",nbin=300)
+ns_age <- plot_bins(data$RIDAGEYR, ns_base$residuals,xlab="Age",title="spline",nbin=300)
 
 ggarrange(lm_age,ns_age,lm_bmi,ns_bmi,ncol = 2,nrow = 2,common.legend = TRUE)
 
@@ -349,7 +352,7 @@ res_g_lv_lm <- plot_bins(
   xlab = "Leverage",
   ylab = "Residuals",
   title="Linear",
-  nbin = 100
+  nbin = 500
 )
 res_g_lv <- plot_bins(
   hatvalues(ns_base),
@@ -357,7 +360,7 @@ res_g_lv <- plot_bins(
   xlab = "Leverage",
   ylab = "Residuals",
   title="spline",
-  nbin = 100
+  nbin = 500
 )
 
 ggarrange(res_g_lv_lm, res_g_lv,common.legend = TRUE)

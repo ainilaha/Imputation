@@ -22,6 +22,7 @@ library(dplyr)
 library(ggplot2)
 library(EnWAS)
 library(ggpubr)
+library(Hmisc)
 
 exposure_vars <-
   read.delim("../../data/select_vars.txt", header = FALSE)$V1
@@ -73,13 +74,6 @@ data <- merge(blood_pressure, data, by = c("SEQN",'years'))
 
 ```{r resid22, echo=TRUE,message=FALSE,results = "asis"}
 
-bin_mean <- function(bin){
-  bin <- stringi::stri_replace_all_fixed(as.character(bin),'(','')
-  bin <- stringi::stri_replace_all_fixed(as.character(bin),']','')
-  bin <- as.numeric(unlist(stringi::stri_split_coll(bin,",")))
-  mean(bin)
-}
-
 
 make_bins <- function(x,y,nbin){
   if (nbin==0)
@@ -88,24 +82,26 @@ make_bins <- function(x,y,nbin){
   df <-
   data.frame(
     y = y,
-    breaks = cut(x,breaks = nbin)
+    breaks = cut2(x,m=nbin,levels.mean=TRUE)
   )
   df <- df %>% 
-  group_by(breaks) %>% 
-  summarize(mean = mean(y),
+  dplyr::group_by(breaks) %>% 
+  dplyr::summarize(mean = mean(y),
             std = sd(y)
-            ) %>% mutate(y_min=mean-std, y_max = mean+std)
-  df$bin_avg <- sapply(df$breaks, bin_mean)
+            ) %>% dplyr::mutate(y_min=mean-std, y_max = mean+std)
+  
+  df$breaks <- as.numeric(df$breaks)
   
   df
+
 }
 
 plot_bins<- function(x,y,xlab="bin avg",ylab="residuals",title="linear",nbin=100){
 
   df <- make_bins(x,y,nbin=100)
-  g <- ggplot(df,aes(bin_avg,mean)) + geom_point() +
+  g <- ggplot(df,aes(breaks,mean)) + geom_point() +
   # geom_errorbar(aes(ymin=y_min,ymax=y_max))+
-  geom_smooth(aes(bin_avg,mean),method = "lm", formula = y ~  ns(x, df=7))+
+  geom_smooth(aes(breaks,mean),method = "lm", formula = y ~  ns(x, df=7))+
   ylab(ylab) + xlab(xlab) + labs(title = title)
 
  g
