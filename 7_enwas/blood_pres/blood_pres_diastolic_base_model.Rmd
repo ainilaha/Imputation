@@ -63,176 +63,27 @@ nhanes_db <- dbConnect(RSQLite::SQLite(), "../../nhanes.sqlite")
 # BPXDI2,BPXSY1
 blood_pressure <- dbGetQuery(nhanes_db, "select SEQN,BPXDI1,years from blood_pressure where BPXDI1 IS NOT NULL and BPXDI1 <> 0")
 dbDisconnect(nhanes_db)
-
-```
-
-## BPXDI1 - Diastolic: Blood pres (1st rdg) mm Hg
-
-This section compares linear and spline regression of Diastolic blood pressure against age and BMI.
-
-```{r BPXDI1, echo=TRUE,warning=FALSE}
-library(ggpubr)
 data <- merge(blood_pressure, data, by = c("SEQN",'years'))
 
-g1 <- ggplot(data,
-         aes(
-           x = RIDAGEYR,
-           y = BPXDI1,
-           colour = RIAGENDR
-         )) +
-  geom_point(alpha = 0.1) +
-  geom_smooth(
-    method = lm,
-    formula = y ~ ns(x, knots = seq(20, 80, by = 5)),
-    size = 1
-  )+
-  geom_smooth(method = lm, formula = y ~ x)
-
-g2 <- ggplot(data,
-         aes(
-           x = RIDAGEYR,
-           y = invNorm(BPXDI1),
-           colour = RIAGENDR
-         )) +
-  geom_point(alpha = 0.1) +
-  geom_smooth(
-    method = lm,
-    formula = y ~ ns(x, knots = seq(20, 80, by = 5)),
-    size = 1
-  )+
-  geom_smooth(method = lm, formula = y ~ x)
-
-
-g3 <- ggplot(data, aes(x=BMXBMI, y=BPXDI1) ) + 
-  geom_point(aes(colour=RIAGENDR),alpha=0.1)+
-  geom_density_2d()+geom_smooth(method = lm,formula = y ~ ns(x,df=7))+
-  geom_smooth(method = lm, formula = y ~ x)
-
-g4 <- ggplot(data, aes(x=BMXBMI, y=invNorm(BPXDI1))) + 
-  geom_point(aes(colour=RIAGENDR),alpha=0.1)+
-  geom_density_2d()+geom_smooth(method = lm,formula = y ~ ns(x,df=7))+
-  geom_smooth(method = lm, formula = y ~ x)
-
 ```
-
-
-As shown in the below plots, the Diastolic has a parabola-like relation with age. The left shows the regressions without raw Diastolic values, and Diastolic values have transformed with inverse normal transformation in the second plot. The inverse normal transformation shows a better scale and reveal the differences. The linear regression model has a significant residual overall, performing even worse for participants younger than 30 and older than 70.
-Therefore, apply linear regression could miss leading in EnWAS.
-
-
-
-```{r BPXDI12, echo=TRUE,warning=FALSE,out.width = '90%'}
-ggarrange(g1,g2,common.legend = TRUE)
-
-```
-
-
-Similarly, the following two plots show Diastolic with respect to BMI. Although the spline and linear regressions are very close in this case, they still have some divergence at the early and late age. It may accept to use linear regression on BMI, but spline still would improve the accuracy. Note that the gender does not make much difference in this model.
-
-
-```{r BPXDI13, echo=TRUE,warning=FALSE,out.width = '90%'}
-ggarrange(g3,g4,common.legend = TRUE)
-
-```
-
 
 ## Base Model
 
 ```{r func3, echo=TRUE,warning=F, out.width = '90%'}
 linear_model <- 'BPXDI1 ~ RIDAGEYR*RIAGENDR + BMXBMI'
+lm_base <- lm(as.formula(linear_model), data)
+
 all_ns_model <-
   'BPXDI1 ~ ns(RIDAGEYR, knots = seq(20, 80, by = 10)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,75,by=10)))'
-
-```
-
-## Plot residuals
-
-```{r enthic, echo=TRUE,results = "asis"}
-ethnicity <-
-  c(
-    'Mexican American',
-    'Other Hispanic',
-    'Non-Hispanic White',
-    'Non-Hispanic Black',
-    'Other Race'
-  )
-lm_base <- lm(as.formula(linear_model), data)
-# summary(lm_base)
-
-
-lm_df <-
-  data.frame(
-    residuals = lm_base$residual,
-    ethnicity = data$RIDRETH1,
-    gender = data$RIAGENDR,
-    years = data$years,
-    model = "lm"
-  )
 ns_base <- lm(as.formula(all_ns_model), data)
-# summary(ns_base)
-ns_df <-
-  data.frame(
-    residuals = ns_base$residual,
-    ethnicity = data$RIDRETH1,
-    gender = data$RIAGENDR,
-    years = data$years,
-    model = "ns"
-  )
-levels(ns_df$ethnicity) <- ethnicity
-
 ```
 
-
-The following plot shows the compassion of residuals across ethnic groups. The Non-Hispanic Black and Non-Hispanic White are slightly different from the rest of groups.
-
-```{r enthic2, echo=TRUE,results = "asis"}
-
-ns_df %>% dplyr::group_by(ethnicity) %>%
-  dplyr::summarize(mean = mean(y),
-            std = sd(y)
-            ) %>% 
-ggplot(aes(x = ethnicity, y = mean,group = 1)) + 
-  geom_line() +
-  geom_point()+
-  geom_errorbar(aes(ymin=mean-std, ymax=mean+std), width=.2,
-                 position=position_dodge(0.05))+
-  scale_x_discrete(guide = guide_axis(angle = 45))
-```
+## Bins plot functions
 
 
-We also notice that the residuals across the years are almost the same, indicating that we can combine the data and analysis over the years.
-
-```{r resid2, echo=TRUE,results = "asis"}
-ggplot(ns_df, aes(x = years, y = residuals, color = gender)) + geom_boxplot()+
-  scale_x_discrete(guide = guide_axis(angle = 45))
-```
-
-## Residual ~ Age
-
-We plotted scatter plots of residuals from the linear regression and spline regression against age to verify the base models. As we can see from the smoothed scatter plots, the residuals from the linear model have a clear trend with age, which indicates the model does not capture the age pattern, whereas the residuals from the spline model have no obvious pattern. Therefore, spline regression (other non-linear functions) is necessary to capture the age trend.
-
-
-```{r resid2_age, echo=TRUE,results = "asis"}
-par(mfrow=c(1,2))
-smoothScatter(data$RIDAGEYR,lm_base$residuals,
-              nrpoints=100,pch = 10, col = "red")
-smoothScatter(data$RIDAGEYR,ns_base$residuals,
-              nrpoints=100,pch = 10, col = "red")
-```
-
-
-
-
-## Bins Plot
-
-The following implement function plot by bins
-
-
-
-```{r residual1, echo=TRUE,warning=FALSE,message=FALSE,results = "asis"}
-
-
-plot_bins<- function(x,y,xlab="bin avg",ylab="residuals",title="linear",nbin=100){
+```{r plot_functions, echo=TRUE,warning=FALSE,message=FALSE,results = "asis"}
+library(ggpubr)
+make_bins <- function(x,y,nbin){
   if (nbin==0)
     nbin <- floor(sqrt(length(x)))
   
@@ -249,25 +100,182 @@ plot_bins<- function(x,y,xlab="bin avg",ylab="residuals",title="linear",nbin=100
   
   df$breaks <- as.numeric(df$breaks)
   
+  df
+
+}
+
+plot_bins<- function(x,y,xlab="bin avg",ylab="residuals",title="linear",nbin=300){
+
+  df <- make_bins(x,y,nbin)
   g <- ggplot(df,aes(breaks,mean)) + geom_point() +
   # geom_errorbar(aes(ymin=y_min,ymax=y_max))+
   geom_smooth(aes(breaks,mean),method = "lm", formula = y ~  ns(x, df=7))+
   ylab(ylab) + xlab(xlab) + labs(title = title)
 
-g
+ g
 
   
 }
 
 
+plot_bins2<- function(df_list,nbin=300,xlab = "Moisture",ylab = "Residuals"){
+  df <- do.call("rbind", df_list)
+  df$Model <-
+  rep(names(df_list), each = nrow(df_list[[1]]))
+    
+  g <- ggplot(df,aes(breaks,mean,color=Model)) + geom_point() +
+  geom_smooth(aes(breaks,mean),method = "lm", formula = y ~  ns(x, df=7))+
+    scale_color_manual(values=c("#E69F00", "#56B4E9"))+
+  ylab(ylab) + xlab(xlab) +
+  theme_minimal()
+  g
+  
+}
+
+
+
+
 ```
 
 
+## BPXDI1 - Diastolic: Blood pres (1st rdg) mm Hg
 
-## Bins Residual Plot
+This section compares linear and spline regression of Diastolic blood pressure against age and BMI.
+
+```{r BPXDI1, echo=TRUE,warning=FALSE}
+
+
+raw_bmi <- ggplot(data, aes(x=BMXBMI, y=BPXDI1) ) + 
+  geom_point(alpha=0.2,shape=1,color="azure4")+
+  geom_smooth(method = lm,formula = y ~ ns(x,df=7),aes(color="spline"),show.legend = FALSE)+
+  geom_smooth(method = lm, formula = y ~ x,aes(color="linear"),show.legend = FALSE)+
+  scale_color_manual(name = "Model",             # legend name
+                     values = c("linear" = "#E69F00",  # map regression line colors
+                                "spline" = "#56B4E9"))+
+  xlab("BMI(kg/m²)") + ylab("Diastolic (0~140 mmHg)")+
+  theme_minimal()
+
+raw_age <- ggplot(data, aes(x=RIDAGEYR, y=BPXDI1) ) + 
+  geom_point(alpha=0.2,shape=1,color="azure4")+
+  geom_smooth(method = lm,formula = y ~ ns(x,df=7),aes(color="spline"))+
+  geom_smooth(method = lm, formula = y ~ x,aes(color="linear"))+
+  scale_color_manual(name = "Model",             # legend name
+                     values = c("linear" = "#E69F00",  # map regression line colors
+                                "spline" = "#56B4E9"))+
+  xlab("Age (year)") + ylab("Diastolic(0~140 mmHg)")+
+  theme_minimal()
+
+
+
+
+df_bmi_res <- list("linear"=make_bins(x=data$BMXBMI,lm_base$residuals,nbin=500),
+                "spline"=make_bins(x=data$BMXBMI,y=ns_base$residuals,nbin=500)
+                )
+
+df_age_res <- list("linear"=make_bins(x=data$RIDAGEYR,y=lm_base$residual,nbin=500),
+                "spline"=make_bins(x=data$RIDAGEYR,y=ns_base$residuals,nbin=500)
+                )
+bmi_res <- plot_bins2(df_bmi_res,xlab="BMI(kg/m²)")
+age_res <- plot_bins2(df_age_res,xlab="Age (year)")
+
+# ggpubr::ggarrange(raw_bmi,raw_age,bmi_res,age_res,common.legend = TRUE,labels = c('a','b','c','d'))
+
+
+```
+
+
+As shown in the below plots, the Diastolic has a parabola-like relation with age. The left shows the regressions without raw Diastolic values, and Diastolic values have transformed with inverse normal transformation in the second plot. The linear regression model has a significant residual overall, performing even worse for participants younger than 30 and older than 70.
+Therefore, apply linear regression could miss leading in EnWAS.  Similarly, although the spline and linear regressions are very close in this case, they still have some divergence at the early and late age. It may accept to use linear regression on BMI, but spline still would improve the accuracy. Note that the gender does not make much difference in this model.
+
+The residuals of the linear regression against age have an apparent trend (parabola-like shape), and residuals of spline regression have no apparent tendency. In other words, the non-linear relationship was not explained by the the linear regression and was left out in the residuals.
+
 
 The following plots show the residuals binned and plotted with respect to BMI ($kg/m^2$) and age. 
-Each bin contains about 150 data points on average. The number of data points in each could be very different, as we can see from the distributions of the AGE and BMI. We have fewer participants who are older than 70. Similarly, most participants' BMI is between 20-40, meaning the bins in this range contain more data points than other bins; especially, the number of participants with BMI in the range of 50-80 is much less than the rest.
+Each bin contains about 500 data points on average. The number of data points in each could be very different, as we can see from the distributions of the AGE and BMI. As we can see from plots, the residuals from the linear model have a clear trend with age, which indicates the model does not capture the age pattern, whereas the residuals from the spline model have no obvious pattern. Therefore, spline regression (other non-linear functions) is necessary to capture the age trend.
+
+
+```{r BPXDI12, echo=TRUE,warning=FALSE,out.width = '90%'}
+raw_g <- ggpubr::ggarrange(raw_bmi,raw_age,common.legend = TRUE,labels = c('a','b'),legend='right')
+res_g <- ggpubr::ggarrange(bmi_res,age_res,common.legend = TRUE,labels = c('c','d'),legend='right')
+ggpubr::ggarrange(raw_g,res_g,nrow = 2,ncol = 1)
+
+```
+
+## Summaries of the models
+
+![Linear Regression](../../images/lm_base.png)
+![Spline Regression](../../images/ns_base.png)
+
+![years](../../images/years.png)
+
+
+
+
+## Plot residuals
+
+```{r enthic, echo=TRUE,results = "asis"}
+ethnicity <-
+  c(
+    'Mexican American',
+    'Other Hispanic',
+    'Non-Hispanic White',
+    'Non-Hispanic Black',
+    'Other Race'
+  )
+
+# summary(lm_base)
+
+
+lm_df <-
+  data.frame(
+    residuals = lm_base$residual,
+    ethnicity = data$RIDRETH1,
+    gender = data$RIAGENDR,
+    years = data$years,
+    model = "lm"
+  )
+
+# summary(ns_base)
+ns_df <-
+  data.frame(
+    residuals = ns_base$residual,
+    ethnicity = data$RIDRETH1,
+    gender = data$RIAGENDR,
+    years = data$years,
+    model = "ns"
+  )
+levels(ns_df$ethnicity) <- ethnicity
+
+```
+
+## Plot residuals ethnicity and years
+
+The following plot shows the compassion of residuals across ethnic groups. The Non-Hispanic Black and Non-Hispanic White are slightly different from the rest of groups.
+
+```{r enthic2, echo=TRUE,eval=FALSE,results = "asis"}
+summary(lm(formula = residuals ~ ethnicity, data = ns_df))
+
+```
+
+![ethnicity](../../images/ethnicity.png)
+
+![years](../../images/years.png)
+
+## Residual ~ Age
+
+We plotted scatter plots of residuals from the linear regression and spline regression against age to verify the base models. 
+
+
+```{r resid2_age, echo=TRUE,results = "asis"}
+par(mfrow=c(1,2))
+smoothScatter(data$RIDAGEYR,lm_base$residuals,
+              nrpoints=100,pch = 10, col = "red")
+smoothScatter(data$RIDAGEYR,ns_base$residuals,
+              nrpoints=100,pch = 10, col = "red")
+```
+
+
+## More Residual Plot
 
 
 ```{r residual12, echo=TRUE,warning=FALSE,message=FALSE,results = "asis",dpi = 200}
@@ -278,10 +286,7 @@ bmi_dist <- ggplot(data=data, aes(x=BMXBMI, group=RIAGENDR, fill=RIAGENDR)) +
 ggarrange(age_dist,bmi_dist,common.legend = TRUE)
 ```
 
-The residuals of the linear regression against age have an apparent trend (parabola-like shape), and residuals of spline regression have no apparent tendency. In other words, the non-linear relationship was not explained by the the linear regression and was left out in the residuals. The residuals of the spline model have significant for the participant older than 70 because we have fewer participants for those age groups.
 
-
-There are fewer data points when BMI is greater than 50, which makes the residual considerably large and vary. However, we do not see a noticeable tendency in both models, indicating that linear and spline regressions for diastolic against BMI are very similar.
 
 ```{r residual122, echo=TRUE,warning=FALSE,message=FALSE,results = "asis",dpi = 200}
 lm_bmi <- plot_bins(data$BMXBMI, lm_base$residuals,xlab="BMI(kg/m²)",nbin=300)
