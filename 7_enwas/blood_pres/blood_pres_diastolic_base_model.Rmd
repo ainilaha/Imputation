@@ -103,7 +103,7 @@ make_bins <- function(x,y,nbin){
             cnt = n()
             ) %>% dplyr::mutate(y_min=mean-2*std/sqrt(cnt), y_max = mean+2*std/sqrt(cnt))
   
-  df$breaks <- as.numeric(df$breaks)
+  df$breaks <- as.numeric(as.character(df$breaks))
   
   df
 
@@ -249,7 +249,7 @@ levels(data$RIDRETH1) <- ethnicity
 
 lm_race <- lm(as.formula(paste0(linear_model," + RIDRETH1")), data)
 lm_years <- lm(as.formula(paste0(linear_model," + years")), data)
-ns_race <- lm(as.formula(paste0(all_ns_model," + years")), data)
+ns_years <- lm(as.formula(paste0(all_ns_model," + years")), data)
 
 ```
 
@@ -518,6 +518,7 @@ ggarrange(lm_cook_age,ns_cook_age,lm_cook_bmi,ns_cook_bmi,common.legend = TRUE)
 ```{r Leverage6, echo=TRUE,warning=FALSE,message=FALSE,results = "asis",dpi = 200}
 
 ggarrange(lev_lm_age, lev_ns_age,lev_lm_bmi,lev_ns_bmi,common.legend = TRUE)
+
 
 ```
 
