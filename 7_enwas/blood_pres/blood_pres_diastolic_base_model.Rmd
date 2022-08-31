@@ -5,6 +5,7 @@ editor_options:
   chunk_output_type: console
 ---
 
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
@@ -24,6 +25,7 @@ library(dplyr)
 library(ggplot2)
 library(EnWAS)
 library(Hmisc)
+
 exposure_vars <-
   read.delim("../../data/select_vars.txt", header = FALSE)$V1
 exposure_cols <- paste(exposure_vars, collapse = ", ")
@@ -33,6 +35,7 @@ exposure_cols <- paste(exposure_vars, collapse = ", ")
 # Return data set and PHESEANT results.
 load_data <- function(exposure_cols) {
   nhanes_db <- dbConnect(RSQLite::SQLite(), "../../nhanes.sqlite")
+
   
   cols <-
     'SEQN,BMXWAIST, RIDAGEYR, BMXHT, BMXBMI, BMXWT, RIAGENDR,SDMVPSU,SDMVSTRA,RIDRETH1, INDFMPIR, years,'
@@ -101,7 +104,7 @@ make_bins <- function(x,y,nbin){
   dplyr::summarize(mean = mean(y),
             std = sd(y),
             cnt = n()
-            ) %>% dplyr::mutate(y_min=mean-2*std/sqrt(cnt), y_max = mean+2*std/sqrt(cnt))
+            ) %>% dplyr::mutate(y_min=mean-1.96*std/sqrt(cnt), y_max = mean+1.96*std/sqrt(cnt))
   
   df$breaks <- as.numeric(as.character(df$breaks))
   
@@ -182,7 +185,7 @@ df_age_res <- list("Linear"=make_bins(x=data$RIDAGEYR,y=lm_base$residual,nbin=60
 
 
 
-bmi_res <- plot_bins2(df_bmi_res,xlab="BMI (kg/m²)")
+bmi_res <- plot_bins2(df_bmi_res,xlab="BMI (kg/m²)") + xlim(min(data$BMXBMI),max(data$BMXBMI))
 age_res <- plot_bins2(df_age_res,xlab="Age (year)")
 
 # ggpubr::ggarrange(raw_bmi,raw_age,bmi_res,age_res,common.legend = TRUE,labels = c('a','b','c','d'))
@@ -190,50 +193,36 @@ age_res <- plot_bins2(df_age_res,xlab="Age (year)")
 
 ```
 
-
-As shown in the below plots, the Diastolic has a parabola-like relation with age. The left shows the regressions without raw Diastolic values, and Diastolic values have transformed with inverse normal transformation in the second plot. The linear regression model has a significant residual overall, performing even worse for participants younger than 30 and older than 70.
-Therefore, apply linear regression could miss leading in EnWAS.  Similarly, although the spline and linear regressions are very close in this case, they still have some divergence at the early and late age. It may accept to use linear regression on BMI, but spline still would improve the accuracy. Note that the gender does not make much difference in this model.
-
-The residuals of the linear regression against age have an apparent trend (parabola-like shape), and residuals of spline regression have no apparent tendency. In other words, the non-linear relationship was not explained by the the linear regression and was left out in the residuals.
+- <em><strong> a) </strong></em> and <em><strong> b) </strong></em> show fitted values of linear and spline regression against the BMI ($km/m^2$) and Age (years) colored by the gender of the participants. The lines show the relation between fitted values with BMI. For visibility, we sampled 5% of data with transparency (alpha=0.2) on the image.
 
 
-The following plots show the residuals binned and plotted with respect to BMI ($kg/m^2$) and age. 
-Each bin contains about 500 data points on average. The number of data points in each could be very different, as we can see from the distributions of the AGE and BMI. As we can see from plots, the residuals from the linear model have a clear trend with age, which indicates the model does not capture the age pattern, whereas the residuals from the spline model have no obvious pattern. Therefore, spline regression (other non-linear functions) is necessary to capture the age trend.
+- <em><strong> c) </strong></em> and <em><strong> d) </strong></em> show binned residuals against the BMI ($km/m^2$) and Age (years) colored by the models (linear and spline regression). The values on x-axis (BMI and Age) are binned, and each bin contains about 600 data points; further the mean of residuals are plotted with error bar ([$-1.96 \sqrt{\sigma_r},1.96\sqrt{\sigma_r}]$), where $\sqrt{\sigma_r}$ is the standard deviation of residuals in the bins. The binned residual can stretch the data point out so that it shows clear patterns of the residuals in each bin.
+
+- <em><strong> a) </strong></em> and <em><strong> c) </strong></em> show that diastolic blood pressure does not have a strictly linear relation with BMI. The binned residuals of linear regression show a pattern, whereas there is no obvious trend or pattern for the spline regression because the spline model fits the non-linearity relations.
+
+- <em><strong> b) </strong></em> and <em><strong> d) </strong></em> show that the linear regression model has a significant residual overall, performing even worse for participants younger than 30 and older than 70. Therefore, applying linear regression could miss leading in EnWAS analysis.  Residuals of the linear regression against age have an apparent trend (parabola-like shape), and residuals of spline regression have no apparent tendency. In other words, the non-linear relationship was not explained by linear regression and was left out in the residuals.
+
 
 
 ```{r BPXDI12, echo=TRUE,warning=FALSE,message=FALSE,out.width = '90%'}
-raw_g <- ggpubr::ggarrange(raw_bmi,raw_age,common.legend = TRUE,labels = c('a','b'),legend='right')
-res_g <- ggpubr::ggarrange(bmi_res,age_res,common.legend = TRUE,labels = c('c','d'),legend='right')
+raw_g <- ggpubr::ggarrange(raw_bmi,raw_age,common.legend = TRUE,labels = c('a)','b)'),legend='right')
+res_g <- ggpubr::ggarrange(bmi_res,age_res,common.legend = TRUE,labels = c('c)','d)'),legend='right')
 ggpubr::ggarrange(raw_g,res_g,nrow = 2,ncol = 1)
 
 ```
 
-## ANOVA
-
-ANOVA LRT is to determine a full model better than a reduced model. The null hypothesis is $H_0: \beta=\beta_0$, which means the reduced model can predict as well as the full model; the alternative hypothesis is $H_0: \beta=\beta_1$, which means the full model outperforms the reduced model. Suppose the reduced model has $q$ parameters and the full model with $p$ parameters, so we have $q<p<n$, where $n$ is the number of data points. Further, the F-statistics can derive:
-$$
-F=\frac{\Delta D /(p-q)}{D_{1} /(n-p)} \sim F(p-q, n-p)
-$$ where $D$ is the deviance, and $\Delta D$ is the difference of the two deviance,$\Delta D=D_0-D_1$. 
-We can compare the linear regression with the spline regression as the following:
-
-
-
-```{r anova, echo=TRUE,eval=FALSE,results = "asis"}
-anova(lm_base,ns_base)
-```
-![](../../images/anova.PNG)
-
-
-$F(23,31042)=146.45$ with P-value 2.2e-16, which pretty small value, and it indicates the spline model is better than linear regression. Residual Sum of Squares (RSS) of spline also significantly smaller than linear regression.
-
 ## ANOVA LRT (Likelihood Ratio Test)
 
-ANOVA LRT produces almost the same as the above method. According Wilks' theorem,  $log(\Lambda)\rightarrow \chi^2,$ as $n \rightarrow \infty$ where $\Lambda$ is the likelihood ratio. The Chi square test has $p =2.2e-16$ which is the constant with above test.
+Linear regression can be considered a special case of spline regression because spline can be a straight line. In other words, linear regression is a sub-model of spline regression in our case. Therefore, we can use ANOVA LRT to test whether the spline regression outperforms the linear regression. The spline regression has 23 more degrees of freedom than linear regression, and it reduces the residual sum of squares (RSS) from $4338763$ down to $3913906$, which is about $9.8\%$. $Pr(>Chi) < 2.2e-16$ may not be meaningful as we have a considerably large amount of data, making the variability small.
+
 
 ```{r anova1, echo=TRUE,eval=FALSE,results = "asis"}
 anova(lm_base,ns_base,test="LRT")
 ```
 ![](../../images/anova_lrt.PNG)
+
+
+## Ethnicity and Years
 
 ```{r enthic, echo=TRUE,results = "asis"}
 ethnicity <-
@@ -249,46 +238,29 @@ levels(data$RIDRETH1) <- ethnicity
 
 lm_race <- lm(as.formula(paste0(linear_model," + RIDRETH1")), data)
 lm_years <- lm(as.formula(paste0(linear_model," + years")), data)
+ns_race <- lm(as.formula(paste0(all_ns_model," + RIDRETH1")), data)
 ns_years <- lm(as.formula(paste0(all_ns_model," + years")), data)
 
 ```
 
-## Plot residuals against ethnicity and years
+Ethnicity can improve the model slightly, reducing RSS by about 0.6%~0.7%. The Non-Hispanic Black and Other Race have bigger differences than Mexican American; Other Hispanic and Non-Hispanic White do not change too much. Considering the little impact of ethnicity and simplicity to show the principles, we exclude ethnicity from the base models for now.
 
-The following plot shows the compassion of residuals across ethnic groups. The Non-Hispanic Black and Non-Hispanic White are slightly different from the rest of groups.
-
-```{r enthic2, echo=TRUE,eval=FALSE,results = "asis"}
-summary(lm(formula = residuals ~ ethnicity, data = ns_df))
-
+```{r enthic1, echo=TRUE,eval=FALSE,results = "asis"}
+anova(lm_base,lm_race,test="LRT")
+summary(lm_race)
 ```
+![](../../images/ethnicity.png)
+Including years reduce the RSS only by 0.48%, which is pretty tiny. Only the year 2017-2018 is different from the year 2003-2004 with an estimator of 1.786 and a p-value of 5.19e-10, and the rest of the years are not significantly different from 2003-2004; therefore, the years factor are excluded from the base models.
 
-
-## Residual ~ Age
-
-We plotted scatter plots of residuals from the linear regression and spline regression against age to verify the base models. 
-
-
-```{r resid2_age, echo=TRUE,results = "asis"}
-par(mfrow=c(1,2))
-smoothScatter(data$RIDAGEYR,lm_base$residuals,
-              nrpoints=100,pch = 10, col = "red")
-smoothScatter(data$RIDAGEYR,ns_base$residuals,
-              nrpoints=100,pch = 10, col = "red")
+```{r years, echo=TRUE,eval=FALSE,results = "asis"}
+anova(lm_base,lm_years,test="LRT")
+summary(lm_years)
 ```
+![](../../images/ethnicity.png)
 
 
-## More Residual Plot
 
-
-```{r residual12, echo=TRUE,warning=FALSE,message=FALSE,results = "asis",dpi = 200}
-age_dist <- ggplot(data=data, aes(x=RIDAGEYR, group=RIAGENDR, fill=RIAGENDR)) +
-    geom_density(adjust=1.5, alpha=.25)
-bmi_dist <- ggplot(data=data, aes(x=BMXBMI, group=RIAGENDR, fill=RIAGENDR)) +
-    geom_density(adjust=1.5, alpha=.25)
-ggarrange(age_dist,bmi_dist,common.legend = TRUE)
-```
-
-
+## More Residual Plots
 
 ```{r residual122, echo=TRUE,warning=FALSE,message=FALSE,results = "asis",dpi = 200}
 lm_bmi <- plot_bins(data$BMXBMI, lm_base$residuals,xlab="BMI(kg/m²)",nbin=300)
@@ -300,227 +272,8 @@ ggarrange(lm_age,ns_age,lm_bmi,ns_bmi,ncol = 2,nrow = 2,common.legend = TRUE)
 
 ```
 
-## Scale-Location
-
-The following plots show spread points equally (randomly) along the horizontal line, which indicates equal variance (homoscedasticity).
-
-```{r Scale, echo=TRUE,warning=FALSE,message=FALSE,results = "asis"}
-par(mfrow=c(1,2))
-plot(lm_base, which = 3,main = "Linear")
-plot(ns_base, which = 3,main = "Spline")
-```
 
 
-
-A clear versions of the above plots with bins.
-
-```{r Scale1, echo=TRUE,warning=FALSE,message=FALSE,results = "asis",dpi = 200}
-library(latex2exp)
-std_g_lm <- plot_bins(
-  lm_base$fitted.values,
-  sqrt(abs(rstandard(lm_base))),
-  xlab = "fitted value",
-  ylab = TeX(r'($\sqrt{|standardize\ residuals|}$)'),
-  nbin = 200
-)
-std_g_ns <- plot_bins(
-  ns_base$fitted.values,
-  sqrt(abs(rstandard(ns_base))),
-  xlab = "fitted value",
-  ylab = TeX(r'($\sqrt{|standardize\ residuals|}$)'),
-  title="spline",
-  nbin = 200
-)
-
-ggarrange(std_g_lm, std_g_ns,common.legend = TRUE)
-```
-
-
-
-## Residuals vs Leverage
-Leverage for linear regression:
-$$
-\frac{1}{n}+\frac{\left(X_{i}-\bar{X}\right)^{2}}{S S_{X X}}
-$$
-Influence: Cook's distance 
-
-As we can see from the lower left corner, some outliers are influential in linear regression.
-There are no obvious outliers in the spline regression. 
-
-
-```{r Leverage, echo=TRUE,warning=FALSE,message=FALSE,results = "asis",dpi = 200}
-par(mfrow=c(1,2))
-plot(lm_base, which = 5,main = "Linear")
-plot(ns_base, which = 5,main = "Spline")
-
-res_g_lv_lm <- plot_bins(
-  hatvalues(lm_base),
-  lm_base$residuals,
-  xlab = "Leverage",
-  ylab = "Residuals",
-  title="Linear",
-  nbin = 500
-)
-res_g_lv <- plot_bins(
-  hatvalues(ns_base),
-  ns_base$residuals,
-  xlab = "Leverage",
-  ylab = "Residuals",
-  title="spline",
-  nbin = 500
-)
-
-ggarrange(res_g_lv_lm, res_g_lv,common.legend = TRUE)
-```
-
-
-Further, we can filter out the outliers defined by their Cook's distance greater than 5 times the mean of Cook's distance.
-And we can find that the dataset has a very different distribution from the whole data set. First, most participants are older than 80 and younger than 40. Second, the Diastolic-Blood Pressure distributions are like parabola concave up, whereas the whole data set is like a bell curve distribution (parabola concave down shape).
-
-```{r Leverage2, echo=TRUE,warning=FALSE,message=FALSE,results = "asis",dpi = 200}
-lm_cooks_ds <- cooks.distance(lm_base)
-lm_influential <- lm_cooks_ds[(lm_cooks_ds > (5 * mean(lm_cooks_ds, na.rm = TRUE)))]
-
-ns_cooks_ds <- cooks.distance(ns_base)
-ns_influential <- ns_cooks_ds[(ns_cooks_ds > (5 * mean(ns_cooks_ds, na.rm = TRUE)))]
-
-p_lm <- ggplot(data=data[names(lm_influential),], aes(x=BPXDI1, group=RIAGENDR, fill=RIAGENDR)) +
-  geom_density(adjust=1.5, alpha=.25)+labs(title = "linear")
-p_lm2 <- ggplot(data=data[names(lm_influential),], aes(x=RIDAGEYR, group=RIAGENDR, fill=RIAGENDR)) +
-  geom_density(adjust=1.5, alpha=.25)+labs(title = "linear")
-p_ns <- ggplot(data=data[names(ns_influential),], aes(x=BPXDI1, group=RIAGENDR, fill=RIAGENDR)) +
-  geom_density(adjust=1.5, alpha=.25)+labs(title = "spline")
-p_ns2 <- ggplot(data=data[names(ns_influential),], aes(x=RIDAGEYR, group=RIAGENDR, fill=RIAGENDR)) +
-  geom_density(adjust=1.5, alpha=.25)+labs(title = "spline")
-
-ggarrange(p_lm, p_ns,p_lm2,p_ns2,ncol = 2,nrow = 2, common.legend = TRUE)
-```
-
-By removing these two outliers from the linear regression, the $R^2$ change from 0.03276 to 0.03449 for linear regression , and 0.1273 to 0.08406 for spline regression
-
-```{r Leverage3, echo=TRUE,warning=FALSE,message=FALSE,results = "asis",dpi = 200}
-lm_base1 <- lm(as.formula(linear_model), data[names(lm_influential),])
-ns_base1 <- lm(as.formula(all_ns_model), data[names(ns_influential),])
-par(mfrow=c(1,2))
-plot(lm_base1, which = 5,main = "Linear")
-plot(ns_base1, which = 5,main = "Spline")
-```
-
-As we can see from the above plot,  the data points are spitted into two groups in the standard deviation plot of the linear regression model. The following plots can further check those data. As Diastolic-Blood Pressure has parabola-like relation with age, the prediction of younger and elderly groups are higher than actual values, leading to negative residuals. The middle age groups produce positive residuals.
-
-```{r std_twog, echo=TRUE,warning=FALSE,message=FALSE,results = "asis",dpi = 200}
-std_lm <- rstandard(lm_base1)
-
-geater0 <- std_lm[std_lm>0]
-less0 <- std_lm[std_lm<0]
-
-par(mfrow=c(2,2))
-hist(data[names(geater0),]$BPXDI1, xlab="Diasatolic (std>0)",main = NULL)
-hist(data[names(less0),]$BPXDI1, xlab="Diasatolic (std<0)",main = NULL)
-hist(data[names(geater0),]$RIDAGEYR, xlab="Age (std>0)",main = NULL)
-hist(data[names(less0),]$RIDAGEYR, xlab="Age (std<0)",main = NULL)
-```
-
-###  Cook's distance and leverage bin plots
-
-```{r Leverage4, echo=TRUE,warning=FALSE,message=FALSE,results = "asis",dpi = 200}
-
-lm_cook_age <- plot_bins(
-  data$RIDAGEYR,
-  cooks.distance(lm_base),
-  xlab = "Age",
-  ylab = "Cook's Distance",
-  nbin = 500
-)
-ns_cook_age <- plot_bins(
-  data$RIDAGEYR,
-  cooks.distance(ns_base),
-  xlab = "Age",
-  ylab = "Cook's Distance",
-  title="spline",
-  nbin = 500
-)
-
-
-lm_cook_bmi <- plot_bins(
-  data$BMXBMI,
-  cooks.distance(lm_base),
-  xlab = "BMI",
-  ylab = "Cook's Distance",
-  nbin = 500
-)
-ns_cook_bmi <- plot_bins(
-  data$BMXBMI,
-  cooks.distance(ns_base),
-  xlab = "BMI",
-  ylab = "Cook's Distance",
-  title="spline",
-  nbin = 500
-)
-
-# ggarrange(lm_cook_age,ns_cook_age,lm_cook_bmi,ns_cook_bmi,common.legend = TRUE)
-
-lev_lm_age <- plot_bins(
-  data$RIDAGEYR,
-  hatvalues(lm_base),
-  xlab = "Age",
-  ylab = "Leverage",
-  nbin = 500
-)
-lev_ns_age <- plot_bins(
-  data$RIDAGEYR,
-  hatvalues(ns_base),
-  xlab = "Age",
-  ylab = "Leverage",
-  title="spline",
-  nbin = 500
-)
-
-
-
-lev_lm_bmi <- plot_bins(
-  data$BMXBMI,
-  hatvalues(lm_base),
-  xlab = "BMI",
-  ylab = "Leverage",
-  nbin = 500
-)
-lev_ns_bmi <- plot_bins(
-  data$BMXBMI,
-  hatvalues(ns_base),
-  xlab = "BMI",
-  ylab = "Leverage",
-  title="spline",
-  nbin = 500
-)
-
-
-# ggarrange(lev_lm_age, lev_ns_age,lev_lm_bmi,lev_ns_bmi,common.legend = TRUE)
-
-
-```
-
-
-
-As we can see from the bin plots, the participants who are younger ( < 40 ) or older (> 70) have high leverage and influence in the linear regression. On the other hand, the age variable does not have a significant impact on the spline regression model.
-
-However, the data points with BMI above 60 have high leverage and influence in both models because it has much fewer data, as shown in the above plots. As the BMI has a linear relation with Diastolic-Blood Pressure, the data points with BMI less than 20 or greater than 40 have higher leverage and influence in the linear regression than in the spline regression. 
-
-```{r Leverage5, echo=TRUE,warning=FALSE,message=FALSE,results = "asis",dpi = 200}
-
-ggarrange(lm_cook_age,ns_cook_age,lm_cook_bmi,ns_cook_bmi,common.legend = TRUE)
-
-```
-
-
-
-
-```{r Leverage6, echo=TRUE,warning=FALSE,message=FALSE,results = "asis",dpi = 200}
-
-ggarrange(lev_lm_age, lev_ns_age,lev_lm_bmi,lev_ns_bmi,common.legend = TRUE)
-
-
-```
 
 
 
