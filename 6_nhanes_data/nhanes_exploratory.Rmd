@@ -247,7 +247,7 @@ merged_df <- merge(merged_df, clipped_diet, by = c("SEQN",'years'))
 # create a view may save space and efficient on the final version, in the future
 
 
-dbRemoveTable(nhanes_db,"merged_table")
+# dbRemoveTable(nhanes_db,"merged_table")
 
 dbWriteTable(nhanes_db, "merged_table", merged_df)
 dbListTables(nhanes_db)

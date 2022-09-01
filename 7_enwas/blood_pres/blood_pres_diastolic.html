@@ -371,13 +371,16 @@ sample</a>.</p>
 <h2>Query Extra data</h2>
 <p>This part loads the blood pressure data and merges it with the
 dietary and demographic data in the above section.</p>
-<pre class="r"><code>nhanes_db &lt;- dbConnect(RSQLite::SQLite(), &quot;../../nhanes.sqlite&quot;)
+<pre class="r"><code>set.seed(123)
+nhanes_db &lt;- dbConnect(RSQLite::SQLite(), &quot;../../nhanes.sqlite&quot;)
 # demo &lt;- dbGetQuery(nhanes_db, &quot;select * from demo&quot;)
 # cholesterol &lt;- dbGetQuery(nhanes_db, &quot;select * from cholesterol&quot;)
 # BPXDI2,BPXSY1
 blood_pressure &lt;- dbGetQuery(nhanes_db, &quot;select SEQN,BPXDI1,years from blood_pressure where BPXDI1 IS NOT NULL and BPXDI1 &lt;&gt; 0&quot;)
 dbDisconnect(nhanes_db)
-data &lt;- merge(blood_pressure, data, by = c(&quot;SEQN&quot;,&#39;years&#39;))</code></pre>
+data &lt;- merge(blood_pressure, data, by = c(&quot;SEQN&quot;,&#39;years&#39;))
+data &lt;- data[sample(1:nrow(data)), ] # shuffle the data
+data$years &lt;- as.factor(data$years)</code></pre>
 </div>
 <div id="run-enwas-bpxdi1---diastolic-blood-pres-1st-rdg-mm-hg" class="section level2">
 <h2>Run EnWAS ( BPXDI1 - Diastolic: Blood pres (1st rdg) mm Hg )</h2>

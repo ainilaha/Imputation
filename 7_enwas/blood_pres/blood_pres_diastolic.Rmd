@@ -58,6 +58,7 @@ phs_res <- data_phs$data_types
 This part loads the blood pressure data and merges it with the dietary and demographic data in the above section.
 
 ```{r query, echo=TRUE}
+set.seed(123)
 nhanes_db <- dbConnect(RSQLite::SQLite(), "../../nhanes.sqlite")
 # demo <- dbGetQuery(nhanes_db, "select * from demo")
 # cholesterol <- dbGetQuery(nhanes_db, "select * from cholesterol")
@@ -65,6 +66,8 @@ nhanes_db <- dbConnect(RSQLite::SQLite(), "../../nhanes.sqlite")
 blood_pressure <- dbGetQuery(nhanes_db, "select SEQN,BPXDI1,years from blood_pressure where BPXDI1 IS NOT NULL and BPXDI1 <> 0")
 dbDisconnect(nhanes_db)
 data <- merge(blood_pressure, data, by = c("SEQN",'years'))
+data <- data[sample(1:nrow(data)), ] # shuffle the data
+data$years <- as.factor(data$years)
 
 ```
 

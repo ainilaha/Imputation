@@ -64,13 +64,12 @@ This part loads the blood pressure data and merges it with the dietary and demog
 ```{r query, echo=TRUE}
 set.seed(123)
 nhanes_db <- dbConnect(RSQLite::SQLite(), "../../nhanes.sqlite")
-# demo <- dbGetQuery(nhanes_db, "select * from demo")
-# cholesterol <- dbGetQuery(nhanes_db, "select * from cholesterol")
 # BPXDI2,BPXSY1
 blood_pressure <- dbGetQuery(nhanes_db, "select SEQN,BPXDI1,years from blood_pressure where BPXDI1 IS NOT NULL and BPXDI1 <> 0")
 dbDisconnect(nhanes_db)
 data <- merge(blood_pressure, data, by = c("SEQN",'years'))
-
+data <- data[sample(1:nrow(data)), ] # shuffle the data
+data$years <- as.factor(data$years)
 ```
 
 ## Base Model
@@ -155,22 +154,22 @@ This section compares linear and spline regression of Diastolic blood pressure a
 
 
 pred_df <- data.frame("Age"=data$RIDAGEYR,
-                      "Sex"=data$RIAGENDR,
+                      "Gender"=data$RIAGENDR,
                       "BMI"=data$BMXBMI,
                       "Linear"=lm_base$fitted.values,
                       "Spline"=ns_base$fitted.values)
 
 
 
-mpred_df <- melt(pred_df, id=c("Age","Sex",'BMI'))
+mpred_df <- reshape::melt(pred_df, id=c("Age","Gender",'BMI'))
 
-raw_bmi <- ggplot(mpred_df, aes(x=BMI, y=value,colour=Sex) ) +
- geom_smooth() + geom_point(data = ~ group_by(.x, Age, Sex,variable) %>% sample_frac(0.05),alpha=0.2)+
+fit_bmi <- ggplot(mpred_df, aes(x=BMI, y=value,colour=Gender) ) +
+ geom_smooth() + geom_point(data = ~ group_by(.x, Age, Gender,variable) %>% sample_frac(0.05),alpha=0.2)+
   facet_grid(cols = vars(variable))+ ylab("Fitted Values")+ xlab("BMI (kg/m²)")+
   theme_bw()
 
-raw_age <- ggplot(mpred_df, aes(x=Age, y=value,colour=Sex) ) +
- geom_smooth() + geom_point(data = ~ group_by(.x, Age, Sex,variable) %>% sample_frac(0.05),alpha=0.2)+
+fit_age <- ggplot(mpred_df, aes(x=Age, y=value,colour=Gender) ) +
+ geom_smooth() + geom_point(data = ~ group_by(.x, Age, Gender,variable) %>% sample_frac(0.05),alpha=0.2)+
   facet_grid(cols = vars(variable))+ylab("Fitted Values")+ xlab("Age (year)")+
   theme_bw()
 
@@ -185,41 +184,135 @@ df_age_res <- list("Linear"=make_bins(x=data$RIDAGEYR,y=lm_base$residual,nbin=60
 
 
 
-bmi_res <- plot_bins2(df_bmi_res,xlab="BMI (kg/m²)") + xlim(min(data$BMXBMI),max(data$BMXBMI))
-age_res <- plot_bins2(df_age_res,xlab="Age (year)")
+
+
+bmi_res <- plot_bins2(df_bmi_res,xlab="BMI (kg/m²)")+ xlim(min(data$BMXBMI),max(data$BMXBMI))+ ylim(-8,6.5)
+age_res <- plot_bins2(df_age_res,xlab="Age (year)") + ylim(-8,6.5)
+
+
+
+raw_age <- ggplot(data,
+         aes(
+           x = RIDAGEYR,
+           y = BPXDI1,
+           colour = RIAGENDR
+         )) +
+  geom_point(alpha = 0.1) +
+  geom_smooth() + labs(colour="Gender")+
+  xlab("Age (year)")+ylab("Diastolic (mm Hg)")
+
+raw_bmi <- ggplot(data,
+         aes(
+           x = BMXBMI,
+           y = BPXDI1,
+           colour = RIAGENDR
+         )) +
+  geom_point(alpha = 0.1) +
+  geom_smooth() + labs(colour="Gender")+
+  xlab("BMI (kg/m²)")+ylab("Diastolic (mm Hg)")
+
+
 
 # ggpubr::ggarrange(raw_bmi,raw_age,bmi_res,age_res,common.legend = TRUE,labels = c('a','b','c','d'))
 
 
 ```
 
-- <em><strong> a) </strong></em> and <em><strong> b) </strong></em> show fitted values of linear and spline regression against the BMI ($km/m^2$) and Age (years) colored by the gender of the participants. The lines show the relation between fitted values with BMI. For visibility, we sampled 5% of data with transparency (alpha=0.2) on the image.
+- <em><strong> a) </strong></em> and <em><strong> b) </strong></em> are the raw data with smooth fitted lines.
+
+- <em><strong> c) </strong></em> and <em><strong> d) </strong></em> show fitted values of linear and spline regression against the BMI ($km/m^2$) and Age (years) colored by the gender of the participants. The lines show the relation between fitted values with BMI. For visibility, we sampled 5% of data with transparency (alpha=0.2) on the image.
 
 
-- <em><strong> c) </strong></em> and <em><strong> d) </strong></em> show binned residuals against the BMI ($km/m^2$) and Age (years) colored by the models (linear and spline regression). The values on x-axis (BMI and Age) are binned, and each bin contains about 600 data points; further the mean of residuals are plotted with error bar ([$-1.96 \sqrt{\sigma_r},1.96\sqrt{\sigma_r}]$), where $\sqrt{\sigma_r}$ is the standard deviation of residuals in the bins. The binned residual can stretch the data point out so that it shows clear patterns of the residuals in each bin.
+- <em><strong> e) </strong></em> and <em><strong> f) </strong></em> show binned residuals against the BMI ($km/m^2$) and Age (years) colored by the models (linear and spline regression). The values on x-axis (BMI and Age) are binned, and each bin contains about 600 data points; further the mean of residuals are plotted with error bar ([$-1.96 \sqrt{\sigma_r},1.96\sqrt{\sigma_r}]$), where $\sqrt{\sigma_r}$ is the standard deviation of residuals in the bins. The binned residual can stretch the data point out so that it shows clear patterns of the residuals in each bin.
 
-- <em><strong> a) </strong></em> and <em><strong> c) </strong></em> show that diastolic blood pressure does not have a strictly linear relation with BMI. The binned residuals of linear regression show a pattern, whereas there is no obvious trend or pattern for the spline regression because the spline model fits the non-linearity relations.
+- <em><strong> c) </strong></em> and <em><strong> e) </strong></em> show that diastolic blood pressure does not have a strictly linear relation with BMI. The binned residuals of linear regression show a pattern, whereas there is no obvious trend or pattern for the spline regression because the spline model fits the non-linearity relations.
 
-- <em><strong> b) </strong></em> and <em><strong> d) </strong></em> show that the linear regression model has a significant residual overall, performing even worse for participants younger than 30 and older than 70. Therefore, applying linear regression could miss leading in EnWAS analysis.  Residuals of the linear regression against age have an apparent trend (parabola-like shape), and residuals of spline regression have no apparent tendency. In other words, the non-linear relationship was not explained by linear regression and was left out in the residuals.
+- <em><strong> d) </strong></em> and <em><strong> f) </strong></em> show that the linear regression model has a significant residual overall, performing even worse for participants younger than 30 and older than 70. Therefore, applying linear regression could miss leading in EnWAS analysis.  Residuals of the linear regression against age have an apparent trend (parabola-like shape), and residuals of spline regression have no apparent tendency. In other words, the non-linear relationship was not explained by linear regression and was left out in the residuals.
 
 
 
-```{r BPXDI12, echo=TRUE,warning=FALSE,message=FALSE,out.width = '90%'}
-raw_g <- ggpubr::ggarrange(raw_bmi,raw_age,common.legend = TRUE,labels = c('a)','b)'),legend='right')
-res_g <- ggpubr::ggarrange(bmi_res,age_res,common.legend = TRUE,labels = c('c)','d)'),legend='right')
-ggpubr::ggarrange(raw_g,res_g,nrow = 2,ncol = 1)
+```{r BPXDI12, echo=TRUE,warning=FALSE,message=FALSE, fig.width = 10,fig.height=10}
+raw_g <- ggpubr::ggarrange(raw_bmi,raw_age,
+                           common.legend = TRUE,
+                           labels = c('a)','b)'),legend='right')
+
+fit_g <- ggpubr::ggarrange(fit_bmi, fit_age,
+                           common.legend = TRUE,
+                           labels = c('c)','d)'),legend='right')
+
+
+res_g <- ggpubr::ggarrange(bmi_res,age_res,common.legend = TRUE,labels = c('e)','f)'),legend='right')
+
+
+ggpubr::ggarrange(raw_g,fit_g,res_g,nrow = 3,ncol = 1)
+```
+
+
+## Cross-Validation to determe number of Knots for Age
+The model with 10 knots has the lowest RSS. However, the relative change is almost negligible. 
+
+```{r cv, echo=TRUE,warning=FALSE,message=FALSE}
+RSS_avg <- c()
+for(q in 5:20){
+  # number of knots = q - 2
+  knots <- quantile(unique(data$RIDAGEYR),1:(q-2)/(q-1))
+  knots <- paste0(knots, collapse=', ' )
+  ns_model <-
+  paste0('BPXDI1 ~ ns(RIDAGEYR, knots = c(',knots,  '))* RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,75,by=10)))')
+ 
+  
+  rss_vector <- c()
+  years <-  c("2003-2004","2005-2006","2007-2008",
+            "2009-2010","2013-2014",
+            "2015-2016","2017-2018")
+  # leave out 2011-2012 because max age in the years is 80, which lead some issue to set up knots
+  # as above
+  # https://stat.ethz.ch/pipermail/r-devel/2011-May/061035.html
+  for (year in years){
+    cv_train <- data[data$years!= year,]
+    cv_test <- data[data$years == year,]
+
+    cv_ns_model <- lm(as.formula(ns_model), cv_train)
+    
+      pred_vals <- predict(cv_ns_model,cv_test)
+      
+      rss <- sum((pred_vals-cv_test$BPXDI1)^2)
+      rss_vector <- c(rss_vector,rss)
+    
+  }
+  RSS_avg <- c(RSS_avg,mean(rss_vector))
+  
+
+}
+
+qplot(3:18,RSS_avg,geom=c("point", "line")) + xlab("Number of Knots") + ylab("Average RSS")
+(max(RSS_avg) - min(RSS_avg))/mean(RSS_avg)
 
 ```
+
 
 ## ANOVA LRT (Likelihood Ratio Test)
 
-Linear regression can be considered a special case of spline regression because spline can be a straight line. In other words, linear regression is a sub-model of spline regression in our case. Therefore, we can use ANOVA LRT to test whether the spline regression outperforms the linear regression. The spline regression has 23 more degrees of freedom than linear regression, and it reduces the residual sum of squares (RSS) from $4338763$ down to $3913906$, which is about $9.8\%$. $Pr(>Chi) < 2.2e-16$ may not be meaningful as we have a considerably large amount of data, making the variability small.
+Linear regression can be considered a special case of spline regression because spline can be a straight line. In other words, linear regression is a sub-model of spline regression in our case. Therefore, we can use ANOVA LRT to test whether the spline regression outperforms the linear regression. The spline regression has 23 more degrees of freedom than linear regression, and it reduces the residual sum of squares (RSS) from $4338763$ down to $3913906$, which is about $9.8\%$. $Pr(>Chi) < < 0.001$ may not be meaningful as we have a considerably large amount of data, making the variability small.
 
 
-```{r anova1, echo=TRUE,eval=FALSE,results = "asis"}
-anova(lm_base,ns_base,test="LRT")
+```{r anova1, echo=TRUE,results = "asis"}
+print_anova <- function(anov_obj){
+  for (a in attr(anov_obj,"heading")){
+    cat(gsub(pattern = "\n", replacement = "  \n", x = a))
+    }
+  anov_df <- as.data.frame(anov_obj)
+  anov_df <- round(anov_df,3)
+  anov_df[!is.na(anov_df[,'Pr(>Chi)']) & anov_df[,'Pr(>Chi)'] <= 0.001, 'Pr(>Chi)'] <- "< 0.001"
+  anov_df[is.na(anov_df)] <- ""
+  
+  
+  
+  knitr::kable(anov_df)
+}
+print_anova(anova(lm_base,ns_base,test="LRT"))
 ```
-![](../../images/anova_lrt.PNG)
+
 
 
 ## Ethnicity and Years
@@ -245,18 +338,20 @@ ns_years <- lm(as.formula(paste0(all_ns_model," + years")), data)
 
 Ethnicity can improve the model slightly, reducing RSS by about 0.6%~0.7%. The Non-Hispanic Black and Other Race have bigger differences than Mexican American; Other Hispanic and Non-Hispanic White do not change too much. Considering the little impact of ethnicity and simplicity to show the principles, we exclude ethnicity from the base models for now.
 
-```{r enthic1, echo=TRUE,eval=FALSE,results = "asis"}
-anova(lm_base,lm_race,test="LRT")
-summary(lm_race)
+```{r enthic1, echo=TRUE,results = "asis"}
+print_anova(anova(lm_base,lm_race,test="LRT"))
+sjPlot::tab_model(lm_base,lm_race,
+                  dv.labels = c("lm_base", "lm_race"),
+                  show.stat=TRUE,show.dev=TRUE)
 ```
-![](../../images/ethnicity.png)
 Including years reduce the RSS only by 0.48%, which is pretty tiny. Only the year 2017-2018 is different from the year 2003-2004 with an estimator of 1.786 and a p-value of 5.19e-10, and the rest of the years are not significantly different from 2003-2004; therefore, the years factor are excluded from the base models.
 
-```{r years, echo=TRUE,eval=FALSE,results = "asis"}
-anova(lm_base,lm_years,test="LRT")
-summary(lm_years)
+```{r years, echo=TRUE,results = "asis"}
+print_anova(anova(lm_base,lm_years,test="LRT"))
+sjPlot::tab_model(lm_base,lm_years,
+                  dv.labels = c("lm_base", "lm_years"),
+                  show.stat=TRUE,show.dev=TRUE)
 ```
-![](../../images/ethnicity.png)
 
 
 
