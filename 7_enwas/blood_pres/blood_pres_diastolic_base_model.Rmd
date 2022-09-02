@@ -111,7 +111,7 @@ make_bins <- function(x,y,nbin){
 
 }
 
-plot_bins<- function(x,y,xlab="Value",ylab="Binned Residuals",title="linear",nbin=300){
+plot_bins<- function(x,y,xlab="Value",ylab="Binned Residuals",title="linear",nbin=600){
 
   df <- make_bins(x,y,nbin)
   g <- ggplot(df,aes(breaks,mean)) + geom_point() +
@@ -125,7 +125,7 @@ plot_bins<- function(x,y,xlab="Value",ylab="Binned Residuals",title="linear",nbi
 }
 
 
-plot_bins2<- function(df_list,nbin=300,xlab = "Moisture",ylab = "Binned Residuals"){
+plot_bins2<- function(df_list,xlab = "Moisture",ylab = "Binned Residuals"){
   df <- do.call("rbind", df_list)
   df$Model <-
   rep(names(df_list), each = nrow(df_list[[1]]))
@@ -135,6 +135,7 @@ plot_bins2<- function(df_list,nbin=300,xlab = "Moisture",ylab = "Binned Residual
   geom_smooth(aes(breaks,mean),se = FALSE)+
     scale_color_manual(values=c("#E69F00", "#56B4E9"))+
   ylab(ylab) + xlab(xlab) +
+  facet_grid(cols = vars(Model))+
   theme_minimal()
   g
   
@@ -166,12 +167,12 @@ mpred_df <- reshape::melt(pred_df, id=c("Age","Gender",'BMI'))
 fit_bmi <- ggplot(mpred_df, aes(x=BMI, y=value,colour=Gender) ) +
  geom_smooth() + geom_point(data = ~ group_by(.x, Age, Gender,variable) %>% sample_frac(0.05),alpha=0.2)+
   facet_grid(cols = vars(variable))+ ylab("Fitted Values")+ xlab("BMI (kg/m²)")+
-  theme_bw()
+  theme_minimal()
 
 fit_age <- ggplot(mpred_df, aes(x=Age, y=value,colour=Gender) ) +
  geom_smooth() + geom_point(data = ~ group_by(.x, Age, Gender,variable) %>% sample_frac(0.05),alpha=0.2)+
   facet_grid(cols = vars(variable))+ylab("Fitted Values")+ xlab("Age (year)")+
-  theme_bw()
+  theme_minimal()
 
 
 df_bmi_res <- list("Linear"=make_bins(x=data$BMXBMI,lm_base$residuals,nbin=600),
@@ -186,7 +187,7 @@ df_age_res <- list("Linear"=make_bins(x=data$RIDAGEYR,y=lm_base$residual,nbin=60
 
 
 
-bmi_res <- plot_bins2(df_bmi_res,xlab="BMI (kg/m²)")+ xlim(min(data$BMXBMI),max(data$BMXBMI))+ ylim(-8,6.5)
+bmi_res <- plot_bins2(df_bmi_res,xlab="BMI (kg/m²)")+ ylim(-8,6.5) + xlim(min(data$BMXBMI),max(data$BMXBMI))
 age_res <- plot_bins2(df_age_res,xlab="Age (year)") + ylim(-8,6.5)
 
 
@@ -194,23 +195,30 @@ age_res <- plot_bins2(df_age_res,xlab="Age (year)") + ylim(-8,6.5)
 raw_age <- ggplot(data,
          aes(
            x = RIDAGEYR,
-           y = BPXDI1,
-           colour = RIAGENDR
+           y = BPXDI1
          )) +
-  geom_point(alpha = 0.1) +
-  geom_smooth() + labs(colour="Gender")+
-  xlab("Age (year)")+ylab("Diastolic (mm Hg)")
+  geom_point(data = ~ group_by(.x, RIDAGEYR, RIAGENDR,BMXBMI) %>% sample_frac(0.5),
+             alpha = 0.2, shape=1) + 
+  geom_smooth(method = "lm",formula = y~x, aes(colour="Linear"),size=1.5)+
+  geom_smooth(method = "lm",formula = y~ns(x,df=7),aes(colour="Spline"),size=1.5) +
+  labs(colour="Gender")+
+  xlab("BMI (kg/m²)")+ylab("Diastolic (mm Hg)")+
+   scale_colour_manual(name="Model", values=c("#E69F00", "#56B4E9"))+
+  theme_minimal()
 
 raw_bmi <- ggplot(data,
          aes(
            x = BMXBMI,
            y = BPXDI1,
-           colour = RIAGENDR
-         )) +
-  geom_point(alpha = 0.1) +
-  geom_smooth() + labs(colour="Gender")+
-  xlab("BMI (kg/m²)")+ylab("Diastolic (mm Hg)")
-
+        )) +
+  geom_point(data = ~ group_by(.x, RIDAGEYR, RIAGENDR,BMXBMI) %>% sample_frac(0.5),
+             alpha = 0.2, shape=1) + 
+  geom_smooth(method = "lm",formula = y~x, aes(colour="Linear"),size=1.5)+
+  geom_smooth(method = "lm",formula = y~ns(x,df=7),aes(colour="Spline"),size=1.5) +
+  labs(colour="Gender")+
+  xlab("BMI (kg/m²)")+ylab("Diastolic (mm Hg)")+
+   scale_colour_manual(name="Model", values=c("#E69F00", "#56B4E9"))+
+  theme_minimal()
 
 
 # ggpubr::ggarrange(raw_bmi,raw_age,bmi_res,age_res,common.legend = TRUE,labels = c('a','b','c','d'))
@@ -245,48 +253,118 @@ res_g <- ggpubr::ggarrange(bmi_res,age_res,common.legend = TRUE,labels = c('e)',
 
 
 ggpubr::ggarrange(raw_g,fit_g,res_g,nrow = 3,ncol = 1)
+
+
+
+
+```
+
+- <em><strong> Note: The trends are difficult to see in binned residuals plot with BMI because most data are squeezed in a small range. A possible solution is to separate BMI from age plots as below. </strong></em> 
+
+```{r bmi_plot, echo=TRUE,warning=FALSE,message=FALSE, fig.width = 10,fig.height=10}
+
+
+ggpubr::ggarrange(raw_bmi,fit_bmi,bmi_res,nrow = 3,ncol = 1,legend='right')
+
+
 ```
 
 
 ## Cross-Validation to determe number of Knots for Age
-The model with 10 knots has the lowest RSS. However, the relative change is almost negligible. 
+
+The matrix of the mean square errors (MSE) and standard deviations of choosing different knots show that the changing number of quantile knots or specific integer knots do not significantly impact the model. In addition, excluding specific years of the data has even less impact on the performance of the models. By excluding 2013-2014 or 2005-2006, the models have minimum or maximum MSE, but the differences are considerably small. 
+
 
 ```{r cv, echo=TRUE,warning=FALSE,message=FALSE}
-RSS_avg <- c()
-for(q in 5:20){
-  # number of knots = q - 2
-  knots <- quantile(unique(data$RIDAGEYR),1:(q-2)/(q-1))
-  knots <- paste0(knots, collapse=', ' )
-  ns_model <-
-  paste0('BPXDI1 ~ ns(RIDAGEYR, knots = c(',knots,  '))* RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,75,by=10)))')
- 
+qs <- 5:22
+
+cross_validation <- function(q_list=qs,base_model=all_ns_model,df=data) {
+  len_q <- length(q_list)
   
-  rss_vector <- c()
-  years <-  c("2003-2004","2005-2006","2007-2008",
-            "2009-2010","2013-2014",
-            "2015-2016","2017-2018")
+  
   # leave out 2011-2012 because max age in the years is 80, which lead some issue to set up knots
   # as above
   # https://stat.ethz.ch/pipermail/r-devel/2011-May/061035.html
-  for (year in years){
-    cv_train <- data[data$years!= year,]
-    cv_test <- data[data$years == year,]
-
-    cv_ns_model <- lm(as.formula(ns_model), cv_train)
-    
-      pred_vals <- predict(cv_ns_model,cv_test)
+  
+  years <- levels(df$years)
+  
+  len_year <- length(years)
+  
+  mse_mtx <- matrix(0, nrow = len_q+1, ncol = len_year)
+  rownames(mse_mtx) <- c(c(q_list - 2),"ns_base")
+  colnames(mse_mtx) <- years
+  
+  for (i in 1:len_q) {
+    # number of knots = q - 2
+    q <- q_list[i]
+    for (j in 1:len_year) {
+      # print(years[j])
+      cv_train <- df[df$years != years[j], ]
+      cv_test <- df[df$years == years[j], ]
       
-      rss <- sum((pred_vals-cv_test$BPXDI1)^2)
-      rss_vector <- c(rss_vector,rss)
+      knots <- quantile(unique(cv_train$RIDAGEYR), 1:(q - 2) / (q - 1))
+      
+      knots <- paste0(knots, collapse = ', ')
+      ns_model <-
+        paste0(
+          'BPXDI1 ~ ns(RIDAGEYR, knots = c(',
+          knots,
+          '))* RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,75,by=10)))'
+        )
+      
+      
+      cv_ns_model <- NA
+      tryCatch({
+        cv_ns_model <- lm(as.formula(ns_model), cv_train)
+
+      },
+      error = function(e) {
+                print(paste0("years=",years[j],"raise errors:NA/NaN/Inf in foreign function call (arg 1)"))
+          },
+      finally = {
+        mse_mtx[i, j] = NA
+        }
+      )
+      if(is.list(cv_ns_model)){
+        pred_vals <- predict(cv_ns_model, cv_test)
+        mse_mtx[i, j] <- mean((pred_vals - cv_test$BPXDI1) ^ 2)
+      }
+
+    }
     
   }
-  RSS_avg <- c(RSS_avg,mean(rss_vector))
-  
 
+  for (j in 1:len_year) {
+      cv_train <- df[df$years != years[j], ]
+      cv_test <- df[df$years == years[j], ]
+      ns_model <- NA
+      tryCatch({
+        ns_model <- lm(as.formula(base_model), cv_train)
+
+      },
+      error = function(e) {
+                print(paste0("years=",years[j],"raise errors:NA/NaN/Inf in foreign function call (arg 1)"))
+          },
+      finally = {
+        mse_mtx[len_q+1, j] = NA
+        }
+      )
+      if(is.list(ns_model)){
+        pred_vals <- predict(ns_model, cv_test)
+        mse_mtx[len_q+1, j] <- mean((pred_vals - cv_test$BPXDI1) ^ 2)
+      }
+
+    }
+
+  mse_mtx
 }
 
-qplot(3:18,RSS_avg,geom=c("point", "line")) + xlab("Number of Knots") + ylab("Average RSS")
-(max(RSS_avg) - min(RSS_avg))/mean(RSS_avg)
+mse_mtx <- cross_validation()
+knitr::kable(mse_mtx)
+rowMeans(mse_mtx,na.rm = TRUE)
+apply(mse_mtx, 1,sd, na.rm = TRUE)
+apply(mse_mtx, 1,sd, na.rm = TRUE)/sqrt(6.7)
+apply(mse_mtx, 2,sd, na.rm = TRUE)
 
 ```
 
@@ -336,7 +414,7 @@ ns_years <- lm(as.formula(paste0(all_ns_model," + years")), data)
 
 ```
 
-Ethnicity can improve the model slightly, reducing RSS by about 0.6%~0.7%. The Non-Hispanic Black and Other Race have bigger differences than Mexican American; Other Hispanic and Non-Hispanic White do not change too much. Considering the little impact of ethnicity and simplicity to show the principles, we exclude ethnicity from the base models for now.
+Ethnicity can improve the model slightly, reducing RSS by about 0.6%~0.7%. The Non-Hispanic Black and Other Race have bigger differences than Mexican American; Other Hispanic and Non-Hispanic White do not change too much.  The correct way to contact EnWAS analysis include the ethnicity into the adjust variables. However, we leave out ethnicity variable for now so that we show the principles more simple and direct manner.
 
 ```{r enthic1, echo=TRUE,results = "asis"}
 print_anova(anova(lm_base,lm_race,test="LRT"))
