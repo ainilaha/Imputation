@@ -1,5 +1,6 @@
 ---
 title: "EnWAS Base Model: Diasatolic-Blood Pressure"
+date: "Updated on : `r date()`"
 output: html_document
 editor_options: 
   chunk_output_type: console
@@ -202,7 +203,7 @@ raw_age <- ggplot(data,
   geom_smooth(method = "lm",formula = y~x, aes(colour="Linear"),size=1.5)+
   geom_smooth(method = "lm",formula = y~ns(x,df=7),aes(colour="Spline"),size=1.5) +
   labs(colour="Gender")+
-  xlab("BMI (kg/m²)")+ylab("Diastolic (mm Hg)")+
+  xlab("Age (year)")+ylab("Diastolic (mm Hg)")+
    scale_colour_manual(name="Model", values=c("#E69F00", "#56B4E9"))+
   theme_minimal()
 

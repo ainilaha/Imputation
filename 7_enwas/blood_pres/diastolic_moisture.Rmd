@@ -1,5 +1,6 @@
 ---
 title: "Diasatolic-Blood Pressure ~ Moisture"
+date: "Updated on : `r date()`"
 output: html_document
 ---
 
@@ -73,121 +74,39 @@ data <- merge(blood_pressure, data, by = c("SEQN",'years'))
 [more infor](https://www.clemson.edu/extension/food/canning/canning-tips/39available-moisture.html)
 
 ```{r resid22, echo=TRUE,message=FALSE,results = "asis"}
-
-
-make_bins <- function(x,y,nbin){
-  if (nbin==0)
-    nbin <- floor(sqrt(length(x)))
-  
-  df <-
-  data.frame(
-    y = y,
-    breaks = cut2(x,m=nbin,levels.mean=TRUE)
-  )
-  df <- df %>% 
-  dplyr::group_by(breaks) %>% 
-  dplyr::summarize(mean = mean(y),
-            std = sd(y)
-            ) %>% dplyr::mutate(y_min=mean-std, y_max = mean+std)
-  
-  df$breaks <- as.numeric(df$breaks)
-  
-  df
-
-}
-
-plot_bins<- function(x,y,xlab="bin avg",ylab="residuals",title="linear",nbin=100){
-
-  df <- make_bins(x,y,nbin=100)
-  g <- ggplot(df,aes(breaks,mean)) + geom_point() +
-  # geom_errorbar(aes(ymin=y_min,ymax=y_max))+
-  geom_smooth(aes(breaks,mean),method = "lm", formula = y ~  ns(x, df=7))+
-  ylab(ylab) + xlab(xlab) + labs(title = title)
-
- g
-
-  
-}
-
 linear_model <- 'BPXDI1 ~ RIDAGEYR*RIAGENDR + BMXBMI'
 
-all_ns_model <-
-  'BPXDI1 ~ ns(RIDAGEYR, knots = seq(20, 80, by = 10)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10))) '
-lm_mos <- lm(as.formula(paste0(linear_model," + DR1TMOIS")), data)
-ns_mos <- lm(as.formula(paste0(all_ns_model," + DR1TMOIS")), data)
+ns_model <-
+  'BPXDI1 ~ ns(RIDAGEYR, knots 
+= seq(20, 80, by = 10)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10))) '
+lm_base <- lm(as.formula(linear_model), data)
+ns_base <- lm(as.formula(ns_model), data)
 
-lm_mos_age <- lm(BPXDI1 ~ RIDAGEYR*RIAGENDR*DR1TMOIS + BMXBMI, data)
-ns_model_age <-
-  'BPXDI1 ~ ns(RIDAGEYR, knots = seq(20, 80, by = 10)) * RIAGENDR*DR1TMOIS + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10))) '
-ns_mos_age <- lm(as.formula(ns_model_age), data)
+
+lm_mos_model <- 'DR1TMOIS ~ RIDAGEYR*RIAGENDR + BMXBMI'
+
+ns_mos_model <-
+  'DR1TMOIS ~ ns(RIDAGEYR, knots 
+= seq(20, 80, by = 10)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10))) '
+lm_mos <- lm(as.formula(lm_mos_model), data)
+ns_mos <- lm(as.formula(ns_mos_model), data)
+
+
 
 ```
 
 
-###  Cook's distance and leverage bin plots
+###  Partial regression plot
 
 ```{r cook_lev, echo=TRUE,message=FALSE,results = "asis",dpi = 200}
-
-plot_bins2<- function(df_list,nbin=500,xlab = "Moisture",ylab = "Cook's Distance"){
-  df <- do.call("rbind", df_list)
-  df$EnWAS <-
-  rep(names(df_list), each = nrow(df_list[[1]]))
-    
-  g <- ggplot(df,aes(bin_avg,mean,color=EnWAS)) + geom_point(alpha=0.2) +
-  geom_smooth(aes(bin_avg,mean),method = "lm", formula = y ~  ns(x, df=7))+
-  ylab(ylab) + xlab(xlab) 
-  g
-  
-}
-df_list_cook <- list("Linear"=make_bins(x=data$DR1TMOIS,y=cooks.distance(lm_mos),nbin=500),
-                "Spline"=make_bins(x=data$DR1TMOIS,y=cooks.distance(ns_mos),nbin=500),
-                "lm(age:mos)"=make_bins(x=data$DR1TMOIS,y=cooks.distance(lm_mos_age),nbin=500)
-                )
-
-df_list_lev <- list("Linear"=make_bins(x=data$DR1TMOIS,y=hatvalues(lm_mos),nbin=500),
-                "Spline"=make_bins(x=data$DR1TMOIS,y=hatvalues(ns_mos),nbin=500),
-                "lm(age:mos)"=make_bins(x=data$DR1TMOIS,y=hatvalues(lm_mos_age),nbin=500)
-                )
-lev_g <- plot_bins2(df_list_lev,ylab = "Leverage")
-cook_g <- plot_bins2(df_list_cook)
-
-
-
-df_list_res <- list("Linear"=make_bins(x=data$DR1TMOIS,y=lm_mos$residuals,nbin=200),
-                "Spline"=make_bins(x=data$DR1TMOIS,y=ns_mos$residuals,nbin=200),
-                "lm(age:mos)"=make_bins(x=data$DR1TMOIS,lm_mos_age$residuals,nbin=200),
-                "ns(age:mos)"=make_bins(x=data$DR1TMOIS,ns_mos_age$residuals,nbin=200)
-                )
-
-lev_g <- plot_bins2(df_list_lev,ylab = "Leverage")
-cook_g <- plot_bins2(df_list_cook)
+g1<- qplot(resid(lm_base),resid(lm_mos),alpha = 0.1)
+g2 <- qplot(resid(ns_base),resid(ns_mos),alpha = 0.1)
+ggpubr::ggarrange(g1,g2,common.legend = TRUE)
 ```
 
 We compared the moisture impact on blood pressure with linear and spline regression.
 [Jordan et al.](https://www.ahajournals.org/doi/pdf/10.1161/01.cir.101.5.504) suggest that water has the effect of increasing blood pressure in older
 people; therefore, we also add models with moisture interacting with age for further comparison. The binned plots show all models have high leverage when DR1TMOIS greater than 1000, but they have less influence on the spline model than others. 
-
-```{r cook_lev22, echo=TRUE,message=FALSE,results = "asis",dpi = 200}
-ggarrange(lev_g,cook_g,common.legend = TRUE)
-
-```
-
-## Residuals ~ Moisture
-
-It seems the spline regression models have larger residuals with respect to moisture than the linear regression models.
-
-...
-
-More water could reduce the high blood pressure, but sugar water makes it [worse...](https://www.medicinenet.com/can_drinking_water_lower_your_blood_pressure/article.htm)
-
-```{r res, echo=TRUE,message=FALSE,results = "asis",dpi = 200}
-plot_bins2(df_list_res,ylab = "residuals")
-
-```
-
-
-
-
 
 
 
