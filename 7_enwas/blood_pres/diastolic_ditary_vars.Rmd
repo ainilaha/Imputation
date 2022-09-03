@@ -187,7 +187,7 @@ sug_bmi_res <- list("Linear"=make_bins(x=data$BMXBMI,
                 )
 
 
-age_sug_diff <- plot_bins2(sug_bmi_res,xlab="Age(years)",title = "DR1TCALC")+ylim(0,0.32)
+age_sug_diff <- plot_bins2(sug_age_res,xlab="Age(years)",title = "DR1TCALC")+ylim(0,0.32)
 
 bmi_sug_diff <- plot_bins2(sug_bmi_res,xlab="BMI (kg/m²)",title = "DR1TCALC") +ylim(0,0.32)
 
@@ -201,7 +201,7 @@ The following plots show the binned absolute of the difference residuals of mode
 
 ```{r cook_lev, echo=TRUE,message=FALSE,results = "asis",dpi = 200}
 ggpubr::ggarrange(bmi_res_diff,bmi_sug_diff,
-                  age_res_diff,bmi_sug_diff,
+                  age_res_diff,age_sug_diff,
                   common.legend = TRUE,legend="right")
 ```
 
