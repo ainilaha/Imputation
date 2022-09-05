@@ -359,7 +359,7 @@ pre code {
 
 <h1 class="title toc-ignore">EnWAS Base Model: Diasatolic-Blood
 Pressure</h1>
-<h4 class="date">Updated on : Fri Sep 02 15:12:30 2022</h4>
+<h4 class="date">Updated on : Mon Sep 05 14:22:39 2022</h4>
 
 </div>
 
@@ -404,12 +404,12 @@ make_bins &lt;- function(x,y,nbin){
     y = y,
     breaks = cut2(x,m=nbin,levels.mean=TRUE)
   )
-  df &lt;- df %&gt;% 
-  dplyr::group_by(breaks) %&gt;% 
+  df &lt;- df |&gt; 
+  dplyr::group_by(breaks) |&gt; 
   dplyr::summarize(mean = mean(y),
             std = sd(y),
             cnt = n()
-            ) %&gt;% dplyr::mutate(y_min=mean-1.96*std/sqrt(cnt), y_max = mean+1.96*std/sqrt(cnt))
+            ) |&gt; dplyr::mutate(y_min=mean-1.96*std/sqrt(cnt), y_max = mean+1.96*std/sqrt(cnt))
   
   df$breaks &lt;- as.numeric(as.character(df$breaks))
   
@@ -462,12 +462,12 @@ pressure against age and BMI.</p>
 mpred_df &lt;- reshape::melt(pred_df, id=c(&quot;Age&quot;,&quot;Gender&quot;,&#39;BMI&#39;))
 
 fit_bmi &lt;- ggplot(mpred_df, aes(x=BMI, y=value,colour=Gender) ) +
- geom_smooth() + geom_point(data = ~ group_by(.x, Age, Gender,variable) %&gt;% sample_frac(0.05),alpha=0.2)+
+ geom_smooth() + geom_point(data = ~ group_by(.x, Age, Gender,variable) |&gt; sample_frac(0.05),alpha=0.2)+
   facet_grid(cols = vars(variable))+ ylab(&quot;Fitted Values&quot;)+ xlab(&quot;BMI (kg/m²)&quot;)+
   theme_minimal()
 
 fit_age &lt;- ggplot(mpred_df, aes(x=Age, y=value,colour=Gender) ) +
- geom_smooth() + geom_point(data = ~ group_by(.x, Age, Gender,variable) %&gt;% sample_frac(0.05),alpha=0.2)+
+ geom_smooth() + geom_point(data = ~ group_by(.x, Age, Gender,variable) |&gt; sample_frac(0.05),alpha=0.2)+
   facet_grid(cols = vars(variable))+ylab(&quot;Fitted Values&quot;)+ xlab(&quot;Age (year)&quot;)+
   theme_minimal()
 
@@ -494,7 +494,7 @@ raw_age &lt;- ggplot(data,
            x = RIDAGEYR,
            y = BPXDI1
          )) +
-  geom_point(data = ~ group_by(.x, RIDAGEYR, RIAGENDR,BMXBMI) %&gt;% sample_frac(0.5),
+  geom_point(data = ~ group_by(.x, RIDAGEYR, RIAGENDR,BMXBMI) |&gt; sample_frac(0.5),
              alpha = 0.2, shape=1) + 
   geom_smooth(method = &quot;lm&quot;,formula = y~x, aes(colour=&quot;Linear&quot;),size=1.5)+
   geom_smooth(method = &quot;lm&quot;,formula = y~ns(x,df=7),aes(colour=&quot;Spline&quot;),size=1.5) +
@@ -508,7 +508,7 @@ raw_bmi &lt;- ggplot(data,
            x = BMXBMI,
            y = BPXDI1,
         )) +
-  geom_point(data = ~ group_by(.x, RIDAGEYR, RIAGENDR,BMXBMI) %&gt;% sample_frac(0.5),
+  geom_point(data = ~ group_by(.x, RIDAGEYR, RIAGENDR,BMXBMI) |&gt; sample_frac(0.5),
              alpha = 0.2, shape=1) + 
   geom_smooth(method = &quot;lm&quot;,formula = y~x, aes(colour=&quot;Linear&quot;),size=1.5)+
   geom_smooth(method = &quot;lm&quot;,formula = y~ns(x,df=7),aes(colour=&quot;Spline&quot;),size=1.5) +

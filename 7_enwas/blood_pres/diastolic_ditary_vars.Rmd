@@ -86,12 +86,12 @@ make_bins <- function(x,y,nbin){
     y = y,
     breaks = cut2(x,m=nbin,levels.mean=TRUE)
   )
-  df <- df %>% 
-  dplyr::group_by(breaks) %>% 
+  df <- df |> 
+  dplyr::group_by(breaks) |> 
   dplyr::summarize(mean = mean(y),
             std = sd(y),
             cnt = n()
-            ) %>% dplyr::mutate(y_min=mean-1.96*std/sqrt(cnt), y_max = mean+1.96*std/sqrt(cnt))
+            ) |> dplyr::mutate(y_min=mean-1.96*std/sqrt(cnt), y_max = mean+1.96*std/sqrt(cnt))
   
   df$breaks <- as.numeric(as.character(df$breaks))
   
@@ -197,12 +197,30 @@ bmi_sug_diff <- plot_bins2(sug_bmi_res,xlab="BMI (kg/m²)",title = "DR1TCALC") +
 
 ###  absolute of the difference residuals with or without dietary variables
 
-The following plots show the binned absolute of the difference residuals of models without (base model) or with dietary variables. It is another way to show how much the dietary variables affect the outputs. Including dietary variables in the models could improve the performance of the models or introduce noise, which can be detected with ANOVA LRT.    For example, the forest plot in the previous notebook shows the impacts of DR1TMOIS in linear regression and spline regression are pretty different. However, the spline model with DR1TMOIS and spline base model have almost the same performance, which means the DR1TMOIS may not be as important as shown in linear regression. On the other hand, adding DR1TCALC to linear or spline regression does not change much of the residuals.
+The following plots show the binned absolute of the difference residuals of models without (base model) or with dietary variables. It is another way to show how much the dietary variables affect the outputs. Including dietary variables in the models could improve the performance of the models or introduce noise, which can be detected with ANOVA LRT. For example, the forest plot in the previous notebook shows the impacts of DR1TMOIS in linear regression and spline regression are pretty different. However, the spline model with DR1TMOIS and spline base model have almost the same performance, which means the DR1TMOIS may not be as important as shown in linear regression. On the other hand, adding DR1TCALC to linear or spline regression does not change much of the residuals. 
+
+- y-axis is binned difference residuals, and difference residuals are computed as $\left| R_1-R_2 \right|$ ,where $R_1$ is residuals of base model (eg, BPXDI1 ~ RIDAGEYR\*RIAGENDR + BMXBMI), and $R_2$ residuals of model with dietary variables(eg, BPXDI1 ~ RIDAGEYR\*RIAGENDR + BMXBMI+DR1TMOIS).
+
+
+- In panel <em><strong> a) </strong></em>,  the yellow line show binned plot absolute of differences residuals of linear base model (`BPXDI1 ~ RIDAGEYR*RIAGENDR + BMXBMI`) and model linear model with DR1TMOIS(`BPXDI1 ~ RIDAGEYR*RIAGENDR + BMXBMI+DR1TCALC`). The blue line show binned plot absolute of differences residuals of spline base model (`BPXDI1 ~ ns(RIDAGEYR, knots 
+= seq(20, 80, by = 10)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)))`) and model spline model with DR1TMOIS(`BPXDI1 ~ ns(RIDAGEYR, knots 
+= seq(20, 80, by = 10)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)))+DR1TMOIS`). The values are binned according to BMI, and each bin contains about 600 points
+
+
+- Similarly, panel <em><strong> b ) </strong></em>, the yellow line show binned plot absolute of differences residuals of linear base model (`BPXDI1 ~ RIDAGEYR*RIAGENDR + BMXBMI`) and model linear model with DR1TCALC(`BPXDI1 ~ RIDAGEYR*RIAGENDR + BMXBMI+DR1TCALC`). The blue line show binned plot absolute of differences residuals of spline base model (`BPXDI1 ~ ns(RIDAGEYR, knots 
+= seq(20, 80, by = 10)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)))`) and model spline model with DR1TCALC(`BPXDI1 ~ ns(RIDAGEYR, knots 
+= seq(20, 80, by = 10)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)))+DR1TCALC`). The values are binned according to BMI, and each bin contains about 600 points
+
+- <em><strong> c) </strong></em> and <em><strong> d) </strong></em> are similar to <em><strong> a) </strong></em> and <em><strong> b) </strong></em>, except the data points are binned according to age.
+
+
 
 ```{r cook_lev, echo=TRUE,message=FALSE,results = "asis",dpi = 200}
 ggpubr::ggarrange(bmi_res_diff,bmi_sug_diff,
                   age_res_diff,age_sug_diff,
-                  common.legend = TRUE,legend="right")
+                  common.legend = TRUE,
+                  labels = c('a)','b)','c)','d)'),
+                  legend="right")
 ```
 
 ```{r cook_lev22, echo=TRUE,message=FALSE,results = "asis",dpi = 200}
@@ -211,7 +229,7 @@ age_sug_diff <- plot_bins2(sug_age_res,xlab="Age (years)",title = "DR1TCALC")
 bmi_sug_diff <- plot_bins2(sug_bmi_res,xlab="BMI (kg/m²)",title = "DR1TCALC")
 ggpubr::ggarrange(bmi_sug_diff,
                  age_sug_diff,
-                  common.legend = TRUE)
+                 common.legend = TRUE)
 ```
 
 

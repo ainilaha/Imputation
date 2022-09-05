@@ -99,12 +99,12 @@ make_bins <- function(x,y,nbin){
     y = y,
     breaks = cut2(x,m=nbin,levels.mean=TRUE)
   )
-  df <- df %>% 
-  dplyr::group_by(breaks) %>% 
+  df <- df |> 
+  dplyr::group_by(breaks) |> 
   dplyr::summarize(mean = mean(y),
             std = sd(y),
             cnt = n()
-            ) %>% dplyr::mutate(y_min=mean-1.96*std/sqrt(cnt), y_max = mean+1.96*std/sqrt(cnt))
+            ) |> dplyr::mutate(y_min=mean-1.96*std/sqrt(cnt), y_max = mean+1.96*std/sqrt(cnt))
   
   df$breaks <- as.numeric(as.character(df$breaks))
   
@@ -166,12 +166,12 @@ pred_df <- data.frame("Age"=data$RIDAGEYR,
 mpred_df <- reshape::melt(pred_df, id=c("Age","Gender",'BMI'))
 
 fit_bmi <- ggplot(mpred_df, aes(x=BMI, y=value,colour=Gender) ) +
- geom_smooth() + geom_point(data = ~ group_by(.x, Age, Gender,variable) %>% sample_frac(0.05),alpha=0.2)+
+ geom_smooth() + geom_point(data = ~ group_by(.x, Age, Gender,variable) |> sample_frac(0.05),alpha=0.2)+
   facet_grid(cols = vars(variable))+ ylab("Fitted Values")+ xlab("BMI (kg/m²)")+
   theme_minimal()
 
 fit_age <- ggplot(mpred_df, aes(x=Age, y=value,colour=Gender) ) +
- geom_smooth() + geom_point(data = ~ group_by(.x, Age, Gender,variable) %>% sample_frac(0.05),alpha=0.2)+
+ geom_smooth() + geom_point(data = ~ group_by(.x, Age, Gender,variable) |> sample_frac(0.05),alpha=0.2)+
   facet_grid(cols = vars(variable))+ylab("Fitted Values")+ xlab("Age (year)")+
   theme_minimal()
 
@@ -198,7 +198,7 @@ raw_age <- ggplot(data,
            x = RIDAGEYR,
            y = BPXDI1
          )) +
-  geom_point(data = ~ group_by(.x, RIDAGEYR, RIAGENDR,BMXBMI) %>% sample_frac(0.5),
+  geom_point(data = ~ group_by(.x, RIDAGEYR, RIAGENDR,BMXBMI) |> sample_frac(0.5),
              alpha = 0.2, shape=1) + 
   geom_smooth(method = "lm",formula = y~x, aes(colour="Linear"),size=1.5)+
   geom_smooth(method = "lm",formula = y~ns(x,df=7),aes(colour="Spline"),size=1.5) +
@@ -212,7 +212,7 @@ raw_bmi <- ggplot(data,
            x = BMXBMI,
            y = BPXDI1,
         )) +
-  geom_point(data = ~ group_by(.x, RIDAGEYR, RIAGENDR,BMXBMI) %>% sample_frac(0.5),
+  geom_point(data = ~ group_by(.x, RIDAGEYR, RIAGENDR,BMXBMI) |> sample_frac(0.5),
              alpha = 0.2, shape=1) + 
   geom_smooth(method = "lm",formula = y~x, aes(colour="Linear"),size=1.5)+
   geom_smooth(method = "lm",formula = y~ns(x,df=7),aes(colour="Spline"),size=1.5) +
