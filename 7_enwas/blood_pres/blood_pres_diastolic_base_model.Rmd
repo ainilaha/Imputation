@@ -80,7 +80,8 @@ linear_model <- 'BPXDI1 ~ RIDAGEYR*RIAGENDR + BMXBMI'
 lm_base <- lm(as.formula(linear_model), data)
 
 all_ns_model <-
-  'BPXDI1 ~ ns(RIDAGEYR, knots = seq(20, 80, by = 10)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,75,by=10)))'
+  'BPXDI1 ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10), Boundary.knots=c(20,90)
+) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,75,by=10)))'
 ns_base <- lm(as.formula(all_ns_model), data)
 ```
 
@@ -303,16 +304,16 @@ cross_validation <- function(q_list=qs,base_model=all_ns_model,df=data) {
       cv_train <- df[df$years != years[j], ]
       cv_test <- df[df$years == years[j], ]
       
-      knots <- quantile(unique(cv_train$RIDAGEYR), 1:(q - 2) / (q - 1))
+      knots <- quantile(unique(cv_train$RIDAGEYR), 1:(q - 2) / (q - 1),names=FALSE)
       
       knots <- paste0(knots, collapse = ', ')
       ns_model <-
         paste0(
           'BPXDI1 ~ ns(RIDAGEYR, knots = c(',
           knots,
-          '))* RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,75,by=10)))'
+          '),Boundary.knots=c(20,90))* RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,75,by=10)))'
         )
-      
+   
       
       cv_ns_model <- NA
       tryCatch({
@@ -320,7 +321,8 @@ cross_validation <- function(q_list=qs,base_model=all_ns_model,df=data) {
 
       },
       error = function(e) {
-                print(paste0("years=",years[j],"raise errors:NA/NaN/Inf in foreign function call (arg 1)"))
+            print(paste0("years=",years[j],"raise errors:NA/NaN/Inf in foreign function call (arg 1)"))
+            # print(ns_model)
           },
       finally = {
         mse_mtx[i, j] = NA
@@ -361,11 +363,15 @@ cross_validation <- function(q_list=qs,base_model=all_ns_model,df=data) {
 }
 
 mse_mtx <- cross_validation()
+
 knitr::kable(mse_mtx)
-rowMeans(mse_mtx,na.rm = TRUE)
-apply(mse_mtx, 1,sd, na.rm = TRUE)
-apply(mse_mtx, 1,sd, na.rm = TRUE)/sqrt(6.7)
-apply(mse_mtx, 2,sd, na.rm = TRUE)
+mse_df <- as.data.frame(reshape2::melt(mse_mtx))
+colnames(mse_df) <- c("Knots","Years","MSE")
+
+mse_df[mse_df$Knots=="ns_base",]$Knots = 6
+mse_df$Knots <- as.numeric(as.character(mse_df$Knots))
+mse_df |> subset(!is.na(MSE)) |> 
+  ggplot(aes(Knots,MSE,color=Years)) + geom_line() + geom_point()
 
 ```
 

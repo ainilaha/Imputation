@@ -99,7 +99,7 @@ make_bins <- function(x,y,nbin){
 
 }
 
-plot_bins2<- function(df_list,xlab = "Moisture",ylab = "Binned Diff Residuals",title="DR1TMOIS"){
+plot_bins2<- function(df_list,xlab = "Moisture",ylab = "Binned Diff Residuals"){
   df <- do.call("rbind", df_list)
   df$Model <-
   rep(names(df_list), each = nrow(df_list[[1]]))
@@ -108,7 +108,7 @@ plot_bins2<- function(df_list,xlab = "Moisture",ylab = "Binned Diff Residuals",t
     geom_errorbar(aes(ymin=y_min,ymax=y_max))+
   geom_smooth(aes(breaks,mean),se = FALSE)+
     scale_color_manual(values=c("#E69F00", "#56B4E9"))+
-  ylab(ylab) + xlab(xlab) +ggtitle(title)+
+  ylab(ylab) + xlab(xlab) +
   theme_minimal()
   g
   
@@ -119,7 +119,7 @@ linear_model <- 'BPXDI1 ~ RIDAGEYR*RIAGENDR + BMXBMI'
 
 ns_model <-
   'BPXDI1 ~ ns(RIDAGEYR, knots 
-= seq(20, 80, by = 10)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10))) '
+= seq(30, 80, by = 10)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10))) '
 lm_base <- lm(as.formula(linear_model), data)
 ns_base <- lm(as.formula(ns_model), data)
 
@@ -128,7 +128,7 @@ lm_mos_model <- 'BPXDI1 ~ RIDAGEYR*RIAGENDR + BMXBMI+ DR1TMOIS '
 
 ns_mos_model <-
   'BPXDI1 ~ ns(RIDAGEYR, knots 
-= seq(20, 80, by = 10)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10))) + DR1TMOIS'
+= seq(30, 80, by = 10)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10))) + DR1TMOIS'
 lm_mos <- lm(as.formula(lm_mos_model), data)
 ns_mos <- lm(as.formula(ns_mos_model), data)
 
@@ -136,60 +136,120 @@ ns_mos <- lm(as.formula(ns_mos_model), data)
 
 
 mos_age_res <- list("Linear"=make_bins(x=data$RIDAGEYR,
-                                      y=abs(resid(lm_mos)-resid(lm_base)),
+                                      y=resid(lm_mos)-resid(lm_base),
                                       nbin=600),
                 "Spline"=make_bins(x=data$RIDAGEYR, 
-                                   y=abs(resid(ns_mos)-resid(ns_base)), 
+                                   y=resid(ns_mos)-resid(ns_base), 
                                    nbin=600)
                 )
 
 
 
 mos_bmi_res <- list("Linear"=make_bins(x=data$BMXBMI,
-                                      y=abs(resid(lm_mos)-resid(lm_base)),
+                                      y=resid(lm_mos)-resid(lm_base),
                                       nbin=600),
                 "Spline"=make_bins(x=data$BMXBMI, 
-                                   y=abs(resid(ns_mos)-resid(ns_base)), 
+                                   y=resid(ns_mos)-resid(ns_base), 
                                    nbin=600)
                 )
 
 
-age_res_diff <- plot_bins2(mos_age_res,xlab="Age(years)") +ylim(0.04,0.31)
 
-bmi_res_diff <- plot_bins2(mos_bmi_res,xlab="BMI (kg/m²)")+ylim(0.04,0.31)
+g_age_mos_diff <- plot_bins2(mos_age_res,xlab="Age(years)") 
+
+g_bmi_mos_diff <- plot_bins2(mos_bmi_res,xlab="BMI (kg/m²)")
 
 
 
 
-lm_sug_model <- 'BPXDI1 ~ RIDAGEYR*RIAGENDR + BMXBMI+ DR1TCALC '
-ns_sug_model <-
-  'BPXDI1 ~ ns(RIDAGEYR, knots 
-= seq(20, 80, by = 10)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10))) + DR1TCALC'
-lm_fat <- lm(as.formula(lm_sug_model), data)
-ns_fat <- lm(as.formula(ns_sug_model), data)
 
-sug_age_res <- list("Linear"=make_bins(x=data$RIDAGEYR,
-                                      y=abs(resid(lm_fat)-resid(lm_base)),
+mos_bmi_res_raw <- list("Linear"=make_bins(x=data$BMXBMI,
+                                      y=resid(lm_mos),
+                                      nbin=600),
+                "Spline"=make_bins(x=data$BMXBMI, 
+                                   y=resid(ns_mos), 
+                                   nbin=600)
+                )
+
+
+
+mos_age_res_raw <- list("Linear"=make_bins(x=data$RIDAGEYR,
+                                      y=resid(lm_mos),
                                       nbin=600),
                 "Spline"=make_bins(x=data$RIDAGEYR, 
-                                   y=abs(resid(ns_fat)-resid(ns_base)), 
+                                   y=resid(ns_mos), 
                                    nbin=600)
                 )
 
 
 
-sug_bmi_res <- list("Linear"=make_bins(x=data$BMXBMI,
-                                      y=abs(resid(lm_fat)-resid(lm_base)),
+g_age_res_raw <- plot_bins2(mos_age_res_raw,xlab="Age(years)",ylab="Binned Residual") 
+
+g_bmi_res_raw <- plot_bins2(mos_bmi_res_raw,xlab="BMI (kg/m²)",ylab="Binned Residual")
+
+
+
+
+
+
+
+
+
+
+
+lm_calc_model <- 'BPXDI1 ~ RIDAGEYR*RIAGENDR + BMXBMI+ DR1TCALC '
+ns_calc_model <-
+  'BPXDI1 ~ ns(RIDAGEYR, knots 
+= seq(30, 80, by = 10)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10))) + DR1TCALC'
+lm_calc <- lm(as.formula(lm_calc_model), data)
+ns_calc <- lm(as.formula(ns_calc_model), data)
+
+calc_age_res <- list("Linear"=make_bins(x=data$RIDAGEYR,
+                                      y=resid(lm_calc)-resid(lm_base),
+                                      nbin=600),
+                "Spline"=make_bins(x=data$RIDAGEYR, 
+                                   y=resid(ns_calc)-resid(ns_base), 
+                                   nbin=600)
+                )
+
+
+
+calc_bmi_res <- list("Linear"=make_bins(x=data$BMXBMI,
+                                      y=resid(lm_calc)-resid(lm_base),
                                       nbin=600),
                 "Spline"=make_bins(x=data$BMXBMI, 
-                                   y=abs(resid(ns_fat)-resid(ns_base)), 
+                                   y=resid(ns_calc)-resid(ns_base), 
                                    nbin=600)
                 )
 
 
-age_sug_diff <- plot_bins2(sug_age_res,xlab="Age (years)",title = "DR1TCALC")+ylim(0.04,0.31)
+g_age_calc_diff <- plot_bins2(calc_age_res,xlab="Age (years)")
 
-bmi_sug_diff <- plot_bins2(sug_bmi_res,xlab="BMI (kg/m²)",title = "DR1TCALC") +ylim(0.04,0.31)
+g_bmi_calc_diff <- plot_bins2(calc_bmi_res,xlab="BMI (kg/m²)") 
+
+
+calc_age_res_raw <- list("Linear"=make_bins(x=data$RIDAGEYR,
+                                      y=resid(lm_calc),
+                                      nbin=600),
+                "Spline"=make_bins(x=data$RIDAGEYR, 
+                                   y=resid(ns_calc), 
+                                   nbin=600)
+                )
+
+
+
+calc_bmi_raw <- list("Linear"=make_bins(x=data$BMXBMI,
+                                      y=resid(lm_calc),
+                                      nbin=600),
+                "Spline"=make_bins(x=data$BMXBMI, 
+                                   y=resid(ns_calc), 
+                                   nbin=600)
+                )
+
+
+g_age_calc_raw <- plot_bins2(calc_age_res_raw,xlab="Age (years)",ylab="Binned Residual")
+
+g_bmi_calc_raw <- plot_bins2(calc_bmi_raw,xlab="BMI (kg/m²)",ylab="Binned Residual") 
 
 
 ```
@@ -197,40 +257,39 @@ bmi_sug_diff <- plot_bins2(sug_bmi_res,xlab="BMI (kg/m²)",title = "DR1TCALC") +
 
 ###  absolute of the difference residuals with or without dietary variables
 
-The following plots show the binned absolute of the difference residuals of models without (base model) or with dietary variables. It is another way to show how much the dietary variables affect the outputs. Including dietary variables in the models could improve the performance of the models or introduce noise, which can be detected with ANOVA LRT. For example, the forest plot in the previous notebook shows the impacts of DR1TMOIS in linear regression and spline regression are pretty different. However, the spline model with DR1TMOIS and spline base model have almost the same performance, which means the DR1TMOIS may not be as important as shown in linear regression. On the other hand, adding DR1TCALC to linear or spline regression does not change much of the residuals. 
 
-- y-axis is binned difference residuals, and difference residuals are computed as $\left| R_1-R_2 \right|$ ,where $R_1$ is residuals of base model (eg, BPXDI1 ~ RIDAGEYR\*RIAGENDR + BMXBMI), and $R_2$ residuals of model with dietary variables(eg, BPXDI1 ~ RIDAGEYR\*RIAGENDR + BMXBMI+DR1TMOIS).
-
-
-- In panel <em><strong> a) </strong></em>,  the yellow line show binned plot absolute of differences residuals of linear base model (`BPXDI1 ~ RIDAGEYR*RIAGENDR + BMXBMI`) and model linear model with DR1TMOIS(`BPXDI1 ~ RIDAGEYR*RIAGENDR + BMXBMI+DR1TCALC`). The blue line show binned plot absolute of differences residuals of spline base model (`BPXDI1 ~ ns(RIDAGEYR, knots 
-= seq(20, 80, by = 10)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)))`) and model spline model with DR1TMOIS(`BPXDI1 ~ ns(RIDAGEYR, knots 
-= seq(20, 80, by = 10)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)))+DR1TMOIS`). The values are binned according to BMI, and each bin contains about 600 points
+- y-axis is binned difference residuals, and difference residuals are computed as $R_1-R_2$ ,where $R_1$ is residuals of base model (eg, BPXDI1 ~ RIDAGEYR\*RIAGENDR + BMXBMI), and $R_2$ residuals of model with dietary variables(eg, BPXDI1 ~ RIDAGEYR\*RIAGENDR + BMXBMI+DR1TMOIS).
 
 
-- Similarly, panel <em><strong> b ) </strong></em>, the yellow line show binned plot absolute of differences residuals of linear base model (`BPXDI1 ~ RIDAGEYR*RIAGENDR + BMXBMI`) and model linear model with DR1TCALC(`BPXDI1 ~ RIDAGEYR*RIAGENDR + BMXBMI+DR1TCALC`). The blue line show binned plot absolute of differences residuals of spline base model (`BPXDI1 ~ ns(RIDAGEYR, knots 
-= seq(20, 80, by = 10)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)))`) and model spline model with DR1TCALC(`BPXDI1 ~ ns(RIDAGEYR, knots 
-= seq(20, 80, by = 10)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)))+DR1TCALC`). The values are binned according to BMI, and each bin contains about 600 points
+- In panel <em><strong> a) </strong></em> and <em><strong> b) </strong></em>, the yellow lines show binned plots of differences residuals of linear model with or without DR1TMOIS, and the blue lines show binned plots of differences residuals of spline model with or without DR1TMOIS. The values are binned according to Age and BMI, and each bin contains about 600 points
 
-- <em><strong> c) </strong></em> and <em><strong> d) </strong></em> are similar to <em><strong> a) </strong></em> and <em><strong> b) </strong></em>, except the data points are binned according to age.
+
+- Similarly, panel <em><strong> c) </strong></em> and <em><strong> d) </strong></em>, show the binned residuals of the models with DR1TMOIS.
 
 
 
 ```{r cook_lev, echo=TRUE,message=FALSE,results = "asis",dpi = 200}
-ggpubr::ggarrange(bmi_res_diff,bmi_sug_diff,
-                  age_res_diff,age_sug_diff,
+
+
+ggpubr::ggarrange(g_age_mos_diff ,g_bmi_mos_diff,
+                  g_age_res_raw,g_bmi_res_raw,
                   common.legend = TRUE,
                   labels = c('a)','b)','c)','d)'),
                   legend="right")
 ```
 
-```{r cook_lev22, echo=TRUE,message=FALSE,results = "asis",dpi = 200}
-age_sug_diff <- plot_bins2(sug_age_res,xlab="Age (years)",title = "DR1TCALC")
+And, the following the same plots but with DR1TCALC. 
+Note that forest plot shows DR1TCALC has almost same estimator on the linear and spline model. However, the estimators for DR1TMOIS in linear and spline models are quite different.
 
-bmi_sug_diff <- plot_bins2(sug_bmi_res,xlab="BMI (kg/m²)",title = "DR1TCALC")
-ggpubr::ggarrange(bmi_sug_diff,
-                 age_sug_diff,
-                 common.legend = TRUE)
+```{r cook_lev2, echo=TRUE,message=FALSE,results = "asis",dpi = 200}
+ggpubr::ggarrange(g_age_calc_diff,g_bmi_calc_diff,
+                  g_age_calc_raw,g_bmi_calc_raw,
+                  common.legend = TRUE,
+                  labels = c('a)','b)','c)','d)'),
+                  legend="right")
 ```
+
+
 
 
 We compared the moisture impact on blood pressure with linear and spline regression.
