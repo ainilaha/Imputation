@@ -76,13 +76,12 @@ data$years <- as.factor(data$years)
 ## Base Model
 
 ```{r func3, echo=TRUE,warning=F, out.width = '90%'}
-linear_model <- 'BPXDI1 ~ RIDAGEYR*RIAGENDR + BMXBMI'
-lm_base <- lm(as.formula(linear_model), data)
+lm_str <- 'BPXDI1 ~ RIDAGEYR*RIAGENDR + BMXBMI'
+lm_base <- lm(as.formula(lm_str), data)
 
-all_ns_model <-
-  'BPXDI1 ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10), Boundary.knots=c(20,90)
-) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,75,by=10)))'
-ns_base <- lm(as.formula(all_ns_model), data)
+ns_str <-
+  'BPXDI1 ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10), Boundary.knots=c(20,90)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)),Boundary.knots=c(10,85))'
+ns_base <- lm(as.formula(ns_str), data)
 ```
 
 ## Bins plot functions
@@ -91,27 +90,6 @@ ns_base <- lm(as.formula(all_ns_model), data)
 ```{r plot_functions, echo=TRUE,warning=FALSE,message=FALSE,results = "asis"}
 library(ggpubr)
 library(reshape)
-make_bins <- function(x,y,nbin){
-  if (nbin==0)
-    nbin <- floor(sqrt(length(x)))
-  
-  df <-
-  data.frame(
-    y = y,
-    breaks = cut2(x,m=nbin,levels.mean=TRUE)
-  )
-  df <- df |> 
-  dplyr::group_by(breaks) |> 
-  dplyr::summarize(mean = mean(y),
-            std = sd(y),
-            cnt = n()
-            ) |> dplyr::mutate(y_min=mean-1.96*std/sqrt(cnt), y_max = mean+1.96*std/sqrt(cnt))
-  
-  df$breaks <- as.numeric(as.character(df$breaks))
-  
-  df
-
-}
 
 plot_bins<- function(x,y,xlab="Value",ylab="Binned Residuals",title="linear",nbin=600){
 
@@ -123,26 +101,8 @@ plot_bins<- function(x,y,xlab="Value",ylab="Binned Residuals",title="linear",nbi
 
  g
 
-  
+
 }
-
-
-plot_bins2<- function(df_list,xlab = "Moisture",ylab = "Binned Residuals"){
-  df <- do.call("rbind", df_list)
-  df$Model <-
-  rep(names(df_list), each = nrow(df_list[[1]]))
-    
-  g <- ggplot(df,aes(breaks,mean,color=Model)) + geom_point() +
-    geom_errorbar(aes(ymin=y_min,ymax=y_max))+
-  geom_smooth(aes(breaks,mean),se = FALSE)+
-    scale_color_manual(values=c("#E69F00", "#56B4E9"))+
-  ylab(ylab) + xlab(xlab) +
-  facet_grid(cols = vars(Model))+
-  theme_minimal()
-  g
-  
-}
-
 
 
 
@@ -264,23 +224,19 @@ ggpubr::ggarrange(raw_g,fit_g,res_g,nrow = 3,ncol = 1)
 - <em><strong> Note: The trends are difficult to see in binned residuals plot with BMI because most data are squeezed in a small range. A possible solution is to separate BMI from age plots as below. </strong></em> 
 
 ```{r bmi_plot, echo=TRUE,warning=FALSE,message=FALSE, fig.width = 10,fig.height=10}
-
-
 ggpubr::ggarrange(raw_bmi,fit_bmi,bmi_res,nrow = 3,ncol = 1,legend='right')
-
 
 ```
 
 
 ## Cross-Validation to determe number of Knots for Age
 
-The matrix of the mean square errors (MSE) and standard deviations of choosing different knots show that the changing number of quantile knots or specific integer knots do not significantly impact the model. In addition, excluding specific years of the data has even less impact on the performance of the models. By excluding 2013-2014 or 2005-2006, the models have minimum or maximum MSE, but the differences are considerably small. 
-
+The matrix of the mean square errors (MSE) and standard deviations of choosing different knots show that the changing number of quantile knots or specific integer knots do not significantly impact the model. Although hold-on different years data set as validation data makes the performance slightly different, increasing the number of age knots does not significantly impact the model performance. The main reason is that the data diastolic has a quadratic (parabola-like), which only requires three knots to reach the goal, and more data knots will not help. More knots may hurt the performance when we have a relatively small amount of data. Still, it does not compromise the performance because we have enough data to prevent the model from overfitting by introducing too many knots.
 
 ```{r cv, echo=TRUE,warning=FALSE,message=FALSE}
 qs <- 5:22
 
-cross_validation <- function(q_list=qs,base_model=all_ns_model,df=data) {
+cross_validation <- function(q_list=qs,base_model=ns_str,df=data) {
   len_q <- length(q_list)
   
   
@@ -311,7 +267,7 @@ cross_validation <- function(q_list=qs,base_model=all_ns_model,df=data) {
         paste0(
           'BPXDI1 ~ ns(RIDAGEYR, knots = c(',
           knots,
-          '),Boundary.knots=c(20,90))* RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,75,by=10)))'
+          '),Boundary.knots=c(20,90))* RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)),Boundary.knots=c(10,80))'
         )
    
       
@@ -376,6 +332,69 @@ mse_df |> subset(!is.na(MSE)) |>
 ```
 
 
+
+
+
+## Cross-Validation to Linear vs Spline
+
+
+```{r cv2, echo=TRUE,warning=FALSE,message=FALSE}
+
+cv_models <- function(model_list,df=data) {
+
+
+  
+  years <- levels(df$years)
+  
+  len_year <- length(years)
+  
+  mse_mtx <- matrix(0, nrow = len_year, ncol = length(model_list))
+  rownames(mse_mtx) <- years
+  colnames(mse_mtx) <- names(model_list)
+  
+ 
+
+  for (i in 1:len_year) {
+      for(j in 1:length(model_list)){
+      cv_train <- df[df$years != years[i], ]
+      cv_test <- df[df$years == years[i], ]
+      # print(model_list[j])
+      ns_model <- lm(as.formula(model_list[j]), cv_train)
+
+      pred_vals <- predict(ns_model, cv_test)
+      mse_mtx[i,j] <- mean((pred_vals - cv_test$BPXDI1) ^ 2)
+      
+
+    }
+}
+
+
+  mse_mtx
+}
+
+model_list <- c(lm_str,ns_str)
+names(model_list) <- c("linear","spline")
+mse_mtx <- cv_models(model_list,data)
+
+knitr::kable(mse_mtx)
+mse_df <- as.data.frame(reshape2::melt(mse_mtx))
+colnames(mse_df) <- c('years','model','MSE')
+
+len_year <- length(levels(mse_df$years))
+```
+
+We can compare the model by check the residuals after running the regression. Further, we can confirm the model by using cross-validation. For example, we can compare the linear regression and spline regression with cross-validation, and the results show that spline model has much less errors.
+
+```{r cv21, echo=TRUE,warning=FALSE,message=FALSE}
+mse_df |> ggplot(aes(x=as.numeric(years),y=MSE,color=model)) +
+  geom_point(size=2)+ geom_line()+
+  scale_x_continuous(breaks=seq(1,len_year,1),labels=levels(mse_df$years),
+                     guide = guide_axis(angle = 45))+ xlab("Age (years)")+
+  theme_minimal()
+
+```
+
+
 ## ANOVA LRT (Likelihood Ratio Test)
 
 Linear regression can be considered a special case of spline regression because spline can be a straight line. In other words, linear regression is a sub-model of spline regression in our case. Therefore, we can use ANOVA LRT to test whether the spline regression outperforms the linear regression. The spline regression has 23 more degrees of freedom than linear regression, and it reduces the residual sum of squares (RSS) from $4338763$ down to $3913906$, which is about $9.8\%$. $Pr(>Chi) < < 0.001$ may not be meaningful as we have a considerably large amount of data, making the variability small.
@@ -390,8 +409,6 @@ print_anova <- function(anov_obj){
   anov_df <- round(anov_df,3)
   anov_df[!is.na(anov_df[,'Pr(>Chi)']) & anov_df[,'Pr(>Chi)'] <= 0.001, 'Pr(>Chi)'] <- "< 0.001"
   anov_df[is.na(anov_df)] <- ""
-  
-  
   
   knitr::kable(anov_df)
 }
@@ -414,10 +431,10 @@ ethnicity <-
 
 levels(data$RIDRETH1) <- ethnicity
 
-lm_race <- lm(as.formula(paste0(linear_model," + RIDRETH1")), data)
-lm_years <- lm(as.formula(paste0(linear_model," + years")), data)
-ns_race <- lm(as.formula(paste0(all_ns_model," + RIDRETH1")), data)
-ns_years <- lm(as.formula(paste0(all_ns_model," + years")), data)
+lm_race <- lm(as.formula(paste0(lm_str," + RIDRETH1")), data)
+lm_years <- lm(as.formula(paste0(lm_str," + years")), data)
+ns_race <- lm(as.formula(paste0(ns_str," + RIDRETH1")), data)
+ns_years <- lm(as.formula(paste0(ns_str," + years")), data)
 
 ```
 

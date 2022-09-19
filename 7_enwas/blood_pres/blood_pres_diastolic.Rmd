@@ -1,5 +1,6 @@
 ---
 title: "EnWAS: Diasatolic-Blood Pressure"
+date: "Updated on : `r date()`"
 output: html_document
 ---
 
@@ -68,7 +69,6 @@ dbDisconnect(nhanes_db)
 data <- merge(blood_pressure, data, by = c("SEQN",'years'))
 data <- data[sample(1:nrow(data)), ] # shuffle the data
 data$years <- as.factor(data$years)
-
 ```
 
 
@@ -86,16 +86,16 @@ $$ where c=3/8 is recommended.
 
 
 ```{r func3, echo=TRUE,warning=F, out.width = '90%'}
-linear_model <- 'BPXDI1 ~ RIDAGEYR*RIAGENDR + BMXBMI'
-linear_res2 <- enwas(linear_model, exposure_vars, data)
+lm_str <- 'BPXDI1 ~ RIDAGEYR*RIAGENDR + BMXBMI'
+lm_enwas <- enwas(lm_str, exposure_vars, data)
 
-all_ns_model <-
-  'BPXDI1 ~ ns(RIDAGEYR, knots = seq(20, 80, by = 10)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10))) '
-all_ns_res <- enwas(all_ns_model, exposure_vars, data)
+ns_str <-
+  'BPXDI1 ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10), Boundary.knots=c(20,90)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)),Boundary.knots=c(10,85))'
+ns_enwas <- enwas(ns_str, exposure_vars, data)
 
 
-lm_inverse_res <- enwas(linear_model, exposure_vars, data,inv = TRUE)
-ns_inverse_res <- enwas(all_ns_model, exposure_vars, data,inv = TRUE)
+lm_inv_enwas <- enwas(lm_str, exposure_vars, data,inv = TRUE)
+ns_inv_enwas <- enwas(ns_str, exposure_vars, data,inv = TRUE)
 
 
 ```
@@ -115,8 +115,8 @@ $$Std.Error \leftarrow Std. Error \times std(X)$$
 
 forest_plot_mult(
   list(
-    linear = linear_res2$enwas_res,
-    ns = all_ns_res$enwas_res
+    linear = lm_enwas$enwas_res,
+    ns = ns_enwas$enwas_res
   )
 )
 ```
@@ -126,39 +126,49 @@ forest_plot_mult(
 
 forest_plot_mult(
   list(
-    ns = all_ns_res$enwas_res,
-    ns_inv = ns_inverse_res$enwas_res
+    ns = ns_enwas$enwas_res,
+    ns_inv = ns_inv_enwas$enwas_res
   )
 )
-
-  
 ```
 
+## P-Value and FDR
 
-## Residuals
-
-```{r resid2, echo=TRUE,message=FALSE,results = "asis"}
+- False Discovery Rate (Benjamini-Yekuteli): https://projecteuclid.org/euclid.aos/1013699998
 
 
-lm_base <- lm(as.formula(linear_model), data)
-lm_df <-
-  data.frame(
-    residuals = lm_base$residual,
-    gender = data$RIAGENDR,
-    DR1TMOIS = data$DR1TMOIS,
-    DR1TTFAT = data$DR1TTFAT
+```{r pvalue, echo=TRUE,warning=F, out.width = '90%'}
+df <- data.frame("term"=c(lm_enwas$enwas_res$term,ns_enwas$enwas_res$term),
+           "p.value"= c(lm_enwas$enwas_res$p.value,ns_enwas$enwas_res$p.value),
+           'fdr'= c(lm_enwas$enwas_res$fdr,ns_enwas$enwas_res$fdr),
+           "model" = c(rep("lm",52),rep("ns",52))
+) 
+
+
+g_p.value <- df|> ggplot(aes(term,p.value,color=model)) + 
+  geom_segment( aes(x=term, xend=term, y=0, yend=p.value)) +
+  geom_point(size=4)+geom_hline(yintercept = 0.05,linetype="dashed")+
+  theme_light() +
+  coord_flip() +
+  theme(
+    panel.grid.major.y = element_blank(),
+    panel.border = element_blank(),
+    axis.ticks.y = element_blank()
   )
-ns_base <- lm(as.formula(all_ns_model), data)
-ns_df <-
-  data.frame(
-    residuals = ns_base$residual,
-    DR1TMOIS = data$DR1TMOIS,
-    gender = data$RIAGENDR,
-    DR1TTFAT = data$DR1TTFAT
+
+g_fdr <- df|> ggplot(aes(term,fdr,color=model)) + 
+  geom_segment( aes(x=term, xend=term, y=0, yend=fdr)) +
+  geom_point(size=4)+geom_hline(yintercept = 0.05,linetype="dashed")+
+  theme_light() +
+  coord_flip() + 
+  theme(
+    panel.grid.major.y = element_blank(),
+    panel.border = element_blank(),
+    axis.ticks.y = element_blank()
   )
-
-
+ggpubr::ggarrange(g_p.value,g_fdr,common.legend = TRUE)
 ```
+
 
 
 ## DR1TMOIS - Moisture (0 to 18266.25 gm)

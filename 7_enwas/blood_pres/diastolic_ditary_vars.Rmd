@@ -77,60 +77,23 @@ data <- merge(blood_pressure, data, by = c("SEQN",'years'))
 
 ```{r resid22, echo=TRUE,message=FALSE,results = "asis"}
 
-make_bins <- function(x,y,nbin){
-  if (nbin==0)
-    nbin <- floor(sqrt(length(x)))
-  
-  df <-
-  data.frame(
-    y = y,
-    breaks = cut2(x,m=nbin,levels.mean=TRUE)
-  )
-  df <- df |> 
-  dplyr::group_by(breaks) |> 
-  dplyr::summarize(mean = mean(y),
-            std = sd(y),
-            cnt = n()
-            ) |> dplyr::mutate(y_min=mean-1.96*std/sqrt(cnt), y_max = mean+1.96*std/sqrt(cnt))
-  
-  df$breaks <- as.numeric(as.character(df$breaks))
-  
-  df
 
-}
-
-plot_bins2<- function(df_list,xlab = "Moisture",ylab = "Binned Diff Residuals"){
-  df <- do.call("rbind", df_list)
-  df$Model <-
-  rep(names(df_list), each = nrow(df_list[[1]]))
-    
-  g <- ggplot(df,aes(breaks,mean,color=Model)) + geom_point() +
-    geom_errorbar(aes(ymin=y_min,ymax=y_max))+
-  geom_smooth(aes(breaks,mean),se = FALSE)+
-    scale_color_manual(values=c("#E69F00", "#56B4E9"))+
-  ylab(ylab) + xlab(xlab) +
-  theme_minimal()
-  g
-  
-}
-
-
-linear_model <- 'BPXDI1 ~ RIDAGEYR*RIAGENDR + BMXBMI'
+lm_base_str <- 'BPXDI1 ~ RIDAGEYR*RIAGENDR + BMXBMI'
 
 ns_model <-
   'BPXDI1 ~ ns(RIDAGEYR, knots 
 = seq(30, 80, by = 10)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10))) '
-lm_base <- lm(as.formula(linear_model), data)
+lm_base <- lm(as.formula(lm_base_str), data)
 ns_base <- lm(as.formula(ns_model), data)
 
 
-lm_mos_model <- 'BPXDI1 ~ RIDAGEYR*RIAGENDR + BMXBMI+ DR1TMOIS '
+lm_mos_str <- 'DR1TMOIS ~ RIDAGEYR*RIAGENDR + BMXBMI'
 
-ns_mos_model <-
+ns_mos_str <-
   'BPXDI1 ~ ns(RIDAGEYR, knots 
-= seq(30, 80, by = 10)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10))) + DR1TMOIS'
-lm_mos <- lm(as.formula(lm_mos_model), data)
-ns_mos <- lm(as.formula(ns_mos_model), data)
+= seq(30, 80, by = 10)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)))'
+lm_mos <- lm(as.formula(lm_mos_str), data)
+ns_mos <- lm(as.formula(ns_mos_str), data)
 
 
 
@@ -287,6 +250,21 @@ ggpubr::ggarrange(g_age_calc_diff,g_bmi_calc_diff,
                   common.legend = TRUE,
                   labels = c('a)','b)','c)','d)'),
                   legend="right")
+
+
+
+ mos_age_res <- list("Ldiff"=make_bins(x=data$RIDAGEYR,
+                                       y=resid(lm_mos)-resid(lm_base),
+                                       nbin=600),
+                 "base"=make_bins(x=data$RIDAGEYR, 
+                                    y=resid(ns_base),
+                                   nbin=600),
+                "mos"=make_bins(x=data$RIDAGEYR,   
+                                    y=resid(lm_base),
+                                    nbin=600)
+                 )
+plot_bins2(mos_age_res,xlab="Age(years)")
+
 ```
 
 
