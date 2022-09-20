@@ -1,5 +1,5 @@
 ---
-title: "EnWAS Base Model: Diasatolic-Blood Pressure"
+title: "base_distolic_second_read"
 date: "Updated on : `r date()`"
 output: html_document
 editor_options: 
@@ -66,7 +66,7 @@ This part loads the blood pressure data and merges it with the dietary and demog
 set.seed(123)
 nhanes_db <- dbConnect(RSQLite::SQLite(), "../../nhanes.sqlite")
 # BPXDI2,BPXSY1
-blood_pressure <- dbGetQuery(nhanes_db, "select SEQN,BPXDI1,years from blood_pressure where BPXDI1 IS NOT NULL and BPXDI1 <> 0")
+blood_pressure <- dbGetQuery(nhanes_db, "select SEQN,BPXDI2,years from blood_pressure where BPXDI2 IS NOT NULL and BPXDI2 <> 0")
 dbDisconnect(nhanes_db)
 data <- merge(blood_pressure, data, by = c("SEQN",'years'))
 data <- data[sample(1:nrow(data)), ] # shuffle the data
@@ -76,11 +76,11 @@ data$years <- as.factor(data$years)
 ## Base Model
 
 ```{r func3, echo=TRUE,warning=F, out.width = '90%'}
-lm_str <- 'BPXDI1 ~ RIDAGEYR*RIAGENDR + BMXBMI'
+lm_str <- 'BPXDI2 ~ RIDAGEYR*RIAGENDR + BMXBMI'
 lm_base <- lm(as.formula(lm_str), data)
 
 ns_str <-
-  'BPXDI1 ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10), Boundary.knots=c(20,90)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)),Boundary.knots=c(10,85))'
+  'BPXDI2 ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10), Boundary.knots=c(20,90)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)),Boundary.knots=c(10,85))'
 ns_base <- lm(as.formula(ns_str), data)
 ```
 
@@ -108,7 +108,7 @@ plot_bins<- function(x,y,xlab="Value",ylab="Binned Residuals",title="linear",nbi
 ```
 
 
-## BPXDI1 - Diastolic: Blood pres (1st rdg) mm Hg
+## BPXDI2 - Diastolic: Blood pres (2ed rdg) mm Hg
 
 This section compares linear and spline regression of Diastolic blood pressure against age and BMI.
 
@@ -156,7 +156,7 @@ age_res <- plot_bins2(df_age_res,xlab="Age (year)") + ylim(-8,6.5)
 raw_age <- ggplot(data,
          aes(
            x = RIDAGEYR,
-           y = BPXDI1
+           y = BPXDI2
          )) +
   geom_point(data = ~ group_by(.x, RIDAGEYR, RIAGENDR,BMXBMI) |> sample_frac(0.5),
              alpha = 0.2, shape=1) + 
@@ -170,7 +170,7 @@ raw_age <- ggplot(data,
 raw_bmi <- ggplot(data,
          aes(
            x = BMXBMI,
-           y = BPXDI1,
+           y = BPXDI2,
         )) +
   geom_point(data = ~ group_by(.x, RIDAGEYR, RIAGENDR,BMXBMI) |> sample_frac(0.5),
              alpha = 0.2, shape=1) + 
@@ -224,170 +224,6 @@ ggpubr::ggarrange(raw_g,fit_g,res_g,nrow = 3,ncol = 1)
 
 ```{r bmi_plot, echo=TRUE,warning=FALSE,message=FALSE, fig.width = 10,fig.height=10}
 ggpubr::ggarrange(raw_bmi,fit_bmi,bmi_res,nrow = 3,ncol = 1,legend='right')
-
-```
-
-
-## Cross-Validation to determe number of Knots for Age
-
-The matrix of the mean square errors (MSE) and standard deviations of choosing different knots show that the changing number of quantile knots or specific integer knots do not significantly impact the model. Although hold-on different years data set as validation data makes the performance slightly different, increasing the number of age knots does not significantly impact the model performance. The main reason is that the data diastolic has a quadratic (parabola-like), which only requires three knots to reach the goal, and more data knots will not help. More knots may hurt the performance when we have a relatively small amount of data. Still, it does not compromise the performance because we have enough data to prevent the model from overfitting by introducing too many knots.
-
-```{r cv, echo=TRUE,warning=FALSE,message=FALSE}
-qs <- 5:22
-
-cross_validation <- function(q_list=qs,base_model=ns_str,df=data) {
-  len_q <- length(q_list)
-  
-  
-  # leave out 2011-2012 because max age in the years is 80, which lead some issue to set up knots
-  # as above
-  # https://stat.ethz.ch/pipermail/r-devel/2011-May/061035.html
-  
-  years <- levels(df$years)
-  
-  len_year <- length(years)
-  
-  mse_mtx <- matrix(0, nrow = len_q+1, ncol = len_year)
-  rownames(mse_mtx) <- c(c(q_list - 2),"ns_base")
-  colnames(mse_mtx) <- years
-  
-  for (i in 1:len_q) {
-    # number of knots = q - 2
-    q <- q_list[i]
-    for (j in 1:len_year) {
-      # print(years[j])
-      cv_train <- df[df$years != years[j], ]
-      cv_test <- df[df$years == years[j], ]
-      
-      knots <- quantile(unique(cv_train$RIDAGEYR), 1:(q - 2) / (q - 1),names=FALSE)
-      
-      knots <- paste0(knots, collapse = ', ')
-      ns_model <-
-        paste0(
-          'BPXDI1 ~ ns(RIDAGEYR, knots = c(',
-          knots,
-          '),Boundary.knots=c(20,90))* RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)),Boundary.knots=c(10,80))'
-        )
-   
-      
-      cv_ns_model <- NA
-      tryCatch({
-        cv_ns_model <- lm(as.formula(ns_model), cv_train)
-
-      },
-      error = function(e) {
-            print(paste0("years=",years[j],"raise errors:NA/NaN/Inf in foreign function call (arg 1)"))
-            # print(ns_model)
-          },
-      finally = {
-        mse_mtx[i, j] = NA
-        }
-      )
-      if(is.list(cv_ns_model)){
-        pred_vals <- predict(cv_ns_model, cv_test)
-        mse_mtx[i, j] <- mean((pred_vals - cv_test$BPXDI1) ^ 2)
-      }
-
-    }
-    
-  }
-
-  for (j in 1:len_year) {
-      cv_train <- df[df$years != years[j], ]
-      cv_test <- df[df$years == years[j], ]
-      ns_model <- NA
-      tryCatch({
-        ns_model <- lm(as.formula(base_model), cv_train)
-
-      },
-      error = function(e) {
-                print(paste0("years=",years[j],"raise errors:NA/NaN/Inf in foreign function call (arg 1)"))
-          },
-      finally = {
-        mse_mtx[len_q+1, j] = NA
-        }
-      )
-      if(is.list(ns_model)){
-        pred_vals <- predict(ns_model, cv_test)
-        mse_mtx[len_q+1, j] <- mean((pred_vals - cv_test$BPXDI1) ^ 2)
-      }
-
-    }
-
-  mse_mtx
-}
-
-mse_mtx <- cross_validation()
-
-knitr::kable(mse_mtx)
-mse_df <- as.data.frame(reshape2::melt(mse_mtx))
-colnames(mse_df) <- c("Knots","Years","MSE")
-
-mse_df[mse_df$Knots=="ns_base",]$Knots = 6
-mse_df$Knots <- as.numeric(as.character(mse_df$Knots))
-mse_df |> subset(!is.na(MSE)) |> 
-  ggplot(aes(Knots,MSE,color=Years)) + geom_line() + geom_point()
-
-```
-
-
-
-
-
-## Cross-Validation to Linear vs Spline
-
-
-```{r cv2, echo=TRUE,warning=FALSE,message=FALSE}
-
-cv_models <- function(model_list,df=data) {
-
-  years <- levels(df$years)
-  
-  len_year <- length(years)
-  
-  mse_mtx <- matrix(0, nrow = len_year, ncol = length(model_list))
-  rownames(mse_mtx) <- years
-  colnames(mse_mtx) <- names(model_list)
-  
- 
-
-  for (i in 1:len_year) {
-      for(j in 1:length(model_list)){
-      cv_train <- df[df$years != years[i], ]
-      cv_test <- df[df$years == years[i], ]
-      # print(model_list[j])
-      ns_model <- lm(as.formula(model_list[j]), cv_train)
-
-      pred_vals <- predict(ns_model, cv_test)
-      mse_mtx[i,j] <- mean((pred_vals - cv_test$BPXDI1) ^ 2)
-      
-
-    }
-}
-
-
-  mse_mtx
-}
-
-model_list <- c(lm_str,ns_str)
-names(model_list) <- c("linear","spline")
-mse_mtx <- cv_models(model_list,data)
-
-knitr::kable(mse_mtx)
-mse_df <- as.data.frame(reshape2::melt(mse_mtx))
-colnames(mse_df) <- c('years','model','MSE')
-
-len_year <- length(levels(mse_df$years))
-```
-
-We can compare the model by check the residuals after running the regression. Further, we can confirm the model by using cross-validation. For example, we can compare the linear regression and spline regression with cross-validation, and the results show that spline model has much less errors.
-
-```{r cv21, echo=TRUE,warning=FALSE,message=FALSE}
-mse_df |> ggplot(aes(x=as.numeric(years),y=MSE,color=model)) +
-  geom_point(size=2)+ geom_line()+
-  scale_x_continuous(breaks=seq(1,len_year,1),labels=levels(mse_df$years),
-                     guide = guide_axis(angle = 45))+ xlab("Age (years)")+
-  theme_minimal()
 
 ```
 
