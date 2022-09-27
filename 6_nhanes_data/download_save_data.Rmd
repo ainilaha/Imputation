@@ -131,6 +131,11 @@ dbWriteTable(nhanes_db, "cholesterol", cholesterol)
 # Alcohol Use Questionnaire 
 alcohol <- read_combine_data(names(years),'ALQ')
 dbWriteTable(nhanes_db, "alcohol", alcohol)
+
+
+# Dietary Interview - Total Nutrient Intakes, Second Day
+diet2 <- read_combine_data(names(years),'DR2TOT')
+dbWriteTable(nhanes_db, "diet_total2", diet2)
 ```
 
 ## Quick check database

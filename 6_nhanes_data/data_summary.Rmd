@@ -105,8 +105,37 @@ ethnicity <-
     'Other Race'
   )
 
-levels(data$RIDRETH1) <- ethnicity
-levels(data1$RIDRETH1) <- ethnicity
-sum_data(data[data$RIDRETH1=="Non-Hispanic white",],data1[data1$RIDRETH1=="Non-Hispanic white",])
+
+sum_data(data[data$RIDRETH1==1,],data1[data1$RIDRETH1==1,])
+sum_data(data[data$RIDRETH1==2,],data1[data1$RIDRETH1==2,])
+sum_data(data[data$RIDRETH1==3,],data1[data1$RIDRETH1==3,])
+sum_data(data[data$RIDRETH1==4,],data1[data1$RIDRETH1==4,])
+sum_data(data[data$RIDRETH1==5,],data1[data1$RIDRETH1==5,])
+
+
+# education
+nhanes_db <- dbConnect(RSQLite::SQLite(), "./nhanes.sqlite")
+demo <- dbGetQuery(nhanes_db, "select SEQN, DMDEDUC2 from demo where DMDEDUC2 IS NOT NULL")
+
+
+data <- merge(demo, data, by = "SEQN")
+data1 <- merge(demo, data1, by = "SEQN")
+dbDisconnect(nhanes_db)
+
+sum_data(data[data$DMDEDUC2==1,],data1[data1$DMDEDUC2==1,])
+sum_data(data[data$DMDEDUC2==2,],da?ta1[data1$DMDEDUC2==2,])
+sum_data(data[data$DMDEDUC2==3,],data1[data1$DMDEDUC2==3,])
+sum_data(data[data$DMDEDUC2==4,],data1[data1$DMDEDUC2==4,])
+sum_data(data[data$DMDEDUC2==5,],data1[data1$DMDEDUC2==5,])
+
+
+
+blood_pres <- dbGetQuery(nhanes_db,"select * from blood_pressure inner join demo on blood_pressure.SEQN=demo.SEQN")
+blood_pres <- blood_pres[blood_pres$RIDAGEYR>20,]
+knitr::kable(cor(na.omit(blood_pres[c("BPXDI1","BPXDI2","BPXDI3")])))
+knitr::kable(cor(na.omit(blood_pres[c("BPXSY1","BPXSY2","BPXSY3")])))
 ```
+
+
+
 

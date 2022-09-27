@@ -1,0 +1,109 @@
+---
+title: "Exposures"
+date: 'Updated on : `r date()`'
+output:
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load libs and Load data
+The process of load libs and data is the same as [EnWAS sample](https://ccb-hms.github.io/Imputation/7_enwas/EnWAS_simple.html).
+
+```{r data, warning=FALSE,message=FALSE,echo=FALSE}
+
+library(DBI)
+# library(broom)
+library(splines)
+# library(stringr)
+library(dplyr)
+library(ggplot2)
+library(EnWAS)
+library(Hmisc)
+
+exposure_vars <-
+  read.delim("../data/select_vars.txt", header = FALSE)$V1
+exposure_cols <- paste(exposure_vars, collapse = ", ")
+
+
+# Load data and convert data types according to PHESEANT.
+# Return data set and PHESEANT results.
+load_data <- function(exposure_cols) {
+  nhanes_db <- dbConnect(RSQLite::SQLite(), "../nhanes.sqlite")
+
+  
+  cols <-
+    'SEQN,BMXWAIST, RIDAGEYR, BMXHT, BMXBMI, BMXWT, RIAGENDR,SDMVPSU,SDMVSTRA,RIDRETH1, INDFMPIR, years,'
+  data_sql <-
+    paste('SELECT', cols, exposure_cols, 'FROM merged_table')
+  
+  data <- dbGetQuery(nhanes_db, data_sql)
+  data <- na.omit(data)
+  dbDisconnect(nhanes_db)
+  
+  data
+  
+}
+
+nhanes_data <- load_data(exposure_cols) 
+data_phs <- phesant(nhanes_data)
+
+data <- data_phs$data
+phs_res <- data_phs$data_types
+```
+
+## Dietary data
+
+Show the descriptions of dietary variables and PHESANT results.
+
+```{r data1, warning=FALSE,message=FALSE}
+library(nhanesA)
+library(knitr)
+library(kableExtra)
+var_desc <- nhanesTableVars("DIET","DR1TOT_F")
+var_desc <- var_desc[var_desc$Variable.Name %in% exposure_vars,]
+var_desc$phesant <- data_phs$phs_types[var_desc$Variable.Name]
+rownames(var_desc) <- NULL
+kbl(var_desc) |> kable_classic_2(full_width = F)
+# kable(var_desc)
+
+```
+
+## check variations of phenotypes
+
+Check correlations of Dietary Interview - Total Nutrient Intakes, First and Second Day.
+Filter out the exposure variables used in EnWAS, check the correlations of the same variables in the first and second days.
+
+```{r dataww, warning=FALSE,message=FALSE}
+nhanes_db <- dbConnect(RSQLite::SQLite(), "../nhanes.sqlite")
+
+diet2_cols <- colnames(dbGetQuery(nhanes_db, "select * from diet_total2 limit 1"))
+
+exposure_vars2 <- gsub("R1", "R2", exposure_vars)
+exposure_vars2 <- intersect(exposure_vars2 ,diet2_cols)
+exposure_cols <- paste(exposure_vars2, collapse = ", ")
+data_sql <-
+    paste('SELECT SEQN,', exposure_cols, 'FROM diet_total2')
+diet2 <- dbGetQuery(nhanes_db, data_sql)
+dbDisconnect(nhanes_db)
+
+diet1_diet2 <- merge(diet2,data,by = "SEQN")
+
+continuous_var <- names(data_phs$phs_types[data_phs$phs_types=="continuous"])
+
+vars2 <- intersect(exposure_vars2 ,gsub("R1", "R2", continuous_var))
+vars1 <- gsub("R2", "R1", vars2)
+len <- length(vars1)
+cors = rep(NA,len)
+for (i in 1:len){
+  cors[i] <- cor(diet1_diet2[,vars1[i]],diet1_diet2[,vars2[i]],use="complete.obs")
+}
+
+correlation = data.frame(first = vars1, second = vars2, correlation = cors)
+kbl(correlation) |> kable_classic_2(full_width = F)
+# kable(correlation)
+smoothScatter(diet1_diet2$DR1TNUMF,diet1_diet2$DR2TNUMF)
+smoothScatter(diet1_diet2$DR1TKCAL,diet1_diet2$DR2TKCAL)
+```

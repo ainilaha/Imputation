@@ -66,7 +66,7 @@ This part loads the blood pressure data and merges it with the dietary and demog
 set.seed(123)
 nhanes_db <- dbConnect(RSQLite::SQLite(), "../../nhanes.sqlite")
 # BPXDI2,BPXSY1
-blood_pressure <- dbGetQuery(nhanes_db, "select SEQN,BPXDI2,years from blood_pressure where BPXDI2 IS NOT NULL and BPXDI2 <> 0")
+blood_pressure <- dbGetQuery(nhanes_db, "select SEQN,BPXDI1,BPXDI2,years from blood_pressure where BPXDI1 IS NOT NULL and BPXDI2 IS NOT NULL and BPXDI2 <> 0 and BPXDI1 <> 0")
 dbDisconnect(nhanes_db)
 data <- merge(blood_pressure, data, by = c("SEQN",'years'))
 data <- data[sample(1:nrow(data)), ] # shuffle the data
@@ -76,8 +76,9 @@ data$years <- as.factor(data$years)
 ## Base Model
 
 ```{r func3, echo=TRUE,warning=F, out.width = '90%'}
-lm_str <- 'BPXDI2 ~ RIDAGEYR*RIAGENDR + BMXBMI'
-lm_base <- lm(as.formula(lm_str), data)
+ns_str0 <-
+  'BPXDI1 ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10), Boundary.knots=c(20,90)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)),Boundary.knots=c(10,85))'
+ns_base0 <- lm(as.formula(ns_str0), data)
 
 ns_str <-
   'BPXDI2 ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10), Boundary.knots=c(20,90)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)),Boundary.knots=c(10,85))'
@@ -91,7 +92,7 @@ ns_base <- lm(as.formula(ns_str), data)
 library(ggpubr)
 library(reshape)
 
-plot_bins<- function(x,y,xlab="Value",ylab="Binned Residuals",title="linear",nbin=600){
+plot_bins<- function(x,y,xlab="Value",ylab="Binned Residuals",title="BPXDI1",nbin=600){
 
   df <- make_bins(x,y,nbin)
   g <- ggplot(df,aes(breaks,mean)) + geom_point() +
@@ -110,7 +111,7 @@ plot_bins<- function(x,y,xlab="Value",ylab="Binned Residuals",title="linear",nbi
 
 ## BPXDI2 - Diastolic: Blood pres (2ed rdg) mm Hg
 
-This section compares linear and spline regression of Diastolic blood pressure against age and BMI.
+This section compares BPXDI1 and BPXDI2 regression of Diastolic blood pressure against age and BMI.
 
 ```{r BPXDI1, echo=TRUE,warning=FALSE}
 
@@ -118,8 +119,8 @@ This section compares linear and spline regression of Diastolic blood pressure a
 pred_df <- data.frame("Age"=data$RIDAGEYR,
                       "Gender"=data$RIAGENDR,
                       "BMI"=data$BMXBMI,
-                      "Linear"=lm_base$fitted.values,
-                      "Spline"=ns_base$fitted.values)
+                      "BPXDI1"=ns_base0$fitted.values,
+                      "BPXDI2"=ns_base$fitted.values)
 
 
 
@@ -136,20 +137,20 @@ fit_age <- ggplot(mpred_df, aes(x=Age, y=value,colour=Gender) ) +
   theme_minimal()
 
 
-df_bmi_res <- list("Linear"=make_bins(x=data$BMXBMI,lm_base$residuals,nbin=600),
-                "Spline"=make_bins(x=data$BMXBMI,y=ns_base$residuals,nbin=600)
+df_bmi_res <- list("BPXDI1"=make_bins(x=data$BMXBMI,ns_base0$residuals,nbin=600),
+                "BPXDI2"=make_bins(x=data$BMXBMI,y=ns_base$residuals,nbin=600)
                 )
 
-df_age_res <- list("Linear"=make_bins(x=data$RIDAGEYR,y=lm_base$residual,nbin=600),
-                "Spline"=make_bins(x=data$RIDAGEYR,y=ns_base$residuals,nbin=600)
+df_age_res <- list("BPXDI1"=make_bins(x=data$RIDAGEYR,y=ns_base0$residual,nbin=600),
+                "BPXDI2"=make_bins(x=data$RIDAGEYR,y=ns_base$residuals,nbin=600)
                 )
 
 
 
 
 
-bmi_res <- plot_bins2(df_bmi_res,xlab="BMI (kg/m²)")+ ylim(-8,6.5) + xlim(min(data$BMXBMI),max(data$BMXBMI))
-age_res <- plot_bins2(df_age_res,xlab="Age (year)") + ylim(-8,6.5)
+bmi_res <- plot_bins2(df_bmi_res,xlab="BMI (kg/m²)",ylab="Binned Residuals") + xlim(min(data$BMXBMI),max(data$BMXBMI))
+age_res <- plot_bins2(df_age_res,xlab="Age (year)",ylab="Binned Residuals") 
 
 
 
@@ -160,8 +161,8 @@ raw_age <- ggplot(data,
          )) +
   geom_point(data = ~ group_by(.x, RIDAGEYR, RIAGENDR,BMXBMI) |> sample_frac(0.5),
              alpha = 0.2, shape=1) + 
-  geom_smooth(method = "lm",formula = y~x, aes(colour="Linear"),size=1.5)+
-  geom_smooth(method = "lm",formula = y~ns(x,df=7),aes(colour="Spline"),size=1.5) +
+  geom_smooth(method = "lm",formula = y~x, aes(colour="BPXDI1"),size=1.5)+
+  geom_smooth(method = "lm",formula = y~ns(x,df=7),aes(colour="BPXDI2"),size=1.5) +
   labs(colour="Gender")+
   xlab("Age (year)")+ylab("Diastolic (mm Hg)")+
    scale_colour_manual(name="Model", values=c("#E69F00", "#56B4E9"))+
@@ -174,8 +175,8 @@ raw_bmi <- ggplot(data,
         )) +
   geom_point(data = ~ group_by(.x, RIDAGEYR, RIAGENDR,BMXBMI) |> sample_frac(0.5),
              alpha = 0.2, shape=1) + 
-  geom_smooth(method = "lm",formula = y~x, aes(colour="Linear"),size=1.5)+
-  geom_smooth(method = "lm",formula = y~ns(x,df=7),aes(colour="Spline"),size=1.5) +
+  geom_smooth(method = "lm",formula = y~x, aes(colour="BPXDI1"),size=1.5)+
+  geom_smooth(method = "lm",formula = y~ns(x,df=7),aes(colour="BPXDI2"),size=1.5) +
   labs(colour="Gender")+
   xlab("BMI (kg/m²)")+ylab("Diastolic (mm Hg)")+
    scale_colour_manual(name="Model", values=c("#E69F00", "#56B4E9"))+
@@ -189,14 +190,14 @@ raw_bmi <- ggplot(data,
 
 - <em><strong> a) </strong></em> and <em><strong> b) </strong></em> are the raw data with smooth fitted lines.
 
-- <em><strong> c) </strong></em> and <em><strong> d) </strong></em> show fitted values of linear and spline regression against the BMI ($km/m^2$) and Age (years) colored by the gender of the participants. The lines show the relation between fitted values with BMI. For visibility, we sampled 5% of data with transparency (alpha=0.2) on the image.
+- <em><strong> c) </strong></em> and <em><strong> d) </strong></em> show fitted values of BPXDI1 and BPXDI2 regression against the BMI ($km/m^2$) and Age (years) colored by the gender of the participants. The lines show the relation between fitted values with BMI. For visibility, we sampled 5% of data with transparency (alpha=0.2) on the image.
 
 
-- <em><strong> e) </strong></em> and <em><strong> f) </strong></em> show binned residuals against the BMI ($km/m^2$) and Age (years) colored by the models (linear and spline regression). The values on x-axis (BMI and Age) are binned, and each bin contains about 600 data points; further the mean of residuals are plotted with error bar ([$-1.96 \sqrt{\sigma_r},1.96\sqrt{\sigma_r}]$), where $\sqrt{\sigma_r}$ is the standard deviation of residuals in the bins. The binned residual can stretch the data point out so that it shows clear patterns of the residuals in each bin.
+- <em><strong> e) </strong></em> and <em><strong> f) </strong></em> show binned residuals against the BMI ($km/m^2$) and Age (years) colored by the models (BPXDI1 and BPXDI2 regression). The values on x-axis (BMI and Age) are binned, and each bin contains about 600 data points; further the mean of residuals are plotted with error bar ([$-1.96 \sqrt{\sigma_r},1.96\sqrt{\sigma_r}]$), where $\sqrt{\sigma_r}$ is the standard deviation of residuals in the bins. The binned residual can stretch the data point out so that it shows clear patterns of the residuals in each bin.
 
-- <em><strong> c) </strong></em> and <em><strong> e) </strong></em> show that diastolic blood pressure does not have a strictly linear relation with BMI. The binned residuals of linear regression show a pattern, whereas there is no obvious trend or pattern for the spline regression because the spline model fits the non-linearity relations.
+- <em><strong> c) </strong></em> and <em><strong> e) </strong></em> show that diastolic blood pressure does not have a strictly BPXDI1 relation with BMI. The binned residuals of BPXDI1 regression show a pattern, whereas there is no obvious trend or pattern for the BPXDI2 regression because the BPXDI2 model fits the non-BPXDI1ity relations.
 
-- <em><strong> d) </strong></em> and <em><strong> f) </strong></em> show that the linear regression model has a significant residual overall, performing even worse for participants younger than 30 and older than 70. Therefore, applying linear regression could miss leading in EnWAS analysis.  Residuals of the linear regression against age have an apparent trend (parabola-like shape), and residuals of spline regression have no apparent tendency. In other words, the non-linear relationship was not explained by linear regression and was left out in the residuals.
+- <em><strong> d) </strong></em> and <em><strong> f) </strong></em> show that the BPXDI1 regression model has a significant residual overall, performing even worse for participants younger than 30 and older than 70. Therefore, applying BPXDI1 regression could miss leading in EnWAS analysis.  Residuals of the BPXDI1 regression against age have an apparent trend (parabola-like shape), and residuals of BPXDI2 regression have no apparent tendency. In other words, the non-BPXDI1 relationship was not explained by BPXDI1 regression and was left out in the residuals.
 
 
 
@@ -219,91 +220,3 @@ ggpubr::ggarrange(raw_g,fit_g,res_g,nrow = 3,ncol = 1)
 
 
 ```
-
-- <em><strong> Note: The trends are difficult to see in binned residuals plot with BMI because most data are squeezed in a small range. A possible solution is to separate BMI from age plots as below. </strong></em> 
-
-```{r bmi_plot, echo=TRUE,warning=FALSE,message=FALSE, fig.width = 10,fig.height=10}
-ggpubr::ggarrange(raw_bmi,fit_bmi,bmi_res,nrow = 3,ncol = 1,legend='right')
-
-```
-
-
-## ANOVA LRT (Likelihood Ratio Test)
-
-Linear regression can be considered a special case of spline regression because spline can be a straight line. In other words, linear regression is a sub-model of spline regression in our case. Therefore, we can use ANOVA LRT to test whether the spline regression outperforms the linear regression. The spline regression has 23 more degrees of freedom than linear regression, and it reduces the residual sum of squares (RSS) from $4338763$ down to $3913906$, which is about $9.8\%$. $Pr(>Chi) < < 0.001$ may not be meaningful as we have a considerably large amount of data, making the variability small.
-
-
-```{r anova1, echo=TRUE,results = "asis"}
-print_anova <- function(anov_obj){
-  for (a in attr(anov_obj,"heading")){
-    cat(gsub(pattern = "\n", replacement = "  \n", x = a))
-    }
-  anov_df <- as.data.frame(anov_obj)
-  anov_df <- round(anov_df,3)
-  anov_df[!is.na(anov_df[,'Pr(>Chi)']) & anov_df[,'Pr(>Chi)'] <= 0.001, 'Pr(>Chi)'] <- "< 0.001"
-  anov_df[is.na(anov_df)] <- ""
-  
-  knitr::kable(anov_df)
-}
-print_anova(anova(lm_base,ns_base,test="LRT"))
-```
-
-
-
-## Ethnicity and Years
-
-```{r enthic, echo=TRUE,results = "asis"}
-ethnicity <-
-  c(
-    'Mexican American',
-    'Other Hispanic',
-    'Non-Hispanic White',
-    'Non-Hispanic Black',
-    'Other Race'
-  )
-
-levels(data$RIDRETH1) <- ethnicity
-
-lm_race <- lm(as.formula(paste0(lm_str," + RIDRETH1")), data)
-lm_years <- lm(as.formula(paste0(lm_str," + years")), data)
-ns_race <- lm(as.formula(paste0(ns_str," + RIDRETH1")), data)
-ns_years <- lm(as.formula(paste0(ns_str," + years")), data)
-
-```
-
-Ethnicity can improve the model slightly, reducing RSS by about 0.6%~0.7%. The Non-Hispanic Black and Other Race have bigger differences than Mexican American; Other Hispanic and Non-Hispanic White do not change too much.  The correct way to contact EnWAS analysis include the ethnicity into the adjust variables. However, we leave out ethnicity variable for now so that we show the principles more simple and direct manner.
-
-```{r enthic1, echo=TRUE,results = "asis"}
-print_anova(anova(lm_base,lm_race,test="LRT"))
-sjPlot::tab_model(lm_base,lm_race,
-                  dv.labels = c("lm_base", "lm_race"),
-                  show.stat=TRUE,show.dev=TRUE)
-```
-Including years reduce the RSS only by 0.48%, which is pretty tiny. Only the year 2017-2018 is different from the year 2003-2004 with an estimator of 1.786 and a p-value of 5.19e-10, and the rest of the years are not significantly different from 2003-2004; therefore, the years factor are excluded from the base models.
-
-```{r years, echo=TRUE,results = "asis"}
-print_anova(anova(lm_base,lm_years,test="LRT"))
-sjPlot::tab_model(lm_base,lm_years,
-                  dv.labels = c("lm_base", "lm_years"),
-                  show.stat=TRUE,show.dev=TRUE)
-```
-
-
-
-## More Residual Plots
-
-```{r residual122, echo=TRUE,warning=FALSE,message=FALSE,results = "asis",dpi = 200}
-lm_bmi <- plot_bins(data$BMXBMI, lm_base$residuals,xlab="BMI(kg/m²)",nbin=300)
-ns_bmi <- plot_bins(data$BMXBMI, ns_base$residuals,xlab="BMI(kg/m²)",title="spline",nbin=300)
-lm_age <- plot_bins(data$RIDAGEYR, lm_base$residuals,xlab="Age",nbin=300)
-ns_age <- plot_bins(data$RIDAGEYR, ns_base$residuals,xlab="Age",title="spline",nbin=300)
-
-ggarrange(lm_age,ns_age,lm_bmi,ns_bmi,ncol = 2,nrow = 2,common.legend = TRUE)
-
-```
-
-
-
-
-
-
