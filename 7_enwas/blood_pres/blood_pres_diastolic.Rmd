@@ -86,11 +86,11 @@ $$ where c=3/8 is recommended.
 
 
 ```{r func3, echo=TRUE,warning=F, out.width = '90%'}
-lm_str <- 'BPXDI1 ~ RIDAGEYR*RIAGENDR + BMXBMI'
+lm_str <- 'distolic ~ RIDAGEYR*RIAGENDR + BMXBMI + RIDRETH1'
 lm_enwas <- enwas(lm_str, exposure_vars, data)
 
 ns_str <-
-  'BPXDI1 ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10), Boundary.knots=c(20,90)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)),Boundary.knots=c(10,85))'
+  'distolic ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10), Boundary.knots=c(20,90)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)),Boundary.knots=c(10,85)) + RIDRETH1'
 ns_enwas <- enwas(ns_str, exposure_vars, data)
 
 

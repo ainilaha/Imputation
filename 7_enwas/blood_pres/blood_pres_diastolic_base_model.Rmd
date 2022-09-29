@@ -57,6 +57,8 @@ data_phs <- phesant(nhanes_data)
 data <- data_phs$data
 phs_res <- data_phs$data_types
 
+
+
 ```
 
 ## Query Extra data 
@@ -66,21 +68,36 @@ This part loads the blood pressure data and merges it with the dietary and demog
 set.seed(123)
 nhanes_db <- dbConnect(RSQLite::SQLite(), "../../nhanes.sqlite")
 # BPXDI2,BPXSY1
-blood_pressure <- dbGetQuery(nhanes_db, "select SEQN,BPXDI1,years from blood_pressure where BPXDI1 IS NOT NULL and BPXDI1 <> 0")
+blood_pressure <- dbGetQuery(nhanes_db, "select SEQN, BPXDI1,BPXDI2,years from blood_pressure where BPXDI1 IS NOT NULL and BPXDI1 <> 0 and BPXDI2 IS NOT NULL and BPXDI2 <> 0")
+
 dbDisconnect(nhanes_db)
-data <- merge(blood_pressure, data, by = c("SEQN",'years'))
+blood_pressure$diastolic <- rowMeans(blood_pressure[, c('BPXDI1','BPXDI2')])
+
+
+data <- merge(blood_pressure, data, 
+by = c("SEQN",'years'))
 data <- data[sample(1:nrow(data)), ] # shuffle the data
 data$years <- as.factor(data$years)
+ethnicity <-
+  c(
+    'Mexican American',
+    'Other Hispanic',
+    'Non-Hispanic White',
+    'Non-Hispanic Black',
+    'Other Race'
+  )
+
+levels(data$RIDRETH1) <- ethnicity
 ```
 
 ## Base Model
 
 ```{r func3, echo=TRUE,warning=F, out.width = '90%'}
-lm_str <- 'BPXDI1 ~ RIDAGEYR*RIAGENDR + BMXBMI'
+lm_str <- 'diastolic ~ RIDAGEYR*RIAGENDR + BMXBMI + RIDRETH1'
 lm_base <- lm(as.formula(lm_str), data)
 
 ns_str <-
-  'BPXDI1 ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10), Boundary.knots=c(20,90)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)),Boundary.knots=c(10,85))'
+  'diastolic ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10), Boundary.knots=c(20,90)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)),Boundary.knots=c(10,85)) + RIDRETH1'
 ns_base <- lm(as.formula(ns_str), data)
 ```
 
@@ -108,7 +125,7 @@ plot_bins<- function(x,y,xlab="Value",ylab="Binned Residuals",title="linear",nbi
 ```
 
 
-## BPXDI1 - Diastolic: Blood pres (1st rdg) mm Hg
+## Diastolic: Blood pres (1st rdg) mm Hg
 
 This section compares linear and spline regression of Diastolic blood pressure against age and BMI.
 
@@ -148,15 +165,15 @@ df_age_res <- list("Linear"=make_bins(x=data$RIDAGEYR,y=lm_base$residual,nbin=60
 
 
 
-bmi_res <- plot_bins2(df_bmi_res,xlab="BMI (kg/m²)")+ ylim(-8,6.5) + xlim(min(data$BMXBMI),max(data$BMXBMI))
-age_res <- plot_bins2(df_age_res,xlab="Age (year)") + ylim(-8,6.5)
+bmi_res <- plot_bins2(df_bmi_res,xlab="BMI (kg/m²)",ylab="Binned Residuals")+ ylim(-8,6.5) + xlim(min(data$BMXBMI),max(data$BMXBMI))
+age_res <- plot_bins2(df_age_res,xlab="Age (year)",ylab="Binned Residuals") + ylim(-8,6.5)
 
 
 
 raw_age <- ggplot(data,
          aes(
            x = RIDAGEYR,
-           y = BPXDI1
+           y = diastolic
          )) +
   geom_point(data = ~ group_by(.x, RIDAGEYR, RIAGENDR,BMXBMI) |> sample_frac(0.5),
              alpha = 0.2, shape=1) + 
@@ -168,19 +185,21 @@ raw_age <- ggplot(data,
   theme_minimal()
 
 raw_bmi <- ggplot(data,
-         aes(
+     aes(
            x = BMXBMI,
-           y = BPXDI1,
+           y = diastolic
         )) +
   geom_point(data = ~ group_by(.x, RIDAGEYR, RIAGENDR,BMXBMI) |> sample_frac(0.5),
-             alpha = 0.2, shape=1) + 
+             aes(fill=RIAGENDR),
+             alpha = 0.2, shape=21) + 
   geom_smooth(method = "lm",formula = y~x, aes(colour="Linear"),size=1.5)+
   geom_smooth(method = "lm",formula = y~ns(x,df=7),aes(colour="Spline"),size=1.5) +
-  labs(colour="Gender")+
   xlab("BMI (kg/m²)")+ylab("Diastolic (mm Hg)")+
-   scale_colour_manual(name="Model", values=c("#E69F00", "#56B4E9"))+
-  theme_minimal()
-
+  # scale_fill_manual(values = c("#009E73", "#F0E442"))+
+  scale_colour_manual(values=c("#E69F00", "#56B4E9"))+
+  theme_minimal()+
+  labs(fill="Gender", colour="Model")
+    
 
 # ggpubr::ggarrange(raw_bmi,raw_age,bmi_res,age_res,common.legend = TRUE,labels = c('a','b','c','d'))
 
@@ -220,11 +239,15 @@ ggpubr::ggarrange(raw_g,fit_g,res_g,nrow = 3,ncol = 1)
 
 ```
 
-- <em><strong> Note: The trends are difficult to see in binned residuals plot with BMI because most data are squeezed in a small range. A possible solution is to separate BMI from age plots as below. </strong></em> 
+- <em><strong> Note: The trends are difficult to see in binned residuals plot with BMI because most data are squeezed in a small range. A possible solution is to separate BMI from age plots </strong></em> 
 
-```{r bmi_plot, echo=TRUE,warning=FALSE,message=FALSE, fig.width = 10,fig.height=10}
-ggpubr::ggarrange(raw_bmi,fit_bmi,bmi_res,nrow = 3,ncol = 1,legend='right')
+## Binned plot for binned residuals against fitted value
 
+```{r bmi_plot, echo=TRUE,eval=FALSE,warning=FALSE,message=FALSE, fig.width = 10,fig.height=10}
+df_fitted <- list("Linear"=make_bins(x=lm_base$fitted.values,y=lm_base$residual,nbin=600),
+                "Spline"=make_bins(x=ns_base$fitted.values,y=ns_base$residuals,nbin=600)
+                )
+plot_bins2(df_fitted,xlab="Fitted Value",ylab="Binned Residuals")
 ```
 
 
@@ -264,7 +287,7 @@ cross_validation <- function(q_list=qs,base_model=ns_str,df=data) {
       knots <- paste0(knots, collapse = ', ')
       ns_model <-
         paste0(
-          'BPXDI1 ~ ns(RIDAGEYR, knots = c(',
+          'diastolic ~ ns(RIDAGEYR, knots = c(',
           knots,
           '),Boundary.knots=c(20,90))* RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)),Boundary.knots=c(10,80))'
         )
@@ -285,7 +308,7 @@ cross_validation <- function(q_list=qs,base_model=ns_str,df=data) {
       )
       if(is.list(cv_ns_model)){
         pred_vals <- predict(cv_ns_model, cv_test)
-        mse_mtx[i, j] <- mean((pred_vals - cv_test$BPXDI1) ^ 2)
+        mse_mtx[i, j] <- mean((pred_vals - cv_test$diastolic) ^ 2)
       }
 
     }
@@ -309,7 +332,7 @@ cross_validation <- function(q_list=qs,base_model=ns_str,df=data) {
       )
       if(is.list(ns_model)){
         pred_vals <- predict(ns_model, cv_test)
-        mse_mtx[len_q+1, j] <- mean((pred_vals - cv_test$BPXDI1) ^ 2)
+        mse_mtx[len_q+1, j] <- mean((pred_vals - cv_test$diastolic) ^ 2)
       }
 
     }
@@ -359,7 +382,7 @@ cv_models <- function(model_list,df=data) {
       ns_model <- lm(as.formula(model_list[j]), cv_train)
 
       pred_vals <- predict(ns_model, cv_test)
-      mse_mtx[i,j] <- mean((pred_vals - cv_test$BPXDI1) ^ 2)
+      mse_mtx[i,j] <- mean((pred_vals - cv_test$diastolic) ^ 2)
       
 
     }
@@ -417,20 +440,15 @@ print_anova(anova(lm_base,ns_base,test="LRT"))
 ## Ethnicity and Years
 
 ```{r enthic, echo=TRUE,results = "asis"}
-ethnicity <-
-  c(
-    'Mexican American',
-    'Other Hispanic',
-    'Non-Hispanic White',
-    'Non-Hispanic Black',
-    'Other Race'
-  )
 
-levels(data$RIDRETH1) <- ethnicity
-
-lm_race <- lm(as.formula(paste0(lm_str," + RIDRETH1")), data)
+lm_no_race <- lm(diastolic ~ RIDAGEYR*RIAGENDR + BMXBMI, data)
 lm_years <- lm(as.formula(paste0(lm_str," + years")), data)
-ns_race <- lm(as.formula(paste0(ns_str," + RIDRETH1")), data)
+
+ns_str_no_race <-
+  'diastolic ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10), Boundary.knots=c(20,90)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)),Boundary.knots=c(10,85))'
+
+
+ns_no_race <- lm(ns_str_no_race, data)
 ns_years <- lm(as.formula(paste0(ns_str," + years")), data)
 
 ```
@@ -438,9 +456,9 @@ ns_years <- lm(as.formula(paste0(ns_str," + years")), data)
 Ethnicity can improve the model slightly, reducing RSS by about 0.6%~0.7%. The Non-Hispanic Black and Other Race have bigger differences than Mexican American; Other Hispanic and Non-Hispanic White do not change too much.  The correct way to contact EnWAS analysis include the ethnicity into the adjust variables. However, we leave out ethnicity variable for now so that we show the principles more simple and direct manner.
 
 ```{r enthic1, echo=TRUE,results = "asis"}
-print_anova(anova(lm_base,lm_race,test="LRT"))
-sjPlot::tab_model(lm_base,lm_race,
-                  dv.labels = c("lm_base", "lm_race"),
+print_anova(anova(lm_no_race,lm_base,test="LRT"))
+sjPlot::tab_model(lm_no_race,lm_base,
+                  dv.labels = c("lm_no_race", "lm_base"),
                   show.stat=TRUE,show.dev=TRUE)
 ```
 Including years reduce the RSS only by 0.48%, which is pretty tiny. Only the year 2017-2018 is different from the year 2003-2004 with an estimator of 1.786 and a p-value of 5.19e-10, and the rest of the years are not significantly different from 2003-2004; therefore, the years factor are excluded from the base models.
