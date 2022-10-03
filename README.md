@@ -49,6 +49,10 @@ Imputation methods for biomedical data
   - [Diastolic:EnWAS](https://ccb-hms.github.io/Imputation/7_enwas/blood_pres/blood_pres_diastolic.html)
   - [Systolic: Blood pres EnWAS](https://ccb-hms.github.io/Imputation/7_enwas/blood_pres/blood_pres_systolic.html)
 
+#### 8. EnWAS Package Vignettes
+
+  - [Base Model checking](https://ccb-hms.github.io/Imputation/vignettes/base_model.html)
+
 
 #### Update Notes:
   - [Notebook](https://ccb-hms.github.io/Imputation/updates_notes.html)

@@ -1,0 +1,199 @@
+---
+title: "Base Model"
+date: "Updated on : `r date()`"
+output: html_document
+---
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+## 1. Load libs
+
+```{r setup,warning=FALSE,message=FALSE}
+library(EnWAS)
+library(splines)
+library(ggplot2)
+library(ggpubr)
+library(dplyr)
+```
+
+## 2. Data Preprocess with PHESANT-like tool
+Before feeding the data into any model, we probably need to do data preprocess (e.g., clean or fill NAs, drop out columns, and transformation). In the data preprocessing phase, it is essential to properly tidy the data that models can process and learn from the data distributions; as said, “garbage in, garbage out.”  In other words, the outputs of the models may be meaningless if we feed the raw data without tidiness and with too much noise or too little information.
+
+However, it requires a lot of effort to preprocess the data when we have large data sets with thousands of phenotype to check.
+For NHANES data, we developed a PHESANT-like tool that can preprocess the data, and it can help convert the data into suitable data types. 
+
+```{r pre}
+phesant_res <- phesant(nhanes)
+nhanes <- phesant_res$data
+```
+
+## 3. Identify Confonders and Build Base Model
+Given the scientific question, we can identify a response or outcome of interest and covariates in the base models.
+
+In the following demonstrations, we built a linear model and a spline model to show that spline models outperform the linear when we have continuous variables. The outcome is diastolic is the average of the diastolic first (BPXDI1) and second (BPXDI2) reads, and the covariates are Age (RIDAGEYR), Gender(RIAGENDR), BMI(BMXBMI), and ethnicity(RIDRETH1).
+
+ Although the knots can be set with percentiles or with the degree of freedom, we manually set the knots because we want the knots fixed when we run EnWAS to compare the impacts of the phenotypes fairly.  We set age knots from 30 to 80 by 10s and boundary knots as (20, 90) because the age range is about 22 to 85. Increasing the number of knots may not hurt the model's performance when the data size is relatively large, but it is better to set fewer knots in ranges with fewer data points. We need to set the knots when the data distribution is skewed carefully. As the BMI distribution is considerably skewed, data points larger than 45 are much less than those in the range of 15-45. Therefore, we set knots for BMI as 15 to 45 by 5s and 45 to 65  by 10s, and boundary knots as (10, 85). Note that boundary knots are required when the knots are manually set; otherwise, the models may raise errors when the knots are out of the data range. 
+
+
+```{r base_model}
+lm_str <- 'diastolic ~ RIDAGEYR*RIAGENDR + BMXBMI + RIDRETH1'
+lm_base <- lm(as.formula(lm_str), nhanes)
+
+ns_str <-
+  'diastolic ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10), Boundary.knots=c(20,90)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)),Boundary.knots=c(10,85)) + RIDRETH1'
+ns_base <- lm(as.formula(ns_str), nhanes)
+```
+
+## 4. AC/QC for Base Model
+
+We need to check the base model and ensure it runs correctly before performing EnWAS. However, the classical methods such as Q-Q plots, residual plots, and goodness of fit (GoF) tests are generally ill-suited. For example, we can plot residuals against fitted values with smoothed scatter plot, as follows. We do not find any noticeable trends for none of the models; even the spline outperforms the linear model.
+
+*note: It is possible produce smooth scatter plot or similar plots with ggplot2 but is it very slow when we have large scale data points. *
+
+```{r residual_ft,results = "asis",fig.width = 8,fig.height=4,dpi=200}
+# par(mfrow = c(1, 2))
+layout(matrix(c(1,2), ncol=2, byrow=TRUE))
+par(mar=c(4.0,4.0,3.5,0))
+smoothScatter(lm_base$fitted.values,lm_base$residuals,xlab="Fitted Values",ylab ="Residuals",main = "Linear Model")
+lines(lowess(lm_base$fitted.values,lm_base$residuals),lwd=3,col="red")
+smoothScatter(ns_base$fitted.values,ns_base$residuals,
+              colramp = colorRampPalette(c("white", "yellow3")),
+              xlab="Fitted Values",ylab ="Residuals",main = "Spline Model")
+lines(lowess(ns_base$fitted.values,ns_base$residuals),lwd=3,col="black")
+
+```
+
+### 4.1 Residuals vs. Terms
+
+A possible solution to check the "goodness of fit (GoF)" is to check whether apparent trends in the plots of residual against terms in the models. We can spot a slight trend residual in the BMI range from 20 to 40, indicating that using linear regression on BMI term may not hurt the model performance too much. However, a strong parabola-like trend can be observed in the residuals of the linear model with respect to ages, which indicates that the linear model cannot capture age. In other words, the model is not good enough to be a base model to run EnWAS; the findings are more likely false positives if using such a base model. On the other hand, the residuals spline model has no clear trends with respect to both BMI and age, which means the base model captures the relations of outcomes (diastolic) and the known confounders.
+
+
+```{r residual,results = "asis",fig.width = 8,fig.height=8,dpi=200}
+layout(matrix(c(1,2,3,4), ncol=2, byrow=TRUE))
+par(mar=c(4.0,4.0,2.5,2))
+
+smoothScatter(nhanes$BMXBMI,lm_base$residuals,xlab="BMI (kg/m²)",ylab ="residuals",main = "Linear Model")
+lines(lowess(nhanes$BMXBMI,lm_base$residuals),lwd=3,col="red")
+smoothScatter(nhanes$BMXBMI,ns_base$residuals,xlab="BMI (kg/m²)",
+              colramp = colorRampPalette(c("white", "yellow3")),
+              ylab ="residuals",main = "Spline Model")
+lines(lowess(nhanes$BMXBMI,ns_base$residuals),lwd=3,col="black")
+# -----------------for Age-------------------------------
+# par(mfrow = c(1, 2))
+smoothScatter(nhanes$RIDAGEYR,lm_base$residuals,xlab="Age (Years)",ylab ="residuals",main = "Linear Model")
+lines(lowess(nhanes$RIDAGEYR,lm_base$residuals),lwd=3,col="red")
+smoothScatter(nhanes$RIDAGEYR,ns_base$residuals,xlab="Age (Years)",
+              colramp = colorRampPalette(c("white", "yellow3")),
+              ylab ="residuals",main = "Spline Model")
+lines(lowess(nhanes$RIDAGEYR,ns_base$residuals),lwd=3,col="black")
+
+```
+
+### 4.2 Binned Plots
+We can further check the base models with binned plots, which can be helpful when the data set is large. The binned plot is a way that "zoom in" to find the trends in models.
+
+```{r binned,results = "asis",fig.width = 10,fig.height=10,dpi=200}
+# Raw data
+bmi_raw <- g_raw(nhanes)
+age_raw <- g_raw(nhanes,x="RIDAGEYR",xlab="Age (Years)")
+
+# Residuals vs. Fitted Values
+pred_df <- data.frame("Age"=nhanes$RIDAGEYR, "Gender"=nhanes$RIAGENDR, "BMI"=nhanes$BMXBMI,
+                      "Linear"=lm_base$fitted.values,"Spline"=ns_base$fitted.values)
+mpred_df <- reshape::melt(pred_df, id=c("Age","Gender",'BMI'))
+
+fit_bmi <- ggplot(mpred_df, aes(x=BMI, y=value,colour=Gender) ) +
+ geom_smooth() + geom_point(data = ~ group_by(.x, Age, Gender,variable) |> sample_frac(0.05),alpha=0.2)+
+  facet_grid(cols = vars(variable))+ ylab("Fitted Values")+ xlab("BMI (kg/m²)")+
+  theme_minimal()
+
+fit_age <- ggplot(mpred_df, aes(x=Age, y=value,colour=Gender) ) +
+ geom_smooth() + geom_point(data = ~ group_by(.x, Age, Gender,variable) |> sample_frac(0.05),alpha=0.2)+
+  facet_grid(cols = vars(variable))+ylab("Fitted Values")+ xlab("Age (year)")+
+  theme_minimal()
+
+
+# Residuals vs. terms
+df_bmi_res <- list("Linear"=make_bins(x=nhanes$BMXBMI,lm_base$residuals,nbin=600),
+                "Spline"=make_bins(x=nhanes$BMXBMI,y=ns_base$residuals,nbin=600)
+                )
+bmi_res <- plot_bins2(df_bmi_res,xlab="BMI (kg/m²)",ylab="Binned Residuals")+ ylim(-8,6.5) + xlim(min(nhanes$BMXBMI),max(nhanes$BMXBMI))
+
+df_age_res <- list("Linear"=make_bins(x=nhanes$RIDAGEYR,y=lm_base$residual,nbin=600),
+                "Spline"=make_bins(x=nhanes$RIDAGEYR,y=ns_base$residuals,nbin=600)
+                )
+age_res <- plot_bins2(df_age_res,xlab="Age (year)",ylab="Binned Residuals") + ylim(-8,6.5)
+
+
+```
+
+- <em><strong> a) </strong></em> and <em><strong> b) </strong></em> show the blood pressure (diastolic) against BMI and age.
+
+- <em><strong> c) </strong></em> and <em><strong> d) </strong></em> show fitted values of linear and spline regression against the BMI ($km/m^2$) and Age (years) colored by the gender of the participants. The lines show the relation between fitted values with BMI. For visibility, we sampled 5% of data with transparency (alpha=0.2) on the image.
+
+
+- <em><strong> e) </strong></em> and <em><strong> f) </strong></em> show binned residuals against the BMI ($km/m^2$) and Age (years) colored by the models (linear and spline regression). The values on x-axis (BMI and Age) are binned, and each bin contains about 600 data points; further the mean of residuals are plotted with error bar ([$-1.96 \sqrt{\sigma_r},1.96\sqrt{\sigma_r}]$), where $\sqrt{\sigma_r}$ is the standard deviation of residuals in the bins. The binned residual can stretch the data point out so that it shows clear patterns of the residuals in each bin.
+
+- <em><strong> c) </strong></em> and <em><strong> e) </strong></em> show that diastolic blood pressure does not have a strictly linear relation with BMI. The binned residuals of linear regression show a pattern, whereas there is no obvious trend or pattern for the spline regression because the spline model fits the non-linearity relations.
+
+- <em><strong> d) </strong></em> and <em><strong> f) </strong></em> show that the linear regression model has a significant residual overall, performing even worse for participants younger than 30 and older than 70. Therefore, applying linear regression could miss leading in EnWAS analysis.  Residuals of the linear regression against age have an apparent trend (parabola-like shape), and residuals of spline regression have no apparent tendency. In other words, the non-linear relationship was not explained by linear regression and was left out in the residuals.
+
+```{r BPXDI12, echo=TRUE,warning=FALSE,message=FALSE, fig.width = 10,fig.height=10}
+raw_g <- ggpubr::ggarrange(bmi_raw,age_raw, common.legend = TRUE,labels = c('a)','b)'),legend='right')
+fit_g <- ggpubr::ggarrange(fit_bmi, fit_age,common.legend = TRUE,labels = c('c)','d)'),legend='right')
+res_g <- ggpubr::ggarrange(bmi_res,age_res,common.legend = TRUE,labels = c('e)','f)'),legend='right')
+ggpubr::ggarrange(raw_g,fit_g,res_g,nrow = 3,ncol = 1)
+```
+
+
+### 4.3 Cross Validation
+
+
+Cross-Validation to Linear vs Spline
+
+
+```{r cv2, echo=TRUE,warning=FALSE,message=FALSE}
+model_list <- c(lm_str,ns_str)
+names(model_list) <- c("linear","spline")
+mse_mtx <- cv_base_m(model_list,label="diastolic",group_col="years",df=nhanes)
+# knitr::kable(mse_mtx)
+mse_df <- as.data.frame(reshape2::melt(mse_mtx))
+colnames(mse_df) <- c('years','model','MSE')
+len_year <- length(levels(mse_df$years))
+```
+
+We can compare the model by check the residuals after running the regression. Further, we can confirm the model by using cross-validation. For example, we can compare the linear regression and spline regression with cross-validation, and the results show that spline model has much less errors.
+
+```{r cv21, echo=TRUE,warning=FALSE,message=FALSE}
+mse_df |> ggplot(aes(x=as.numeric(years),y=MSE,color=model)) +
+  geom_point(size=2)+ geom_line()+
+  scale_x_continuous(breaks=seq(1,len_year,1),labels=levels(mse_df$years),
+                     guide = guide_axis(angle = 45))+ xlab("Years")+
+  theme_minimal()
+
+```
+
+## 4.3 ANOVA LRT (Likelihood Ratio Test)
+
+Linear regression can be considered a special case of spline regression because spline can be a straight line. In other words, linear regression is a sub-model of spline regression in our case. Therefore, we can use ANOVA LRT to test whether the spline regression outperforms the linear regression. The spline regression has 23 more degrees of freedom than linear regression, and it reduces the residual sum of squares (RSS) from $3785310$ down to $3396489$, which is about $11.45\%$. $Pr(>Chi) < < 0.001$ may not be meaningful as we have a considerably large amount of data, making the variability small.
+
+
+```{r anova1, echo=TRUE,results = "asis"}
+print_anova(anova(lm_base,ns_base,test="LRT"))
+```
+
+We can drop of the terms in model to produce sub models and compare with full model, and the results can be produce as follow. *RSS Diff Ratio=Sum of Sq/RSS*
+
+```{r anova2, echo=TRUE,results = "asis"}
+lm_anvoa <- anova_lrt(lm_str)
+knitr::kable(lm_anvoa)
+ns_anvoa <- anova_lrt(ns_str)
+knitr::kable(ns_anvoa)
+```
+
+
+

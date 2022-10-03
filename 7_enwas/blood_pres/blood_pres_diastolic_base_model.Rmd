@@ -236,14 +236,13 @@ ggpubr::ggarrange(raw_g,fit_g,res_g,nrow = 3,ncol = 1)
 
 
 
-
 ```
 
 - <em><strong> Note: The trends are difficult to see in binned residuals plot with BMI because most data are squeezed in a small range. A possible solution is to separate BMI from age plots </strong></em> 
 
 ## Binned plot for binned residuals against fitted value
 
-```{r bmi_plot, echo=TRUE,eval=FALSE,warning=FALSE,message=FALSE, fig.width = 10,fig.height=10}
+```{r bmi_plot, echo=TRUE,warning=FALSE,message=FALSE,dpi = 200}
 df_fitted <- list("Linear"=make_bins(x=lm_base$fitted.values,y=lm_base$residual,nbin=600),
                 "Spline"=make_bins(x=ns_base$fitted.values,y=ns_base$residuals,nbin=600)
                 )
@@ -409,7 +408,7 @@ We can compare the model by check the residuals after running the regression. Fu
 mse_df |> ggplot(aes(x=as.numeric(years),y=MSE,color=model)) +
   geom_point(size=2)+ geom_line()+
   scale_x_continuous(breaks=seq(1,len_year,1),labels=levels(mse_df$years),
-                     guide = guide_axis(angle = 45))+ xlab("Age (years)")+
+                     guide = guide_axis(angle = 45))+ xlab("Years")+
   theme_minimal()
 
 ```
@@ -460,13 +459,17 @@ print_anova(anova(lm_no_race,lm_base,test="LRT"))
 sjPlot::tab_model(lm_no_race,lm_base,
                   dv.labels = c("lm_no_race", "lm_base"),
                   show.stat=TRUE,show.dev=TRUE)
+print_anova(anova(ns_no_race,ns_base,test="LRT"))
+sjPlot::tab_model(ns_no_race,ns_base,
+                  dv.labels = c("ns_no_race", "ns_base"),
+                  show.stat=TRUE,show.dev=TRUE)
 ```
 Including years reduce the RSS only by 0.48%, which is pretty tiny. Only the year 2017-2018 is different from the year 2003-2004 with an estimator of 1.786 and a p-value of 5.19e-10, and the rest of the years are not significantly different from 2003-2004; therefore, the years factor are excluded from the base models.
 
 ```{r years, echo=TRUE,results = "asis"}
-print_anova(anova(lm_base,lm_years,test="LRT"))
-sjPlot::tab_model(lm_base,lm_years,
-                  dv.labels = c("lm_base", "lm_years"),
+print_anova(anova(ns_base,ns_years,test="LRT"))
+sjPlot::tab_model(ns_base,ns_years,
+                  dv.labels = c("lm_base", "ns_years"),
                   show.stat=TRUE,show.dev=TRUE)
 ```
 
