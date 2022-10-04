@@ -1,0 +1,131 @@
+---
+title: "Environment-Wide Association Study (EnWAS)"
+date: "Updated on : `r date()`"
+output: html_document
+---
+
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+## 0. Pepare for EnWAS
+
+Details can check the previous vignette page.
+
+```{r setup,warning=FALSE,message=FALSE}
+library(EnWAS)
+library(splines)
+library(ggplot2)
+library(ggpubr)
+library(dplyr)
+
+phesant_res <- phesant(nhanes)
+nhanes <- phesant_res$data
+```
+
+## 1. Run EnWAS
+
+```{r enwas, echo=TRUE,warning=F, out.width = '90%',dpi = 200}
+lm_str <- 'diastolic ~ RIDAGEYR*RIAGENDR + BMXBMI + RIDRETH1'
+ns_str <-
+  'diastolic ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10), Boundary.knots=c(20,90)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)),Boundary.knots=c(10,85)) + RIDRETH1'
+
+lm_enwas <- enwas(lm_str, exposure_vars, nhanes)
+ns_enwas <- enwas(ns_str, exposure_vars, nhanes)
+
+```
+
+## 2. Forest Plot 
+
+```{r forest, echo=TRUE,warning=F, out.width = '90%',dpi = 200}
+
+forest_plot(lm_enwas$enwas_res)
+
+forest_plot_mult(list(linear = lm_enwas$enwas_res,ns = ns_enwas$enwas_res),30)
+
+```
+
+
+### 3. Inverse Normal Transformation
+
+In addition, the EnWAS model can use inverse normal transformation on the wide association variables, which would be helpful to improve the models' performance when the distributions are skewed.
+
+$$
+\operatorname{INT}\left(W_{i}\right)=\Phi^{-1}\left\{\frac{\operatorname{rank}\left(W_{i}\right)-c}{n+1-2 c}\right\}, c \in[0,1 / 2]
+$$ where c=3/8 is recommended.
+
+```{r enwas2, echo=TRUE,warning=F, out.width = '90%',dpi = 200}
+ns_inv_enwas <- enwas(ns_str, exposure_vars, nhanes,inv_norm = TRUE)
+forest_plot_mult(list(inv_ns = ns_inv_enwas$enwas_res, ns = ns_enwas$enwas_res),30)
+
+```
+
+
+### 4. P-Value or FDR
+
+```{r p_vales, echo=TRUE,warning=F, out.width = '90%',dpi = 200}
+plot_p(list(linear = lm_enwas$enwas_res,  ns = ns_enwas$enwas_res))
+```
+
+### 5. AIC/BIC
+
+```{r aic, echo=TRUE,warning=F, message=FALSE,out.width = '90%',dpi = 200}
+library(knitr)
+library(kableExtra)
+ns_enwas$qc_mtx |>
+  dplyr::arrange(AIC)|> head(20)|>
+  kbl() |> kable_classic_2(full_width = F)
+```
+
+### 6. ANOVA LRT and Vuong Test
+
+```{r lrt, echo=TRUE,warning=F, out.width = '90%',dpi = 200}
+
+ns_enwas$lrt_mtx |>
+  dplyr::arrange(dplyr::desc(Deviance))|> head(20)|>
+  kbl() |> kable_classic_2(full_width = F)
+```
+
+
+### 7. Cross Validation for EnWAS
+
+```{r cv, echo=TRUE,warning=F, out.width = '90%',dpi = 200}
+
+cross_val <- function(model_str,inv=FALSE){
+  years <- levels(nhanes$years)
+  len_year <- length(years)
+  mse_mtx <- matrix(0, nrow = length(exposure_vars), ncol = len_year)
+  rownames(mse_mtx) <- exposure_vars
+  colnames(mse_mtx) <- years
+
+  for (i in 1:len_year){
+      cv_train <- nhanes[nhanes$years != years[i], ]
+      cv_test <- nhanes[nhanes$years == years[i], ]
+      mse <- enwas_cv(model_str,exposure_vars,train_set = cv_train,test_set = cv_test,inv_norm =inv)
+      mse_mtx[,i] <- mse
+  }
+ mse_df <- as.data.frame(reshape2::melt(mse_mtx))
+ colnames(mse_df) <- c("Exposures","Years","MSE") 
+ mse_df
+
+}
+  
+
+mse_ns <- cross_val(ns_str) 
+
+N <- 20
+xwas_result <- ns_enwas$enwas_res |>
+  dplyr::top_n(N,abs(estimate)) |>
+  dplyr::arrange(dplyr::desc(estimate))
+
+top_vars <- xwas_result$term
+
+mse_ns[mse_ns$Exposures %in% top_vars,] |>
+  ggplot(aes(x=Exposures,y=MSE,fill=Exposures )) + 
+  geom_boxplot() +scale_x_discrete(guide = guide_axis(angle = 45))+
+  theme_minimal()+theme(legend.position="none")
+```

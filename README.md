@@ -52,6 +52,7 @@ Imputation methods for biomedical data
 #### 8. EnWAS Package Vignettes
 
   - [Base Model checking](https://ccb-hms.github.io/Imputation/vignettes/base_model.html)
+  - [EnWAS](https://ccb-hms.github.io/Imputation/vignettes/enwas1.html)
 
 
 #### Update Notes:
