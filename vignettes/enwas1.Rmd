@@ -22,7 +22,8 @@ library(splines)
 library(ggplot2)
 library(ggpubr)
 library(dplyr)
-
+data("nhanes")
+data("exposure_vars")
 phesant_res <- phesant(nhanes)
 nhanes <- phesant_res$data
 ```
@@ -30,23 +31,19 @@ nhanes <- phesant_res$data
 ## 1. Run EnWAS
 
 ```{r enwas, echo=TRUE,warning=F, out.width = '90%',dpi = 200}
-lm_str <- 'diastolic ~ RIDAGEYR*RIAGENDR + BMXBMI + RIDRETH1'
+# lm_str <- 'diastolic ~ RIDAGEYR*RIAGENDR + BMXBMI + RIDRETH1'
+# lm_enwas <- enwas(lm_str, exposure_vars, nhanes)
 ns_str <-
   'diastolic ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10), Boundary.knots=c(20,90)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)),Boundary.knots=c(10,85)) + RIDRETH1'
 
-lm_enwas <- enwas(lm_str, exposure_vars, nhanes)
-ns_enwas <- enwas(ns_str, exposure_vars, nhanes)
 
+ns_enwas <- enwas(ns_str, exposure_vars, nhanes)
 ```
 
 ## 2. Forest Plot 
 
 ```{r forest, echo=TRUE,warning=F, out.width = '90%',dpi = 200}
-
-forest_plot(lm_enwas$enwas_res)
-
-forest_plot_mult(list(linear = lm_enwas$enwas_res,ns = ns_enwas$enwas_res),30)
-
+forest_plot(ns_enwas$enwas_res)
 ```
 
 
@@ -68,26 +65,28 @@ forest_plot_mult(list(inv_ns = ns_inv_enwas$enwas_res, ns = ns_enwas$enwas_res),
 ### 4. P-Value or FDR
 
 ```{r p_vales, echo=TRUE,warning=F, out.width = '90%',dpi = 200}
-plot_p(list(linear = lm_enwas$enwas_res,  ns = ns_enwas$enwas_res))
+plot_p(list(linear = ns_inv_enwas$enwas_res,  ns = ns_enwas$enwas_res))
 ```
 
-### 5. AIC/BIC
+### 5. AC/QC
 
 ```{r aic, echo=TRUE,warning=F, message=FALSE,out.width = '90%',dpi = 200}
 library(knitr)
 library(kableExtra)
 ns_enwas$qc_mtx |>
-  dplyr::arrange(AIC)|> head(20)|>
+  dplyr::arrange(AIC)|> head(5)|>
   kbl() |> kable_classic_2(full_width = F)
 ```
 
-### 6. ANOVA LRT and Vuong Test
+### 6. AC/QC plots
 
 ```{r lrt, echo=TRUE,warning=F, out.width = '90%',dpi = 200}
-
-ns_enwas$lrt_mtx |>
-  dplyr::arrange(dplyr::desc(Deviance))|> head(20)|>
-  kbl() |> kable_classic_2(full_width = F)
+lollipop(ns_enwas$qc_mtx,y="Deviance")
+lollipop(ns_enwas$qc_mtx,y="Ratio") + ylab("Ratio(%)")
+lollipop(ns_enwas$qc_mtx,y="LR")
+lollipop(ns_enwas$qc_mtx,y="p_LRT",is_desc = TRUE)
+lollipop(ns_enwas$qc_mtx,y="BIC",is_desc = TRUE)
+lollipop(ns_enwas$qc_mtx,y="AIC",is_desc = TRUE)
 ```
 
 
@@ -128,4 +127,7 @@ mse_ns[mse_ns$Exposures %in% top_vars,] |>
   ggplot(aes(x=Exposures,y=MSE,fill=Exposures )) + 
   geom_boxplot() +scale_x_discrete(guide = guide_axis(angle = 45))+
   theme_minimal()+theme(legend.position="none")
+
+
+
 ```

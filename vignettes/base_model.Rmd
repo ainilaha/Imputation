@@ -41,11 +41,11 @@ In the following demonstrations, we built a linear model and a spline model to s
 
 ```{r base_model}
 lm_str <- 'diastolic ~ RIDAGEYR*RIAGENDR + BMXBMI + RIDRETH1'
-lm_base <- lm(as.formula(lm_str), nhanes)
+lm_base <- glm(formula = as.formula(lm_str), family = gaussian,nhanes)
 
 ns_str <-
   'diastolic ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10), Boundary.knots=c(20,90)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)),Boundary.knots=c(10,85)) + RIDRETH1'
-ns_base <- lm(as.formula(ns_str), nhanes)
+ns_base <- glm(formula = as.formula(ns_str), family = gaussian,nhanes)
 ```
 
 ## 4. AC/QC for Base Model
@@ -186,7 +186,7 @@ Linear regression can be considered a special case of spline regression because 
 print_anova(anova(lm_base,ns_base,test="LRT"))
 ```
 
-We can drop of the terms in model to produce sub models and compare with full model, and the results can be produce as follow. *RSS Diff Ratio=Sum of Sq/RSS*
+We can drop of the terms in model to produce sub models and compare with full model, and the results can be produce as follow. *ratio=Deviance/Resid. Dev*
 
 ```{r anova2, echo=TRUE,results = "asis"}
 lm_anvoa <- anova_lrt(lm_str)
@@ -196,4 +196,28 @@ knitr::kable(ns_anvoa)
 ```
 
 
+## 4.4 Vuong Tests for Model Comparison
+We can consider the linear models as a sub model of the spline model, and we can run the nested version of Vuong Test.
 
+
+```{r vuong, echo=TRUE,eval=FALSE,results = "asis"}
+library(nonnest2)
+vuongtest(lm_base,ns_base,nested = TRUE)
+```
+Model 1 <br>
+ Class: glm <br>
+ Call: glm(formula = as.formula(ns_str), family = gaussian, data = nhanes)<br>
+
+Model 2 
+ Class: glm <br>
+ Call: glm(formula = as.formula(lm_str), family = gaussian, data = nhanes)<br>
+
+Variance test <br>
+  H0: Model 1 and Model 2 are indistinguishable <br>
+  H1: Model 1 and Model 2 are distinguishable <br>
+    w2 = 0.000,   p = 1<br>
+
+Robust likelihood ratio test of distinguishable models<br>
+  H0: Model 2 fits as well as Model 1 <br>
+  H1: Model 1 fits better than Model 2 <br>
+    LR = 3213.299,   p = 6.32e-09
