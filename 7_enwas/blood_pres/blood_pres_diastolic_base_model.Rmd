@@ -135,6 +135,7 @@ This section compares linear and spline regression of Diastolic blood pressure a
 pred_df <- data.frame("Age"=data$RIDAGEYR,
                       "Gender"=data$RIAGENDR,
                       "BMI"=data$BMXBMI,
+                      "DIASTOLIC" = data$diastolic,
                       "Linear"=lm_base$fitted.values,
                       "Spline"=ns_base$fitted.values)
 
@@ -170,19 +171,53 @@ age_res <- plot_bins2(df_age_res,xlab="Age (year)",ylab="Binned Residuals") + yl
 
 
 
-raw_age <- ggplot(data,
+# raw_age <- ggplot(data,
+#          aes(
+#            x = RIDAGEYR,
+#            y = diastolic
+#          )) +
+#   geom_point(data = ~ group_by(.x, RIDAGEYR, RIAGENDR,BMXBMI) |> sample_frac(0.5),
+#              alpha = 0.2, shape=1) + 
+#   geom_smooth(method = "lm",formula = y~x, aes(colour="Linear"),size=1.5)+
+#   geom_smooth(method = "lm",formula = y~ns(x,df=7),aes(colour="Spline"),size=1.5) +
+#   labs(colour="Gender")+
+#   xlab("Age (year)")+ylab("Diastolic (mm Hg)")+
+#    scale_colour_manual(name="Model", values=c("#E69F00", "#56B4E9"))+
+#   theme_minimal()
+
+mf <- reshape2::melt(pred_df,id.vars = c("Age", "Gender","BMI","DIASTOLIC"))
+aw_age_lm <- ggplot(mf,
+         aes(
+           x = Age,
+           y = DIASTOLIC
+         )) +
+  geom_point(data = ~ group_by(.x, Age, Gender,BMI) |> sample_frac(0.2),
+             alpha = 0.2, shape=1) +
+  geom_smooth(aes(x = Age,y=value,colour=variable),size=1.5)+
+  xlab("Age (year)")+ylab("Diastolic (mm Hg)")+ facet_grid(cols = vars(variable))+
+   scale_colour_manual(name="Model", values=c("#E69F00", "#56B4E9"))+
+  theme_minimal()
+
+
+
+raw_age_ns <- ggplot(data,
          aes(
            x = RIDAGEYR,
            y = diastolic
          )) +
   geom_point(data = ~ group_by(.x, RIDAGEYR, RIAGENDR,BMXBMI) |> sample_frac(0.5),
-             alpha = 0.2, shape=1) + 
-  geom_smooth(method = "lm",formula = y~x, aes(colour="Linear"),size=1.5)+
-  geom_smooth(method = "lm",formula = y~ns(x,df=7),aes(colour="Spline"),size=1.5) +
-  labs(colour="Gender")+
+             alpha = 0.2, shape=1) +
+    geom_smooth(aes(x = RIDAGEYR,y=ns_base$fitted.values,colour="Spline"),size=1.5)+
   xlab("Age (year)")+ylab("Diastolic (mm Hg)")+
-   scale_colour_manual(name="Model", values=c("#E69F00", "#56B4E9"))+
+   # scale_colour_manual(name="Model", values=c("#E69F00", "#56B4E9"))+ 
   theme_minimal()
+
+ggpubr::ggarrange(aw_age_lm,raw_age_ns,
+                           common.legend = TRUE,
+                           labels = c('a)','b)'),legend='right') + scale_colour_manual(name="Model", values=c("#E69F00", "#56B4E9"))
+
+
+
 
 raw_bmi <- ggplot(data,
      aes(
