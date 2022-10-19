@@ -55,7 +55,7 @@ nhanes_data <- load_data(exposure_cols)
 data_phs <- phesant(nhanes_data)
 
 data <- data_phs$data
-phs_res <- data_phs$data_types
+phs_res <- data_phs$phs_types
 
 
 
@@ -68,14 +68,13 @@ This part loads the blood pressure data and merges it with the dietary and demog
 set.seed(123)
 nhanes_db <- dbConnect(RSQLite::SQLite(), "../../nhanes.sqlite")
 # BPXDI2,BPXSY1
-blood_pressure <- dbGetQuery(nhanes_db, "select SEQN, BPXDI1,BPXDI2,years from blood_pressure where BPXDI1 IS NOT NULL and BPXDI1 <> 0 and BPXDI2 IS NOT NULL and BPXDI2 <> 0")
+blood_pressure <- dbGetQuery(nhanes_db, "select SEQN, BPXDI1,BPXDI2 from BloodPressure where BPXDI1 IS NOT NULL and BPXDI1 <> 0 and BPXDI2 IS NOT NULL and BPXDI2 <> 0")
 
 dbDisconnect(nhanes_db)
 blood_pressure$diastolic <- rowMeans(blood_pressure[, c('BPXDI1','BPXDI2')])
 
 
-data <- merge(blood_pressure, data, 
-by = c("SEQN",'years'))
+data <- merge(blood_pressure, data, by = "SEQN")
 data <- data[sample(1:nrow(data)), ] # shuffle the data
 data$years <- as.factor(data$years)
 ethnicity <-
@@ -131,11 +130,9 @@ This section compares linear and spline regression of Diastolic blood pressure a
 
 ```{r BPXDI1, echo=TRUE,warning=FALSE}
 
-
 pred_df <- data.frame("Age"=data$RIDAGEYR,
                       "Gender"=data$RIAGENDR,
                       "BMI"=data$BMXBMI,
-                      "DIASTOLIC" = data$diastolic,
                       "Linear"=lm_base$fitted.values,
                       "Spline"=ns_base$fitted.values)
 
@@ -171,53 +168,19 @@ age_res <- plot_bins2(df_age_res,xlab="Age (year)",ylab="Binned Residuals") + yl
 
 
 
-# raw_age <- ggplot(data,
-#          aes(
-#            x = RIDAGEYR,
-#            y = diastolic
-#          )) +
-#   geom_point(data = ~ group_by(.x, RIDAGEYR, RIAGENDR,BMXBMI) |> sample_frac(0.5),
-#              alpha = 0.2, shape=1) + 
-#   geom_smooth(method = "lm",formula = y~x, aes(colour="Linear"),size=1.5)+
-#   geom_smooth(method = "lm",formula = y~ns(x,df=7),aes(colour="Spline"),size=1.5) +
-#   labs(colour="Gender")+
-#   xlab("Age (year)")+ylab("Diastolic (mm Hg)")+
-#    scale_colour_manual(name="Model", values=c("#E69F00", "#56B4E9"))+
-#   theme_minimal()
-
-mf <- reshape2::melt(pred_df,id.vars = c("Age", "Gender","BMI","DIASTOLIC"))
-aw_age_lm <- ggplot(mf,
-         aes(
-           x = Age,
-           y = DIASTOLIC
-         )) +
-  geom_point(data = ~ group_by(.x, Age, Gender,BMI) |> sample_frac(0.2),
-             alpha = 0.2, shape=1) +
-  geom_smooth(aes(x = Age,y=value,colour=variable),size=1.5)+
-  xlab("Age (year)")+ylab("Diastolic (mm Hg)")+ facet_grid(cols = vars(variable))+
-   scale_colour_manual(name="Model", values=c("#E69F00", "#56B4E9"))+
-  theme_minimal()
-
-
-
-raw_age_ns <- ggplot(data,
+raw_age <- ggplot(data,
          aes(
            x = RIDAGEYR,
            y = diastolic
          )) +
   geom_point(data = ~ group_by(.x, RIDAGEYR, RIAGENDR,BMXBMI) |> sample_frac(0.5),
-             alpha = 0.2, shape=1) +
-    geom_smooth(aes(x = RIDAGEYR,y=ns_base$fitted.values,colour="Spline"),size=1.5)+
+             alpha = 0.2, shape=1) + 
+  geom_smooth(method = "lm",formula = y~x, aes(colour="Linear"),size=1.5)+
+  geom_smooth(method = "lm",formula = y~ns(x,df=7),aes(colour="Spline"),size=1.5) +
+  labs(colour="Gender")+
   xlab("Age (year)")+ylab("Diastolic (mm Hg)")+
-   # scale_colour_manual(name="Model", values=c("#E69F00", "#56B4E9"))+ 
+   scale_colour_manual(name="Model", values=c("#E69F00", "#56B4E9"))+
   theme_minimal()
-
-ggpubr::ggarrange(aw_age_lm,raw_age_ns,
-                           common.legend = TRUE,
-                           labels = c('a)','b)'),legend='right') + scale_colour_manual(name="Model", values=c("#E69F00", "#56B4E9"))
-
-
-
 
 raw_bmi <- ggplot(data,
      aes(
@@ -234,7 +197,6 @@ raw_bmi <- ggplot(data,
   scale_colour_manual(values=c("#E69F00", "#56B4E9"))+
   theme_minimal()+
   labs(fill="Gender", colour="Model")
-    
 
 # ggpubr::ggarrange(raw_bmi,raw_age,bmi_res,age_res,common.legend = TRUE,labels = c('a','b','c','d'))
 
@@ -268,21 +230,11 @@ res_g <- ggpubr::ggarrange(bmi_res,age_res,common.legend = TRUE,labels = c('e)',
 
 
 ggpubr::ggarrange(raw_g,fit_g,res_g,nrow = 3,ncol = 1)
-
-
-
 ```
 
 - <em><strong> Note: The trends are difficult to see in binned residuals plot with BMI because most data are squeezed in a small range. A possible solution is to separate BMI from age plots </strong></em> 
 
-## Binned plot for binned residuals against fitted value
 
-```{r bmi_plot, echo=TRUE,warning=FALSE,message=FALSE,dpi = 200}
-df_fitted <- list("Linear"=make_bins(x=lm_base$fitted.values,y=lm_base$residual,nbin=600),
-                "Spline"=make_bins(x=ns_base$fitted.values,y=ns_base$residuals,nbin=600)
-                )
-plot_bins2(df_fitted,xlab="Fitted Value",ylab="Binned Residuals")
-```
 
 
 ## Cross-Validation to determe number of Knots for Age

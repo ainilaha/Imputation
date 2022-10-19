@@ -60,7 +60,7 @@ phs_res <- data_phs$data_types
 linear_model <- 'BMXWAIST ~ RIDAGEYR*RIAGENDR + BMXBMI'
 
 all_ns_model <-
-  'BMXWAIST ~ ns(RIDAGEYR, knots = seq(20, 80, by = 10)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)))'
+  'BMXWAIST ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10), Boundary.knots=c(20,90)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)),Boundary.knots=c(10,85))'
 
 ```
 

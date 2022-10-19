@@ -64,9 +64,9 @@ nhanes_db <- dbConnect(RSQLite::SQLite(), "../../nhanes.sqlite")
 # demo <- dbGetQuery(nhanes_db, "select * from demo")
 # cholesterol <- dbGetQuery(nhanes_db, "select * from cholesterol")
 # BPXDI2,BPXSY1
-blood_pressure <- dbGetQuery(nhanes_db, "select SEQN,BPXDI1,years from blood_pressure where BPXDI1 IS NOT NULL and BPXDI1 <> 0")
+blood_pressure <- dbGetQuery(nhanes_db, "select SEQN,(BPXDI1+BPXDI2)/2 AS DIASTOLIC from BloodPressure where BPXDI1 IS NOT NULL and BPXDI1 <> 0 AND BPXDI2 IS NOT NULL and BPXDI2 <> 0")
 dbDisconnect(nhanes_db)
-data <- merge(blood_pressure, data, by = c("SEQN",'years'))
+data <- merge(blood_pressure, data, by = "SEQN")
 data <- data[sample(1:nrow(data)), ] # shuffle the data
 data$years <- as.factor(data$years)
 ```
@@ -86,11 +86,11 @@ $$ where c=3/8 is recommended.
 
 
 ```{r func3, echo=TRUE,warning=F, out.width = '90%'}
-lm_str <- 'distolic ~ RIDAGEYR*RIAGENDR + BMXBMI + RIDRETH1'
+lm_str <- 'DIASTOLIC ~ RIDAGEYR*RIAGENDR + BMXBMI + RIDRETH1'
 lm_enwas <- enwas(lm_str, exposure_vars, data)
 
 ns_str <-
-  'distolic ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10), Boundary.knots=c(20,90)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)),Boundary.knots=c(10,85)) + RIDRETH1'
+  'DIASTOLIC ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10), Boundary.knots=c(20,90)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)),Boundary.knots=c(10,85)) + RIDRETH1'
 ns_enwas <- enwas(ns_str, exposure_vars, data)
 
 
