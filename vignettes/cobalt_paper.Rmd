@@ -1,0 +1,124 @@
+---
+title: "Cobalt Paper"
+date: "Updated on : `r date()`"
+output: html_document
+---
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+## 1. Load libs
+
+```{r setup,warning=FALSE,message=FALSE}
+library(EnWAS)
+library(splines)
+library(ggplot2)
+library(ggpubr)
+library(dplyr)
+```
+
+
+## 2. Data
+
+```{r data,warning=FALSE,message=FALSE}
+library(DBI)
+nhanes_db <- DBI::dbConnect(RSQLite::SQLite(), "../nhanes.sqlite")
+
+
+
+data <- dbGetQuery(nhanes_db, "SELECT demo.SEQN,
+                                    (BPXDI1+BPXDI2)/2 AS DIASTOLIC,
+                                    RIAGENDR,RIDAGEYR,RIDRETH1,BMXBMI, 
+                                    INDFMPIR,LBXBCO,LBDBCOSI
+                                  FROM
+                                    DemographicVariablesAndSampleWeights as demo
+                                  INNER JOIN BodyMeasures
+                                  ON demo.SEQN=BodyMeasures.SEQN
+                                  INNER JOIN BloodPressure ON
+                                  demo.SEQN=BloodPressure.SEQN
+                                  INNER JOIN ChromiumAndCobalt ON
+                                  demo.SEQN=ChromiumAndCobalt.SEQN
+                                  WHERE
+                                      RIDAGEYR>40
+                                    AND BMXBMI is not NULL
+                                    AND BPXDI1 IS NOT NULL and BPXDI1 <> 0
+                                    AND BPXDI2 IS NOT NULL and BPXDI2 <> 0
+                                    AND LBDBCOSI IS NOT NULL
+                                    AND LBXBCO IS NOT NULL
+                       ")
+
+years <- dbGetQuery(nhanes_db, "SELECT SEQN, years from demo")
+data <- merge(data,years, by="SEQN")
+data$years <- as.factor(data$years)
+data$RIAGENDR <- as.factor(data$RIAGENDR)
+
+
+dim(data)
+sapply(data,function(x) sum(is.na(x)))
+
+levels(data$years)
+
+dbDisconnect(nhanes_db)
+```
+
+
+## 2.1 Hypertension
+
+```{r Hypertension,warning=FALSE,message=FALSE}
+# Hypertension: diastolic blood pressure ≥90mm Hg
+data$hypertension <- data$DIASTOLIC >= 90
+barplot(table(data$hypertension))
+
+```
+
+
+
+## 3. Model
+
+The paper does not say that they use interaction or transformation, but I tried them, and nothing new has been found in showing the following model comparison.
+
+```{r model1,warning=FALSE,message=FALSE}
+base_logit <- glm(hypertension ~ RIDAGEYR + RIAGENDR + BMXBMI, data = data, family = "binomial")
+colt_logit <- glm(hypertension ~ RIDAGEYR + RIAGENDR + BMXBMI+LBXBCO, data = data, family = "binomial")
+
+
+sjPlot::tab_model(base_logit,colt_logit,
+                  dv.labels = c("Base Model", "Cobalt"),
+                  show.stat=TRUE)
+
+print_anova(anova(base_logit,colt_logit,test="LRT"))
+
+```
+
+```{r model2,warning=FALSE,message=FALSE}
+inter <- glm(hypertension ~ (RIDAGEYR + BMXBMI)*RIAGENDR, data = data, family = "binomial")
+inter_cobalt <- glm(hypertension ~ (RIDAGEYR + BMXBMI)*RIAGENDR+LBXBCO, data = data, family = "binomial")
+
+
+sjPlot::tab_model(inter,inter_cobalt,
+                  dv.labels = c("Interaction Model", "Interaction Model with Cobalt"),
+                  show.stat=TRUE)
+
+print_anova(anova(inter,inter_cobalt,test="LRT"))
+
+```
+
+
+```{r model3,warning=FALSE,message=FALSE}
+par(mfrow=c(1,2))
+hist(data$LBXBCO)
+hist(invNorm(data$LBXBCO))
+
+inv_cobalt <- glm(hypertension ~ (RIDAGEYR + BMXBMI)*RIAGENDR+invNorm(LBXBCO), data = data, family = "binomial")
+
+
+sjPlot::tab_model(inter,inv_cobalt,
+                  dv.labels = c("Interaction Model", "Interaction Model with Cobalt"),
+                  show.stat=TRUE)
+
+print_anova(anova(inter,inv_cobalt,test="LRT"))
+
+```
