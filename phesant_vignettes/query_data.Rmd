@@ -13,12 +13,12 @@ knitr::opts_chunk$set(
 ```
 
 
-## Setup functions
-
+## Setup 
+Install the package for the first time.
+`devtools::install_github("ccb-hms/phonto")`
 
 ```{r setup,warning=FALSE,message=FALSE}
-library(DBI)
-
+library(phonto)
 ```
 
 
@@ -48,11 +48,23 @@ We can joint PhytoestrogensUrine, PhthalatesUrine, and DietaryInterviewTotalNutr
 
 ```{r query2,warning=FALSE,message=FALSE}
 df1 <- query_joint_data(config = "./phenotypes3.json")
+
 nrow(df1)
 unique(df1$years)
 ```
 
+### PHSEANT
+We can joint PhytoestrogensUrine, PhthalatesUrine, and DietaryInterviewTotalNutrientIntakesFirstDay along with BodyMeasures, and BloodPressure. we got some data for those participants from the year 2003 to 2008 and attended all of those survey. 
 
+
+```{r PHSEANT,warning=FALSE,message=FALSE}
+df1$RIDRETH1 <- as.factor(df1$RIDRETH1)
+phs_data <- phesant(df1)
+phs_res <- phseant_table(phs_data$phs_types,"./search.json")
+library(kableExtra)
+phs_res |> kbl() |> kable_styling(bootstrap_options = "striped", full_width = F, position = "left")
+
+```
 
 
 
@@ -83,8 +95,8 @@ Previously, we removed the diastolic values with 0 zeros. However, NHANES shows 
 
 ```{r blood,warning=FALSE,message=FALSE}
 nhanes_db <- DBI::dbConnect(RSQLite::SQLite(), "../nhanes.sqlite")
-blood <- dbGetQuery(nhanes_db, "select  BPXDI1,BPXDI2, BPXSY1,BPXSY2 from BloodPressure")
-dbDisconnect(nhanes_db)
+blood <- DBI::dbGetQuery(nhanes_db, "select  BPXDI1,BPXDI2, BPXSY1,BPXSY2 from BloodPressure")
+DBI::dbDisconnect(nhanes_db)
 sapply(blood, function(x)sum(is.na(x)))
 sapply(blood, function(x)length(which(x==0)))
 sapply(blood[blood$BPXDI1!=0,], function(x)length(which(x==0)))
