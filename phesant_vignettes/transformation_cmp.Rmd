@@ -1,0 +1,177 @@
+---
+title: "transformation comparison"
+output: html_document
+---
+
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+
+
+
+```{r setup,warning=FALSE,message=FALSE}
+library(EnWAS)
+library(splines)
+library(ggplot2)
+library(ggpubr)
+library(dplyr)
+
+library(DBI)
+nhanes_db <- DBI::dbConnect(RSQLite::SQLite(), "../nhanes.sqlite")
+
+
+base_df <- dbGetQuery(nhanes_db, "SELECT demo.SEQN,
+                                    (BPXDI1+BPXDI2)/2 AS DIASTOLIC,
+                                    RIAGENDR,RIDAGEYR,RIDRETH1,BMXBMI, 
+                                    INDFMPIR,DMDEDUC2
+                                  FROM
+                                    DemographicVariablesAndSampleWeights as demo
+                                  INNER JOIN BodyMeasures
+                                  ON demo.SEQN=BodyMeasures.SEQN
+                                  INNER JOIN BloodPressure ON
+                                  demo.SEQN=BloodPressure.SEQN
+                                  WHERE
+                                      RIDAGEYR>20
+                                    AND BMXBMI is not NULL
+                                    AND BPXDI1 IS NOT NULL and BPXDI1 <> 0
+                                    AND BPXDI2 IS NOT NULL and BPXDI2 <> 0
+                                    AND DMDEDUC2 IS NOT NULL
+                       ")
+base_df$RIDRETH1 <- as.factor(base_df$RIDRETH1)
+base_df$RIAGENDR <- as.factor(base_df$RIAGENDR)
+
+years <- dbGetQuery(nhanes_db, "SELECT SEQN, years from demo")
+base_df <- merge(base_df,years, by="SEQN")
+base_df$years <- as.factor(base_df$year)
+
+nDEDUC = ifelse(base_df$DMDEDUC2 < 3, "<HS", ifelse(base_df$DMDEDUC2 == 3, "HS", 
+                                                    ifelse(base_df$DMDEDUC2 < 6, ">HS", NA)))
+base_df$nDEDUC <- as.factor(nDEDUC)
+base_df <-  base_df[!is.na(base_df$nDEDUC),]
+
+```
+
+## LBDBSESI   LBXBSE
+
+```{r LBDBSESI,warning=FALSE,message=FALSE}
+
+
+plot_trans <- function(x){
+  layout(matrix(c(1,2,3), ncol=3, byrow=TRUE))
+  par(mar=c(4.0,4.0,3.5,1))
+  x <- na.omit(x)
+  hist(x,main = "none")
+  log(x+1e-5) |> scale() |> hist(main="log-Z")
+  invNorm(x) |> hist(main="INVT")  
+}
+ns_str <-
+  'DIASTOLIC ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10), Boundary.knots=c(20,90)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)),Boundary.knots=c(10,85)) + RIDRETH1+nDEDUC'
+
+```
+
+
+```{r LBDBSESI2,warning=FALSE,message=FALSE,dpi=200}
+df_ctms <- dbGetQuery(nhanes_db, "SELECT SEQN, LBDBSESI, LBXBSE from CadmiumLeadTotalMercurySeleniumAndManganeseBlood")
+plot_trans(df_ctms$LBDBSESI)
+
+tmp_df = merge(base_df,df_ctms,by = 'SEQN')
+
+non_model <- lm(as.formula(paste0(ns_str,"+LBDBSESI")),tmp_df)
+inv_model <- lm(as.formula(paste0(ns_str,"+invNorm(LBDBSESI)")),tmp_df)
+
+layout(matrix(c(1,2), ncol=2, byrow=TRUE))
+par(mar=c(4.0,4.0,3.5,1))
+plot(non_model,5,main = "none")
+plot(inv_model,which=5,main = "INT")
+
+
+
+```
+```{r LBXBSE,warning=FALSE,message=FALSE,dpi=200}
+plot_trans(df_ctms$LBXBSE)
+non_model <- lm(as.formula(paste0(ns_str,"+LBXBSE")),tmp_df)
+inv_model <- lm(as.formula(paste0(ns_str,"+invNorm(LBXBSE)")),tmp_df)
+
+layout(matrix(c(1,2), ncol=2, byrow=TRUE))
+par(mar=c(4.0,4.0,3.5,1))
+plot(non_model,5,main = "none")
+plot(inv_model,which=5,main = "INT")
+```
+
+
+```{r LBXBSE1,warning=FALSE,message=FALSE,dpi=200}
+
+df_ctms <- dbGetQuery(nhanes_db, "select SEQN,URXEQU, URXETD,URXETL,URXGNS from PhytoestrogensUrine")
+tmp_df = merge(base_df,df_ctms,by = 'SEQN')
+
+ns_str <-
+  'DIASTOLIC ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10), Boundary.knots=c(20,90)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)),Boundary.knots=c(10,85)) + RIDRETH1+nDEDUC+years'
+non_model <- lm(as.formula(paste0(ns_str,"+URXETL")),tmp_df)
+inv_model <- lm(as.formula(paste0(ns_str,"+invNorm(URXETL)")),tmp_df)
+layout(matrix(c(1,2), ncol=2, byrow=TRUE))
+par(mar=c(4.0,4.0,3.5,1))
+plot(non_model,5,main = "none")
+plot(inv_model,which=5,main = "INT")
+
+
+non_model <- lm(as.formula(paste0(ns_str,"+URXETL")),tmp_df)
+inv_model <- lm(as.formula(paste0(ns_str,"+invNorm(URXETL)")),tmp_df)
+layout(matrix(c(1,2), ncol=2, byrow=TRUE))
+par(mar=c(4.0,4.0,3.5,1))
+plot(non_model,5)
+plot(inv_model,which=5)
+
+
+layout(matrix(c(1,2), ncol=2, byrow=TRUE))
+par(mar=c(4.0,4.0,3.5,1))
+plot(non_model,5,main = "none")
+plot(inv_model,which=5,main = "INT")
+
+
+
+plot_trans(df_ctms$URXEQU)
+plot_trans(df_ctms$URXETD)
+plot_trans(df_ctms$URXETL)
+
+plot_trans(df_ctms$URXGNS)
+
+df_ctms <- dbGetQuery(nhanes_db, "SELECT SEQN, URX4FP,URXMAL, URXOPM from PyrethroidsHerbicidesAndOPMetabolitesUrine")
+
+
+plot_trans(df_ctms$URX4FP)
+
+tmp_df = merge(base_df,df_ctms,by = 'SEQN')
+non_model <- lm(as.formula(paste0(ns_str,"+scale(log(URX4FP+1e-5))")),tmp_df)
+inv_model <- lm(as.formula(paste0(ns_str,"+invNorm(URX4FP)")),tmp_df)
+layout(matrix(c(1,2), ncol=2, byrow=TRUE))
+par(mar=c(4.0,4.0,3.5,1))
+plot(non_model,5,main = "log-z")
+plot(inv_model,which=5,main = "INT")
+
+
+
+plot_trans(df_ctms$URXMAL)
+plot_trans(df_ctms$URXOPM)
+non_model <- lm(as.formula(paste0(ns_str,"+URXOPM")),tmp_df)
+inv_model <- lm(as.formula(paste0(ns_str,"+invNorm(URXOPM)")),tmp_df)
+layout(matrix(c(1,2), ncol=2, byrow=TRUE))
+par(mar=c(4.0,4.0,3.5,1))
+plot(non_model,5,main = "none")
+plot(inv_model,which=5,main = "INT")
+
+
+df_ctms <- dbGetQuery(nhanes_db, "SELECT SEQN, URXMZP,URXMCP, URXCNP from PhthalatesUrine")
+plot_trans(df_ctms$URXMZP)
+plot_trans(df_ctms$URXMCP)
+plot_trans(df_ctms$URXCNP)
+
+
+
+dbDisconnect(nhanes_db)
+```
+

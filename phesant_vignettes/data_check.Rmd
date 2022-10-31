@@ -1,0 +1,169 @@
+---
+title: "Data Check"
+output: html_document
+date: "Updated on : `r date()`"
+---
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+### This notebook needs to run under the NHANES docker to get access to the database. 
+
+## 0.1 DB Connection
+```{r conn,warning=FALSE,message=FALSE}
+sqlHost = "localhost"
+sqlUserName = "sa"
+sqlPassword = "yourStrong(!)Password"
+sqlDefaultDb = "NhanesLandingZone"
+
+# connect to SQL
+cn = MsSqlTools::connectMsSqlSqlLogin(
+    server = sqlHost, 
+    user = sqlUserName, 
+    password = sqlPassword, 
+    database = sqlDefaultDb
+)
+```
+
+
+
+
+## 0.2 Demo
+`years.csv` is only contains two columns (`SEQN` and `SEQN`). We need this file because the `years` column in `DemographicVariablesAndSampleWeights` still not correct in the database. Otherwise, we can query it from the table.
+
+```{r demo,warning=FALSE,message=FALSE}
+years <- read.csv("../data/years.csv")
+
+demo = DBI::dbGetQuery(cn, "SELECT SEQN, RIAGENDR,RIDAGEYR,DMDEDUC2 FROM [NhanesLandingZone].[dbo].[DemographicVariablesAndSampleWeights] ")
+
+demo <- merge(demo,years, by="SEQN")
+table(demo$years)
+```
+
+
+## 1. PhytoestrogensUrine
+Phytoestrogens Urine is across three tables and we need query and combine them together.
+```{r pu,warning=FALSE,message=FALSE}
+# query for the years:2003-2004 2005-2006 2007-2008 2009-2010 
+pu = DBI::dbGetQuery(cn, "SELECT * from PhytoestrogensUrine")
+# query:2000-2001
+pu1 = DBI::dbGetQuery(cn, "SELECT * from PhthalatesPhytoestrogensAndPAHsUrine")
+
+# query:"1999-2000"
+pu2 = DBI::dbGetQuery(cn, "SELECT * from PhthalatesPhytoestrogensAndPAHsUrinePHPYPAUrinaryPhthalates")
+
+com_cols <- intersect(colnames(pu), colnames(pu1))
+pu <- rbind(pu[, com_cols], pu1[, com_cols])
+com_cols <- intersect(colnames(pu), colnames(pu2))
+pu <- rbind(pu[, com_cols], pu2[, com_cols])
+
+pu <- merge(pu,years, by="SEQN")
+table(pu$years)
+```
+
+
+## 2. PhthalatesUrine
+Phthalates Urine also is across three tables and we need query and combine them together. Two of them have query in the above.
+```{r ptu,warning=FALSE,message=FALSE}
+# query for the years: 2003-2004 2005-2006 2007-2008 2009-2010 
+ptu = DBI::dbGetQuery(cn, "SELECT * from PhthalatesUrine")
+
+# add year 2000-2001
+com_cols <- intersect(colnames(ptu), colnames(pu1))
+ptu <- rbind(ptu[, com_cols], pu1[, com_cols])
+# add year 1999-2000
+com_cols <- intersect(colnames(ptu), colnames(pu2))
+ptu <- rbind(ptu[, com_cols], pu2[, com_cols])
+
+ptu <- merge(ptu,years, by="SEQN")
+table(ptu$years)
+```
+
+## 2. MercuryInorganicUrine
+```{r miu,warning=FALSE,message=FALSE}
+# query for the years: 2003-2004 2005-2006 2007-2008 2009-2010 
+miu = DBI::dbGetQuery(cn, "SELECT * from MercuryInorganicUrine")
+
+miu <- merge(miu,years, by="SEQN")
+table(miu$years)
+```
+
+
+## 3. PesticidesEnvironmentalUrine
+```{r pe,warning=FALSE,message=FALSE}
+# query for the years: 2003-2004 2005-2006 2007-2008 2009-2010 2011-2012  
+pe = DBI::dbGetQuery(cn, "SELECT * from PesticidesEnvironmentalUrine")
+pe <- merge(pe,years, by="SEQN")
+table(pe$years)
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+## 4. CadmiumLeadTotalMercurySeleniumAndManganeseBlood
+Again, the table names are not consistent over the years and we need to query the data from those tables and put them together.
+
+```{r cd,warning=FALSE,message=FALSE}
+# query for the years: 2013-2014 2015-2016 2017-2018 
+cd = DBI::dbGetQuery(cn, "SELECT * from LeadCadmiumTotalMercurySeleniumAndManganeseBlood ")
+# query 2011-2012 
+cd1 = DBI::dbGetQuery(cn, "SELECT * from CadmiumLeadTotalMercurySeleniumAndManganeseBlood")
+
+com_cols <- intersect(colnames(cd), colnames(cd1))
+cd <- rbind(cd[, com_cols], cd1[, com_cols])
+
+cd <- merge(cd,years, by="SEQN")
+table(cd$years)
+```
+
+## 5. PyrethroidsHerbicidesAndOPMetabolitesUrine
+The same as the above.
+```{r ph,warning=FALSE,message=FALSE}
+# query for the years: 2007-2008 2009-2010 
+ph = DBI::dbGetQuery(cn, "SELECT * from PyrethroidsHerbicidesAndOPMetabolitesUrine")
+# query 2011-2012 2013-2014
+ph1 <- DBI::dbGetQuery(cn, "SELECT * from PyrethroidsHerbicidesAndOrganophosphorusMetabolitesUrine")
+com_cols <- intersect(colnames(ph), colnames(ph1))
+ph <- rbind(ph1[, com_cols], ph[, com_cols])
+
+ph <- merge(ph,years, by="SEQN")
+table(ph$years)
+
+# shows we have no overlap years for all of those data
+Reduce(intersect, list(unique(pe$years),
+                       unique(miu$years),
+                       unique(ptu$years),
+                       unique(cd$years),
+                       unique(ph$years)
+                       ))
+# These three have some years overlap
+Reduce(intersect, list(unique(pe$years),
+                       unique(miu$years),
+                       unique(ptu$years)
+                       ))
+# These two also have two years overlap
+Reduce(intersect, list(
+                       unique(cd$years),
+                       unique(ph$years)
+                       ))
+
+DBI::dbDisconnect(cn)
+```
+
+
+
+
+
+

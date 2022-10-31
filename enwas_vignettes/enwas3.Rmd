@@ -28,42 +28,13 @@ library(dplyr)
 # nhanes <- phesant_res$data
 
 library(DBI)
-nhanes_db <- DBI::dbConnect(RSQLite::SQLite(), "../nhanes.sqlite")
 
-
-base_df <- dbGetQuery(nhanes_db, "SELECT demo.SEQN,
-                                    (BPXDI1+BPXDI2)/2 AS DIASTOLIC,
-                                    RIAGENDR,RIDAGEYR,RIDRETH1,BMXBMI, INDFMPIR
-                                  FROM
-                                    DemographicVariablesAndSampleWeights as demo
-                                  INNER JOIN BodyMeasures ON demo.SEQN=BodyMeasures.SEQN
-                                  INNER JOIN BloodPressure ON demo.SEQN=BloodPressure.SEQN
-                                  WHERE
-                                      RIDAGEYR>20
-                                    AND BMXBMI is not NULL
-                                    AND BPXDI1 IS NOT NULL and BPXDI1 <> 0
-                                    AND BPXDI2 IS NOT NULL and BPXDI2 <> 0
-                                    AND INDFMPIR IS NOT NULL  
-                       ")
-base_df$RIDRETH1 <- as.factor(base_df$RIDRETH1)
-base_df$RIAGENDR <- as.factor(base_df$RIAGENDR)
-
-years <- dbGetQuery(nhanes_db, "SELECT SEQN, years from demo")
-
-base_df <- merge(base_df,years, by="SEQN")
-base_df$years <- as.factor(base_df$years)
 
 ```
 
 ## 1. Run EnWAS
 
-### 1.0 Base Model
 
-```{r enwas, echo=TRUE,warning=F, out.width = '90%',dpi = 200}
-ns_str <-
-  'DIASTOLIC ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10), Boundary.knots=c(20,90)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)),Boundary.knots=c(10,75)) + RIDRETH1'
-
-```
 ### 1.1 Data Preprocess with PHESANT-like tool before EnWAS
 Before feeding the data into any model, we probably need to do data preprocess (e.g., clean or fill NAs, drop out columns, and transformation). In the data preprocessing phase, it is essential to properly tidy the data that models can process and learn from the data distributions; as said, “garbage in, garbage out.”  In other words, the outputs of the models may be meaningless if we feed the raw data without tidiness and with too much noise or too little information.
 
@@ -74,35 +45,48 @@ For NHANES data, we developed a PHESANT-like tool that can preprocess the data, 
 
 
 The following function takes data for the base model merge with the phenotype data configured JSON file and queries from the base. Further, we can  EnWAS function to run EnWAS on the phenotypes.
-```{r enwas00, echo=TRUE,warning=F, out.width = '90%',dpi = 200}
-enwas_all <- function(base_df=base_df, nhanes_db=nhanes_db,
-                      epx_file="./phenotypes.json",trans="none"){
-  exposures <- jsonlite::fromJSON(epx_file)
-  qc_mtrx <- data.frame(matrix(ncol = 9, nrow = 0))
-  xwas_df <- data.frame(matrix(ncol = 9, nrow = 0))
-  model_list <- list() ## need to replace with :vector(mode = "list", length = num_var)
-  for(tb_name in names(exposures)){
-    exprs <- exposures[tb_name][[1]]
-    expr_data <- load_exprs(exprs,tb_name,nhanes_db)
-    data <- merge(base_df,expr_data$data,by="SEQN")
-    ns_enwas <- enwas(ns_str, exprs, data,trans = trans)
-    xwas_df <- rbind(xwas_df,ns_enwas$enwas_res)
-    qc_mtrx <- rbind(qc_mtrx,ns_enwas$qc_mtx)
-    model_list <- c(model_list,ns_enwas$model_list)
-  }
-  return (list(qc_mtx = qc_mtrx,enwas_res = xwas_df,model_list=model_list))
-}
+```{r enwas00, echo=TRUE,warning=F, message=FALSE,out.width = '90%',dpi = 200}
+library(phonto)
+data <- query_joint_data(config = "./phenotypes.json",db_file = "../nhanes.sqlite")
+# it would convert to ordered if we do not make the as factor because all those values are presented by integers in NHANES
+data$years <- as.factor(data$years)
+data$RIDRETH1 <- as.factor(data$RIDRETH1)
 
-xwas <- enwas_all(base_df,nhanes_db)
+nDEDUC = ifelse(data$DMDEDUC2 < 3, "<HS", ifelse(data$DMDEDUC2 == 3, "HS", 
+                                                    ifelse(data$DMDEDUC2 < 6, ">HS", NA)))
+data$DMDEDUC2 <- as.factor(nDEDUC)
+
+phs_data <- phesant(data)
+
+
+# drop systolic and diastolic blood pressure and waist circumference for now because we are running BPXDI1,BPXDI2.
+
+data <- subset(phs_data$data,select=-c(BPXSY1,BPXSY2,BPXDI1,BPXDI2))
+
+data <- na.omit(data)
+
+
+
 ```
+
+### 2.0 EnWAS
+
+```{r enwas, echo=TRUE,warning=F, out.width = '90%',dpi = 200}
+ns_str <-
+  'BMXWAIST ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10), Boundary.knots=c(20,90)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)),Boundary.knots=c(10,75)) + RIDRETH1 + DMDEDUC2+years'
+
+exposures <- jsonlite::fromJSON("phenotypes.json")
+exposures <- unlist(exposures[3:length(exposures)]) # skip BodyMeasures and BloodPressure
+xwas <- enwas(ns_str,exposures,data)
+
+```
+
 
 The following forest plot shows the estimates and CI of the exposure variables and only displays the top 30 ranked by absolute values of the estimates. The variables with their CI containing zeros are also removed.
 
 ```{r enwas00_forest, echo=TRUE,warning=F, out.width = '90%',dpi = 200}
 forest_plot(xwas$enwas_res,30) # filter out CI contains 0
 ```
-
-
 
 
 ### 3. Inverse Normal Transformation
@@ -115,8 +99,8 @@ $$ where c=3/8 is recommended.
 
 The following forest plot shows the top 30 exposures, ranked and filtered as abovementioned.
 ```{r enwas_inv, echo=TRUE,warning=F, out.width = '90%',dpi = 200}
-xwas_inv <- enwas_all(base_df,nhanes_db,trans = "inv")
-forest_plot(xwas_inv$enwas_res,30)
+xwas_inv <- enwas(ns_str,exposures,data,trans = "inv")
+# forest_plot(xwas_inv$enwas_res,30)
 ```
 
 ### 4. Log and Z-transformation
@@ -125,8 +109,8 @@ The phenotype are transformed with log and z-standardized.
 
 The following forest plot shows the top 30 exposures, ranked and filtered as abovementioned.
 ```{r enwas_inv1, echo=TRUE,warning=F, out.width = '90%',dpi = 200}
-xwas_log <- enwas_all(base_df,nhanes_db,trans = "log")
-forest_plot(xwas_log$enwas_res,30)
+xwas_log <- enwas(ns_str,exposures,data,trans = "log")
+# forest_plot(xwas_log$enwas_res,30)
 ```
 
 
@@ -164,24 +148,18 @@ enwas_res = data.frame(x=xwas$enwas_res$estimate,
                        term = xwas_inv$enwas_res$term
                        )
 
-library(ggrepel)
 
-top_n_diff <- 20
 
-enwas_res |>
-ggplot(aes(x,y,label = term, colour=term)) +
-  geom_point(size=1.5)+
-  geom_errorbar(aes(ymin = y_lower, ymax = y_upper))+
-  geom_errorbarh(aes(xmin = x_lower,xmax = x_upper)) +
-  geom_text_repel(data=dplyr::top_n(enwas_res,top_n_diff,diff1),aes(label=term))+
-  theme_minimal()+
-  theme(legend.position = "none")+xlab("EnWAS") + ylab("EnWAS INT")
+
 ```
 
 The following scatter plot remove the error bars and text labeled the top 20 most difference variables.
 
 Scatter plot for estimates of EnWAS  non-transformed (`EnWAS`) with inverse normal transformation (`EnWAS INT`).
 ```{r enwas_inv230, echo=TRUE,warning=F, out.width = '90%',dpi = 200}
+library(ggrepel)
+
+top_n_diff <- 20
 enwas_res |>
 ggplot(aes(x,y,label = term,colour=term)) +
   geom_point(size=1.5)+
@@ -249,25 +227,6 @@ lrt_mtx |> dplyr::arrange(P_value) |> head(10) |>
 
 
 
-### 1.0  Folate - RBC
-Folate, serum
-'LBDRFO', # RBC folate (ng/mL)
-'LBDRFOSI' # RBC folate (nmol/L)
-[cook book](https://wwwn.cdc.gov/Nchs/Nhanes/2017-2018/FOLATE_J.htm)
-
-```{r enwas44, echo=TRUE,warning=F, out.width = '90%',dpi = 200}
-# fs_exprs = c('LBDRFO', # RBC folate (ng/mL)
-#              'LBDRFOSI' # RBC folate (nmol/L)
-#           )
-# 
-# FolateRBC_expr <- load_exprs(fs_exprs,"FolateRBC",nhanes_db)
-# data <- merge(base_df,FolateRBC_expr$data,by="SEQN")
-# # LBDRFOSI behave very strange without inverse nomral transformation
-# ns_enwas_FolateRBC_expr <- enwas(ns_str, fs_exprs, data,inv_norm = TRUE)
-
-```
-
-
 
 
 
@@ -309,72 +268,4 @@ xwas_inv$enwas_res |> filter(lower*upper > 0) |>
 # lollipop(qc_mtx,y="p_LRT",is_desc = TRUE)
 # lollipop(qc_mtx,y="BIC",is_desc = TRUE)
 # lollipop(qc_mtx,y="AIC",is_desc = TRUE)
-```
-
-
-### 7. Cross Validation for EnWAS
-
-```{r cv, echo=TRUE,warning=F, out.width = '90%',dpi = 200}
-
-cross_val <- function(model_str,data_set,top_exrs,trans=FALSE,label="DIASTOLIC"){
-  
-  # years <- levels(data_set$years)
-  years <- c("2003-2004","2005-2006","2007-2008","2009-2010")
-  len_year <- length(years)
-  mse_mtx <- matrix(0, nrow = length(top_exrs), ncol = len_year)
-  rownames(mse_mtx) <- top_exrs
-  colnames(mse_mtx) <- years
-
-  for (i in 1:len_year){
-      cv_train <- data_set[data_set$years != years[i], ]
-      cv_test <- data_set[data_set$years == years[i], ]
-      if (nrow(cv_test)>1){
-        mse <- enwas_cv(model_str,top_exrs,train_set = cv_train,
-                        test_set = cv_test,lab_col = label,
-                        inv_norm =trans)
-        mse_mtx[,i] <- mse 
-      }
-
-  }
- mse_df <- as.data.frame(reshape2::melt(mse_mtx))
- colnames(mse_df) <- c("Exposures","Years","MSE")
- mse_df
-
-}
-
-
-
-
-
-top_n_exprs <- xwas$enwas_res |> filter(lower*upper > 0) |>
-    dplyr::top_n(30,abs(estimate)) |>
-   dplyr::arrange(dplyr::desc(estimate)) 
-top_n_exprs$term
-
-
-
-exposures <- jsonlite::fromJSON("./phenotypes.json")
-cv_df <- data.frame(matrix(ncol = 3, nrow = 0))
-for(tb_name in names(exposures)){
-  exprs <- exposures[tb_name][[1]]
-  exprs <- intersect(top_n_exprs$term,exprs)
-  if(length(exprs)>0){
-    expr_data <- load_exprs(exprs,tb_name,nhanes_db)
-    data <- merge(base_df,expr_data$data,by="SEQN")
-    cv_tmp <- cross_val(ns_str,data,exprs)
-    cv_df <- rbind(cv_df,cv_tmp)
-  }
-  
-}
-
-
-cv_df |>
-  ggplot(aes(x=Exposures,y=MSE,fill=Exposures )) +
-  geom_boxplot()+
-  scale_x_discrete(guide = guide_axis(angle = 45))+
-  theme_minimal()+theme(legend.position="none")
-
-
-dbDisconnect(nhanes_db)
-
 ```

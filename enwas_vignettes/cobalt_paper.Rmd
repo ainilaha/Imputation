@@ -1,0 +1,72 @@
+---
+title: "Cobalt Paper"
+date: "Updated on : `r date()`"
+output: html_document
+---
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+## 1. Load libs
+
+```{r setup,warning=FALSE,message=FALSE}
+library(EnWAS)
+library(splines)
+library(ggplot2)
+library(ggpubr)
+library(dplyr)
+```
+
+
+## 2. Data
+
+```{r data,warning=FALSE,message=FALSE}
+library(phonto)
+data <- query_joint_data(config = "./cobalt.json",db_file = "../nhanes.sqlite")
+# it would convert to ordered if we do not make the as factor because all those values are presented by integers in NHANES
+data$years <- as.factor(data$years)
+data$RIDRETH1 <- as.factor(data$RIDRETH1)
+
+nDEDUC = ifelse(data$DMDEDUC2 < 3, "<HS", ifelse(data$DMDEDUC2 == 3, "HS", 
+                                                    ifelse(data$DMDEDUC2 < 6, ">HS", NA)))
+data$DMDEDUC2 <- as.factor(nDEDUC)
+
+data <- data[data$BPXDI1!=0 | data$BPXDI2!=0,]
+data <- na.omit(data)
+
+data$DIASTOLIC <- (data$BPXDI1+data$BPXDI2)/2
+data$SISTOLIC <- (data$BPXSY1+data$BPXSY2)/2
+
+```
+
+
+## 2.1 Hypertension
+https://wwwn.cdc.gov/nchs/nhanes/2011-2012/BPQ_G.htm
+
+```{r Hypertension,warning=FALSE,message=FALSE}
+# Hypertension was defined as systolic blood pressure (SBP) ≥140 mm Hg, diastolic blood pressure ≥90mm Hg, or the use of antihypertensive medication. 
+
+data$hypertension <- data$DIASTOLIC >= 90 | data$SISTOLIC >= 140 |  data$BPQ020==1
+barplot(table(data$hypertension))
+
+```
+
+
+
+## 3. Model
+
+The paper does not say that they use interaction or transformation, but I tried them, and nothing new has been found in showing the following model comparison.
+
+```{r model1,warning=FALSE,message=FALSE}
+base_logit <- glm(hypertension ~ RIDAGEYR + RIAGENDR + BMXBMI+DMDEDUC2+LBDBCOSI, data = data, family = "binomial")
+colt_logit <- glm(hypertension ~ RIDAGEYR + RIAGENDR + BMXBMI+DMDEDUC2+LBXBCO, data = data, family = "binomial")
+
+
+sjPlot::tab_model(base_logit,colt_logit,
+                  dv.labels = c("LBDBCOSI", "LBXBCO"),
+                  show.ci = FALSE,show.stat = TRUE,show.se = TRUE,p.style = "scientific", digits.p = 2)
+
+```

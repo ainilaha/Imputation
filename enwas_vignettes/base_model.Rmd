@@ -48,6 +48,7 @@ base_df <- dbGetQuery(nhanes_db, "SELECT demo.SEQN,
                                     AND BMXBMI is not NULL
                                     AND BPXDI1 IS NOT NULL and BPXDI1 <> 0
                                     AND BPXDI2 IS NOT NULL and BPXDI2 <> 0
+                                    AND DMDEDUC2 IS NOT NULL
                        ")
 base_df$RIDRETH1 <- as.factor(base_df$RIDRETH1)
 base_df$RIAGENDR <- as.factor(base_df$RIAGENDR)
@@ -66,18 +67,6 @@ Given the scientific question, we can identify a response or outcome of interest
 The interaction terms of BMI and sex have a low p-value and seem meaningful to add the variable. However, adding interaction terms of BMI and sex changed the estimate of interaction terms of age and sex, making the model not change too much in general. ANOVA LRT results also show that the 'Sum of Sq' is also considerably small.
 
 
-```{r basemode1}
-
-lm_str0 <- 'DIASTOLIC ~ RIDAGEYR*RIAGENDR + BMXBMI + RIDRETH1'
-lm_base0 <- lm(formula = as.formula(lm_str0),base_df)
-lm_str1 <- 'DIASTOLIC ~ (RIDAGEYR+ BMXBMI)*RIAGENDR + RIDRETH1'
-lm_base1 <- lm(formula = as.formula(lm_str1),base_df)
-sjPlot::tab_model(lm_base0,lm_base1,
-                  dv.labels = c("DIASTOLIC~Age*Sex+...", "DIASTOLIC~(Age+BMI)*Sex+..."),
-                  show.stat=TRUE)
-print_anova(anova(lm_base0,lm_base1,test="LRT"))
-```
-
 As we can see from the long table, none of the degrees of BMI with natural spline terms has a low p-value (< 0.05), and the 'Sum of Sq' is also considerably small. Therefore, it may not be worth adding an interaction term for the spline model.
 
 ```{r basemode10}
@@ -89,7 +78,7 @@ ns_str1 <-
 ns_base1 <- lm(formula = as.formula(ns_str1),base_df)
 sjPlot::tab_model(ns_base0,ns_base1,
                   dv.labels = c("DIASTOLIC~ns(Age..)*Sex+...", "DIASTOLIC~((ns(Age..)+ns(BMI..))*Sex+..."),
-                  show.stat=TRUE)
+                  show.ci = FALSE,show.stat = TRUE,show.se = TRUE)
 print_anova(anova(ns_base0,ns_base1,test="LRT"))
 
 ```
@@ -117,41 +106,40 @@ ns_base_in <- lm(formula = as.formula(ns_str_in), base_df[!is.na(base_df$INDFMPI
 # print_anova(anova(ns_base,ns_base_in,test="LRT"))
 sjPlot::tab_model(ns_base,ns_base_in,
                   dv.labels = c("ns_base", "ns_base + INDFMPIR"),
-                  show.stat=TRUE)
+                  show.ci = FALSE,show.stat = TRUE,show.se = TRUE)
 
 ```
 
 [Education](https://wwwn.cdc.gov/Nchs/Nhanes/2015-2016/DEMO_I.htm#DMDEDUC2)
 
-The code and Value Description as following:
-- 1:Less than 9th grade	
-- 2:9-11th grade (Includes 12th grade with no diploma)
-- 3:High school graduate/GED or equivalent		
-- 4:Some college or AA degree		
-- 5:College graduate or above	
-- 7:Refused	
-- 9:Don't Know	
-- .:Missing	
 
-Education significantly impacts the outcome (diastolic) based on p-values. However, we can find the relative Sum of Sq for `DMDEDUC2` is 1880.9/4953590=0.0003797044=0.4%, which is also considerably small.
+Grupby
+ < High School
+  - High School
+ > High School
+
+Education significantly impacts the outcome (diastolic) based on p-values. However, we can find the relative Sum of Sq for `DMDEDUC2` is  also considerably small.
 
 ```{r ses_edu}
-base_df$DMDEDUC2 <- as.factor(base_df$DMDEDUC2)
+nDEDUC = ifelse(base_df$DMDEDUC2 < 3, "<HS", ifelse(base_df$DMDEDUC2 == 3, "HS", 
+                                                    ifelse(base_df$DMDEDUC2 < 6, ">HS", NA)))
+base_df$nDEDUC <- as.factor(nDEDUC)
+base_df <-  base_df[!is.na(base_df$nDEDUC),]
 ns_str <-
   'DIASTOLIC ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10), Boundary.knots=c(20,90)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)),Boundary.knots=c(10,85)) + RIDRETH1'
-ns_base <- lm(formula = as.formula(ns_str), base_df[!is.na(base_df$DMDEDUC2),])
+ns_base <- lm(formula = as.formula(ns_str), base_df[!is.na(base_df$nDEDUC),])
 
 ns_str_edu <-
-  'DIASTOLIC ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10), Boundary.knots=c(20,90)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)),Boundary.knots=c(10,85)) + RIDRETH1+ DMDEDUC2'
-ns_base_edu <- lm(formula = as.formula(ns_str_edu), base_df[!is.na(base_df$DMDEDUC2),])
+  'DIASTOLIC ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10), Boundary.knots=c(20,90)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)),Boundary.knots=c(10,85)) + RIDRETH1+ nDEDUC'
+ns_base_edu <- lm(formula = as.formula(ns_str_edu), base_df[!is.na(base_df$nDEDUC),])
 
 print_anova(anova(ns_base,ns_base_edu,test="LRT"))
 sjPlot::tab_model(ns_base,ns_base_edu,
-                  dv.labels = c("ns_base", "ns_base + DMDEDUC2"),
-                  show.stat=TRUE)
+                  dv.labels = c("ns_base", "ns_base + Education"),
+                  show.ci = FALSE,show.stat = TRUE,show.se = TRUE,p.style = "scientific", digits.p = 2)
 ```
 
-Similar to education, years significantly impacts the outcome (diastolic) based on p-values. However, we can find the relative Sum of Sq for `year` is 47599/4953655=0.009608865= 1%, which is also considerably small.
+Similar to education, years significantly impacts the outcome (diastolic) based on p-values. However, we can find the relative Sum of Sq for `year` is is also considerably small.
 ```{r ses_year}
 
 ns_str <-
@@ -165,7 +153,7 @@ ns_base_year <- lm(formula = as.formula(ns_str_edu), base_df)
 print_anova(anova(ns_base,ns_base_year,test="LRT"))
 sjPlot::tab_model(ns_base,ns_base_year,
                   dv.labels = c("ns_base", "ns_base + years"),
-                  show.stat=TRUE)
+                  show.ci = FALSE,show.stat = TRUE,show.se = TRUE,p.style = "scientific", digits.p = 2)
 ```
 
 
@@ -183,11 +171,12 @@ In the following demonstrations, we built a linear model and a spline model to s
 
 
 ```{r build_base_model}
-lm_str <- 'DIASTOLIC ~ RIDAGEYR*RIAGENDR + BMXBMI + RIDRETH1'
+
+lm_str <- 'DIASTOLIC ~ RIDAGEYR*RIAGENDR + BMXBMI + RIDRETH1+nDEDUC+years'
 lm_base <- lm(formula = as.formula(lm_str),base_df)
 
 ns_str <-
-  'DIASTOLIC ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10), Boundary.knots=c(20,90)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)),Boundary.knots=c(10,85)) + RIDRETH1'
+  'DIASTOLIC ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10), Boundary.knots=c(20,90)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)),Boundary.knots=c(10,85)) + RIDRETH1+nDEDUC+years'
 ns_base <- lm(formula = as.formula(ns_str), base_df)
 ```
 
@@ -230,6 +219,8 @@ A possible solution to check the "goodness of fit (GoF)" is to check whether app
 ```{r residual,results = "asis",dpi=200}
 # layout(matrix(c(1,2,3,4), ncol=2, byrow=TRUE))
 # par(mar=c(4.0,4.0,2.5,2))
+
+
 
 layout(matrix(c(1,2), ncol=2, byrow=TRUE))
 par(mar=c(4.0,4.0,3.5,1))
@@ -339,23 +330,22 @@ Cross-Validation to Linear vs Spline
 
 
 ```{r cv2, echo=TRUE,warning=FALSE,message=FALSE}
-model_list <- c(lm_str,ns_str)
-names(model_list) <- c("linear","spline")
-mse_mtx <- cv_base_m(model_list,label="DIASTOLIC",group_col="years",df=base_df)
-# knitr::kable(mse_mtx)
-mse_df <- as.data.frame(reshape2::melt(mse_mtx))
-colnames(mse_df) <- c('years','model','MSE')
-len_year <- length(levels(mse_df$years))
+# model_list <- c(lm_str,ns_str)
+# names(model_list) <- c("linear","spline")
+# mse_mtx <- cv_base_m(model_list,label="DIASTOLIC",group_col="years",df=base_df)
+# # knitr::kable(mse_mtx)
+# mse_df <- as.data.frame(reshape2::melt(mse_mtx))
+# colnames(mse_df) <- c('years','model','MSE')
+# len_year <- length(levels(mse_df$years))
 ```
 
 We can compare the model by check the residuals after running the regression. Further, we can confirm the model by using cross-validation. For example, we can compare the linear regression and spline regression with cross-validation, and the results show that spline model has much less errors.
-
 ```{r cv21, echo=TRUE,warning=FALSE,message=FALSE}
-mse_df |> ggplot(aes(x=as.numeric(years),y=MSE,color=model)) +
-  geom_point(size=5)+ geom_line(linetype = "dashed")+
-  scale_x_continuous(breaks=seq(1,len_year,1),labels=levels(mse_df$years),
-                     guide = guide_axis(angle = 45))+ xlab("Years")+
-  theme_minimal()
+# mse_df |> ggplot(aes(x=as.numeric(years),y=MSE,color=model)) +
+#   geom_point(size=5)+ geom_line(linetype = "dashed")+
+#   scale_x_continuous(breaks=seq(1,len_year,1),labels=levels(mse_df$years),
+#                      guide = guide_axis(angle = 45))+ xlab("Years")+
+#   theme_minimal()
 
 ```
 
