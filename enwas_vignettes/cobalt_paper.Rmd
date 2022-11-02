@@ -12,6 +12,9 @@ knitr::opts_chunk$set(
 
 ## 1. Load libs
 
+The goal of this vignette is to replicate the analysis presented in ``Association of blood cobalt concentrations with dyslipidemia, hypertension, and diabetes in a US population
+A cross-sectional study; Hongxin Wang, MD, Feng Li, MD, Jianghua Xue, MD, Yanshuang Li, MD, Jiyu Li, MD''
+
 ```{r setup,warning=FALSE,message=FALSE}
 library(EnWAS)
 library(splines)
@@ -44,17 +47,43 @@ data$SISTOLIC <- (data$BPXSY1+data$BPXSY2)/2
 
 
 ## 2.1 Hypertension
+ We follow the definition they described in the paper, using reported (averaged over 2 measurements) systolic and diastolic blood pressure measurements
+as well as self-reported statements regarding whether a physician had ever told them that they have high blood pressure.  One might also look at the use
+of prescribed hypertensives, as these will modulate the systolic and diastolic measures.  Data on self-report come from the BPQ tables in NHANES.
 https://wwwn.cdc.gov/nchs/nhanes/2011-2012/BPQ_G.htm
 
 ```{r Hypertension,warning=FALSE,message=FALSE}
 # Hypertension was defined as systolic blood pressure (SBP) ≥140 mm Hg, diastolic blood pressure ≥90mm Hg, or the use of antihypertensive medication. 
 
+  FIXME: you want to use BPQ040 or BPQ050 I think - are they taking medication, not the report of their physician.  Probably you want 050 - so they are
+taking it now and that would effect the BP as measured.
 data$hypertension <- data$DIASTOLIC >= 90 | data$SISTOLIC >= 140 |  data$BPQ020==1
 barplot(table(data$hypertension))
 
+  FIXME: they report: The current study included 6866 US adults aged 40 years or older. 
+    We need to restrict to age 40 and older.  Do we have the same number of participants?
+  FIXME: could you see how close we are to matching the first few rows in Table 2 of the Cobalt paper?
+
+Hypertension was defined as systolic blood pressure (SBP) ≥140 mm Hg, diastolic blood pressure ≥90mm Hg, or the use of antihypertensive medication. 
+Diabetes was defined as fasting glucose > 110 mg/dl, hemoglobin A1c (HbA1c) > 6.5% or a history of diabetes. 
+High TC levels were defined as levels >200 mg/dl. 
+High LDL-C levels were defined as levels >130 mg/ dl. 
+Low HDL-C levels were defined as levels <40 mg/dl in males and <50 mg/dl in females. 
+High TG levels were defined as levels >150 mg/dl.
+
 ```
-
-
+## 2.2 Their findings
+FIXME: needs some rewriting.
+Using the data collected from the National Health and Nutrition Examination Survey (2015-2018), we performed logistic regression to explore the association of blood cobalt 
+concentrations with total cholesterol (TC), low-density lipoprotein cholesterol (LDL-C), high- density lipoprotein cholesterol (HDL-C), triglycerides, hypertension, and diabetes.
+A total of 6866 adults were included in this study. Participants with higher blood cobalt levels appeared to be older and have a lower body mass index and, were more likely to be 
+female (P for trend < .05). After fully adjusting for demographic characteristics (Model 2), compared with the lowest quartile, the highest quartile of blood cobalt 
+concentrations had lower odds ratios (ORs) for elevated TC [OR: 0.62, 95% confidential interval (CI): 0.53 to 0.72, P<.001], 
+elevated LDL-C (OR: 0.65, 95% CI: 0.53-0.80, P<.001) and low HDL-C (OR: 0.81, 95% CI: 0.69-0.96, P = .013). 
+The adjusted ORs for elevated TC, elevated LDL-C and low HDL-C were negatively correlated with increased blood cobalt concentrations (P for trend < .05). 
+The adjusted ORs for hypertension and diabetes were not associated with blood cobalt concentrations (P>.05 and P for trend>.05).
+In conclusion, higher blood cobalt concentrations were associated with a lower risk of dyslipidemia. 
+However, blood cobalt concentrations were not associated with the risk of hypertension or diabetes.
 
 ## 3. Model
 
