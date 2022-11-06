@@ -56,8 +56,8 @@ Imputation methods for biomedical data
 #### 9. EnWAS Package Vignettes
   - [Base Model checking](https://ccb-hms.github.io/Imputation/enwas_vignettes/base_model.html)
   - [EnWAS:Blood Pressure Diastolic](https://ccb-hms.github.io/Imputation/enwas_vignettes/enwas1.html)
-  - [EnWAS:Blood Pressure Systolic](https://ccb-hms.github.io/Imputation/enwas_vignettes/enwas1.html)
-  - [EnWAS:Blood waist circumference](https://ccb-hms.github.io/Imputation/enwas_vignettes/enwas1.html)
+  - [EnWAS:Blood Pressure Systolic](https://ccb-hms.github.io/Imputation/enwas_vignettes/enwas2.html)
+  - [EnWAS:Blood waist circumference](https://ccb-hms.github.io/Imputation/enwas_vignettes/enwas3.html)
 
 
 #### Update Notes:
