@@ -30,7 +30,6 @@ sqlDefaultDb <- "NhanesLandingZone"
 
 ```
 
-# Query Data 
 
 ## Step 1: search tables
 
