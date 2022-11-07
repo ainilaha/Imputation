@@ -21,6 +21,7 @@ library(splines)
 library(ggplot2)
 library(ggpubr)
 library(dplyr)
+library(nhanesA)
 ```
 
 
@@ -31,17 +32,37 @@ library(phonto)
 data <- query_joint_data(config = "./cobalt.json",db_file = "../nhanes.sqlite")
 # it would convert to ordered if we do not make the as factor because all those values are presented by integers in NHANES
 data$years <- as.factor(data$years)
-data$RIDRETH1 <- as.factor(data$RIDRETH1)
+##FIXME: use nhanesA here  - we need to have real factor levels not integers
+  data = nhanesTranslate('DEMO_D', c('RIAGENDR', 'RIDRETH1'), data=data)
+
+  data$DIASTOLIC <- (data$BPXDI1+data$BPXDI2)/2
+  data$SYSTOLIC <- (data$BPXSY1+data$BPXSY2)/2
+
+ #data$RIDRETH1 <- as.factor(data$RIDRETH1)
 
 nDEDUC = ifelse(data$DMDEDUC2 < 3, "<HS", ifelse(data$DMDEDUC2 == 3, "HS", 
                                                     ifelse(data$DMDEDUC2 < 6, ">HS", NA)))
 data$DMDEDUC2 <- as.factor(nDEDUC)
 
+ #the variables BPQ050A and BPQ040A are taken conditionally so they have missing values put in
+ # for anyone who answered no to BPQ020 - and we need to fix that - since there answer to 50A 
+ # had they been asked, would have been no (one presumes)
+
+ #set up a dummy for the ones we want to change
+  gg = is.na(data$BPQ050A) & data$BPQ020==2
+  bpq50A = data$BPQ050A
+  bpq50A[gg] = 2
+
+ ##check it worked
+ ##table(bpq50A, data$BPQ050A, useNA="always")
+
+ ##set up hypertension
+ data$hypertension <- data$DIASTOLIC >= 90 | data$SYSTOLIC >= 140 |  bpq50A == 1
+ table(data$hypertension)
+
 data <- data[data$BPXDI1!=0 | data$BPXDI2!=0,]
 data <- na.omit(data)
 
-data$DIASTOLIC <- (data$BPXDI1+data$BPXDI2)/2
-data$SISTOLIC <- (data$BPXSY1+data$BPXSY2)/2
 
 ```
 
@@ -57,7 +78,7 @@ https://wwwn.cdc.gov/nchs/nhanes/2011-2012/BPQ_G.htm
 
   FIXME: you want to use BPQ040 or BPQ050 I think - are they taking medication, not the report of their physician.  Probably you want 050 - so they are
 taking it now and that would effect the BP as measured.
-data$hypertension <- data$DIASTOLIC >= 90 | data$SISTOLIC >= 140 |  data$BPQ020==1
+data$hypertension <- data$DIASTOLIC >= 90 | data$SYSTOLIC >= 140 |  data$BPQ020==1
 barplot(table(data$hypertension))
 
   FIXME: they report: The current study included 6866 US adults aged 40 years or older. 
@@ -98,4 +119,26 @@ sjPlot::tab_model(base_logit,colt_logit,
                   dv.labels = c("LBDBCOSI", "LBXBCO"),
                   show.ci = FALSE,show.stat = TRUE,show.se = TRUE,p.style = "scientific", digits.p = 2)
 
+```
+  FIXME: below is code from RG - we probably want to be using spline functions for AGE and BMI - and then checking those functions.
+  We are missing a bunch of the covariates in the Cobalt paper - specifically things like triglycerides etc from Table 2 in that paper.
+Those would be interesting to look at, as they seem to have an unusual patter of association.
+
+```{r model2,warning=FALSE,message=FALSE}
+   base_logit <- glm(hypertension ~ RIDAGEYR + RIAGENDR + BMXBMI+DMDEDUC2+RIDRETH1 + sqrt(LBXBC0), data = data, family = "binomial")
+   base_logit <- glm(hypertension ~ ns(RIDAGEYR,df=7) + RIAGENDR + ns(BMXBMI,df=7) + DMDEDUC2 + RIDRETH1 + ns(sqrt(LBXBCO), df=7) + years, data = data, family = "binomial")
+   base_logit <- glm(hypertension ~ ns(RIDAGEYR,df=7) + RIAGENDR + ns(BMXBMI,df=7) + DMDEDUC2 + RIDRETH1, data = data2, family = "binomial")
+
+   ## try to do some prediction - and then get a plot of the age spline
+  ##46 of these
+  yvals = seq(40,85,by=1)
+  dfimpute = data.frame(RIDAGEYR=yvals, RIAGENDR=rep("Male", 46), BMXBMI=rep(28.9, 46), DMDEDUC2=rep("HS", 46), RIDRETH1=rep("Non-Hispanic White", 46))
+
+  predV = predict(base_logit, newdata=dfimpute)
+  lines(40:85, predV)
+
+ ##now look at BMI
+  yBMI = 14:80
+  dfBMIimpute = data.frame(RIDAGEYR=rep(60,67) , RIAGENDR=rep("Male", 67), BMXBMI=yBMI, DMDEDUC2=rep("HS", 67), RIDRETH1=rep("Non-Hispanic White", 67))
+  predBMI = predict(base_logit, newdata=dfBMIimpute)
 ```
