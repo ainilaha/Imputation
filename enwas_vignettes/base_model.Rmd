@@ -18,9 +18,18 @@ library(splines)
 library(ggplot2)
 library(ggpubr)
 library(dplyr)
+library(DBI)
+library(phonto)
 ```
 
 ## 2. Loaded data
+
+```{r data_config,warning=FALSE,message=FALSE}
+sqlHost <- "localhost"
+sqlUserName <- "sa"
+sqlPassword <- "yourStrong(!)Password"
+sqlDefaultDb <- "NhanesLandingZone"
+```
 
 ### 2.1 Load data for the base model
 
@@ -30,33 +39,32 @@ We removed the blood pressure filled with 0, and NAs in the data. The gender(`RI
 
 ```{r pre}
 
-library(DBI)
-nhanes_db <- DBI::dbConnect(RSQLite::SQLite(), "../nhanes.sqlite")
+cols = c("RIDAGEYR","RIAGENDR","BMXBMI","RIDRETH1","DMDEDUC2","years")
+# we can find the table name by the search function and do joint query like:
+base_df = jointQuery(c('BodyMeasures','DemographicVariablesAndSampleWeights'),cols)
 
-base_df <- dbGetQuery(nhanes_db, "SELECT demo.SEQN,
-                                    (BPXDI1+BPXDI2)/2 AS DIASTOLIC,
-                                    RIAGENDR,RIDAGEYR,RIDRETH1,BMXBMI, 
-                                    INDFMPIR,DMDEDUC2
-                                  FROM
-                                    DemographicVariablesAndSampleWeights as demo
-                                  INNER JOIN BodyMeasures
-                                  ON demo.SEQN=BodyMeasures.SEQN
-                                  INNER JOIN BloodPressure ON
-                                  demo.SEQN=BloodPressure.SEQN
-                                  WHERE
-                                      RIDAGEYR>20
-                                    AND BMXBMI is not NULL
-                                    AND BPXDI1 IS NOT NULL and BPXDI1 <> 0
-                                    AND BPXDI2 IS NOT NULL and BPXDI2 <> 0
-                                    AND DMDEDUC2 IS NOT NULL
-                       ")
-base_df$RIDRETH1 <- as.factor(base_df$RIDRETH1)
+bpx = searchTableByName("BPX[_]")  # it would match table like BPX_, and void like BPXO_J
+knitr::kable(head(bpx))
+
+bpx_df = unionQuery(bpx$TableName,c('BPXDI1','BPXDI2'))
+base_df = merge(base_df,bpx_df,by="SEQN")
+
+
+base_df = base_df |> subset(RIDAGEYR>20 & BPXDI1!=0 & BPXDI2!=0 )
+
+# The following code can be implement 
+# nhanesTranslate('DEMO_D', c('RIAGENDR', 'RIDRETH1'), data=base_df)
+# but it is too slow. So, I manually set the factors before we replicate the function.
 base_df$RIAGENDR <- as.factor(base_df$RIAGENDR)
+levels(base_df$RIAGENDR) <- c("Male","Female")
+base_df$RIDRETH1 <- as.factor(base_df$RIDRETH1)
+levels(base_df$RIDRETH1) <- c('Mexican American','Mexican American','Non-Hispanic White','Non-Hispanic Black','Other Race - Including Multi-Racial')
+base_df = na.omit(base_df)
 
-years <- dbGetQuery(nhanes_db, "SELECT SEQN, years from demo")
-base_df <- merge(base_df,years, by="SEQN")
-base_df$years <- as.factor(base_df$year)
-dbDisconnect(nhanes_db)
+# Take average first and second read for the diastolic blood pressure.
+base_df$DIASTOLIC <- (base_df$BPXDI1+base_df$BPXDI2)/2
+
+
 ```
 
 
@@ -93,23 +101,6 @@ The p-value shows the `INDFMPIR` does not significantly impact the outcome; the 
 
 We can also check the impacts of SES with ANOVA LRT. Sum of Sq = 0.82174/4517943=1.818837e-07, which indicates contribution is almost nothing. In addition, we may have to remove some of the data records where INDFMPIR values are NA. Therefore, INDFMPIR may not be worth including the base model.
 
-```{r ses_in}
-
-ns_str <-
-  'DIASTOLIC ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10), Boundary.knots=c(20,90)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)),Boundary.knots=c(10,85)) + RIDRETH1'
-ns_base <- lm(formula = as.formula(ns_str), base_df[!is.na(base_df$INDFMPIR),])
-
-
-ns_str_in <-
-  'DIASTOLIC ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10), Boundary.knots=c(20,90)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)),Boundary.knots=c(10,85)) + RIDRETH1+ INDFMPIR'
-ns_base_in <- lm(formula = as.formula(ns_str_in), base_df[!is.na(base_df$INDFMPIR),])
-# print_anova(anova(ns_base,ns_base_in,test="LRT"))
-sjPlot::tab_model(ns_base,ns_base_in,
-                  dv.labels = c("ns_base", "ns_base + INDFMPIR"),
-                  show.ci = FALSE,show.stat = TRUE,show.se = TRUE)
-
-```
-
 [Education](https://wwwn.cdc.gov/Nchs/Nhanes/2015-2016/DEMO_I.htm#DMDEDUC2)
 
 
@@ -127,11 +118,11 @@ base_df$nDEDUC <- as.factor(nDEDUC)
 base_df <-  base_df[!is.na(base_df$nDEDUC),]
 ns_str <-
   'DIASTOLIC ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10), Boundary.knots=c(20,90)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)),Boundary.knots=c(10,85)) + RIDRETH1'
-ns_base <- lm(formula = as.formula(ns_str), base_df[!is.na(base_df$nDEDUC),])
+ns_base <- lm(formula = as.formula(ns_str), base_df)
 
 ns_str_edu <-
-  'DIASTOLIC ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10), Boundary.knots=c(20,90)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)),Boundary.knots=c(10,85)) + RIDRETH1+ nDEDUC'
-ns_base_edu <- lm(formula = as.formula(ns_str_edu), base_df[!is.na(base_df$nDEDUC),])
+  'DIASTOLIC ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10), Boundary.knots=c(20,90)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)),Boundary.knots=c(10,85)) + RIDRETH1+ DMDEDUC2'
+ns_base_edu <- lm(formula = as.formula(ns_str_edu), base_df)
 
 print_anova(anova(ns_base,ns_base_edu,test="LRT"))
 sjPlot::tab_model(ns_base,ns_base_edu,

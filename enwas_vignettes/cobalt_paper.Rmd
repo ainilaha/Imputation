@@ -16,29 +16,62 @@ The goal of this vignette is to replicate the analysis presented in ``Associatio
 A cross-sectional study; Hongxin Wang, MD, Feng Li, MD, Jianghua Xue, MD, Yanshuang Li, MD, Jiyu Li, MD''
 
 ```{r setup,warning=FALSE,message=FALSE}
-library(EnWAS)
 library(splines)
 library(ggplot2)
 library(ggpubr)
 library(dplyr)
 library(nhanesA)
+library(phonto)
 ```
 
 
 ## 2. Data
+```{r data_config,warning=FALSE,message=FALSE}
+sqlHost <- "localhost"
+sqlUserName <- "sa"
+sqlPassword <- "yourStrong(!)Password"
+sqlDefaultDb <- "NhanesLandingZone"
+```
+#### 1) Blood Pressure Data
+```{r data_blood,warning=FALSE,message=FALSE}
+tablnames = searchTableByName('BPX[_]')
+tablnames
+blood_df <- unionQuery(tablnames$TableName,cols =c("BPXDI1","BPXDI2","BPXSY1","BPXSY2"))
+
+```
+
+#### e) Demo, Body Mesures, and Blood Pressure & Cholesterol 
+
+```{r demo_body,warning=FALSE,message=FALSE}
+searchTableByName('BMX')
+searchTableByName('DEMO')
+# searchTablesByVar('BPQ050A')
+searchTablesByVar('BPQ020')
+searchTableByName('BPQ')
+
+searchTablesByVar('LBDBCOSI')
+searchTablesByVar('LBXBCO')
+searchTableByName('CRCO')
+
+# find tables with the above functions and joint query like:
+patterns <- c("DemographicVariablesAndSampleWeights","ChromiumAndCobalt","BloodPressureAndCholesterol","BodyMeasures")
+cols <- c("RIDAGEYR","RIAGENDR","BMXBMI","RIDRETH1","DMDEDUC2","years",'BPQ050A','BPQ020',"LBDBCOSI","LBXBCO")
+base_df <- jointQuery(patterns,cols)
+```
 
 ```{r data,warning=FALSE,message=FALSE}
-library(phonto)
-data <- query_joint_data(config = "./cobalt.json",db_file = "../nhanes.sqlite")
+
+data <- merge(blood_df,base_df,by="SEQN")
 # it would convert to ordered if we do not make the as factor because all those values are presented by integers in NHANES
 data$years <- as.factor(data$years)
 ##FIXME: use nhanesA here  - we need to have real factor levels not integers
-  data = nhanesTranslate('DEMO_D', c('RIAGENDR', 'RIDRETH1'), data=data)
-
-  data$DIASTOLIC <- (data$BPXDI1+data$BPXDI2)/2
-  data$SYSTOLIC <- (data$BPXSY1+data$BPXSY2)/2
-
- #data$RIDRETH1 <- as.factor(data$RIDRETH1)
+# It is extremely slow in docker and often shows : Timeout was reached: No data pulled,
+# I will manually set the factors before we replicate the function
+# data = nhanesTranslate('DEMO_D', c('RIAGENDR', 'RIDRETH1'), data=data)
+data$RIAGENDR <- as.factor(data$RIAGENDR)
+levels(data$RIAGENDR) <- c("Male","Female")
+data$RIDRETH1 <- as.factor(data$RIDRETH1)
+levels(data$RIDRETH1) <- c('Mexican American','Mexican American','Non-Hispanic White','Non-Hispanic Black','Other Race - Including Multi-Racial')
 
 nDEDUC = ifelse(data$DMDEDUC2 < 3, "<HS", ifelse(data$DMDEDUC2 == 3, "HS", 
                                                     ifelse(data$DMDEDUC2 < 6, ">HS", NA)))
@@ -48,6 +81,9 @@ data$DMDEDUC2 <- as.factor(nDEDUC)
  # for anyone who answered no to BPQ020 - and we need to fix that - since there answer to 50A 
  # had they been asked, would have been no (one presumes)
 
+
+
+
  #set up a dummy for the ones we want to change
   gg = is.na(data$BPQ050A) & data$BPQ020==2
   bpq50A = data$BPQ050A
@@ -56,14 +92,17 @@ data$DMDEDUC2 <- as.factor(nDEDUC)
  ##check it worked
  ##table(bpq50A, data$BPQ050A, useNA="always")
 
- ##set up hypertension
- data$hypertension <- data$DIASTOLIC >= 90 | data$SYSTOLIC >= 140 |  bpq50A == 1
- table(data$hypertension)
+data <- data[data$RIDAGEYR>20,]
+data$BPQ050A <- NULL # remove it because we do not use it the fellowing code
 
-data <- data[data$BPXDI1!=0 | data$BPXDI2!=0,]
 data <- na.omit(data)
 
 
+
+
+data <- data[data$BPXDI1!=0 | data$BPXDI2!=0,]
+data$DIASTOLIC <- (data$BPXDI1+data$BPXDI2)/2
+data$SYSTOLIC <- (data$BPXSY1+data$BPXSY2)/2
 ```
 
 
@@ -76,21 +115,21 @@ https://wwwn.cdc.gov/nchs/nhanes/2011-2012/BPQ_G.htm
 ```{r Hypertension,warning=FALSE,message=FALSE}
 # Hypertension was defined as systolic blood pressure (SBP) ≥140 mm Hg, diastolic blood pressure ≥90mm Hg, or the use of antihypertensive medication. 
 
-  FIXME: you want to use BPQ040 or BPQ050 I think - are they taking medication, not the report of their physician.  Probably you want 050 - so they are
-taking it now and that would effect the BP as measured.
+  # FIXME: you want to use BPQ040 or BPQ050 I think - are they taking medication, not the report of their physician.  Probably you want 050 - so they are
+# taking it now and that would effect the BP as measured.
 data$hypertension <- data$DIASTOLIC >= 90 | data$SYSTOLIC >= 140 |  data$BPQ020==1
 barplot(table(data$hypertension))
-
-  FIXME: they report: The current study included 6866 US adults aged 40 years or older. 
-    We need to restrict to age 40 and older.  Do we have the same number of participants?
-  FIXME: could you see how close we are to matching the first few rows in Table 2 of the Cobalt paper?
-
-Hypertension was defined as systolic blood pressure (SBP) ≥140 mm Hg, diastolic blood pressure ≥90mm Hg, or the use of antihypertensive medication. 
-Diabetes was defined as fasting glucose > 110 mg/dl, hemoglobin A1c (HbA1c) > 6.5% or a history of diabetes. 
-High TC levels were defined as levels >200 mg/dl. 
-High LDL-C levels were defined as levels >130 mg/ dl. 
-Low HDL-C levels were defined as levels <40 mg/dl in males and <50 mg/dl in females. 
-High TG levels were defined as levels >150 mg/dl.
+# 
+#   FIXME: they report: The current study included 6866 US adults aged 40 years or older. 
+#     We need to restrict to age 40 and older.  Do we have the same number of participants?
+#   FIXME: could you see how close we are to matching the first few rows in Table 2 of the Cobalt paper?
+# 
+# Hypertension was defined as systolic blood pressure (SBP) ≥140 mm Hg, diastolic blood pressure ≥90mm Hg, or the use of antihypertensive medication. 
+# Diabetes was defined as fasting glucose > 110 mg/dl, hemoglobin A1c (HbA1c) > 6.5% or a history of diabetes. 
+# High TC levels were defined as levels >200 mg/dl. 
+# High LDL-C levels were defined as levels >130 mg/ dl. 
+# Low HDL-C levels were defined as levels <40 mg/dl in males and <50 mg/dl in females. 
+# High TG levels were defined as levels >150 mg/dl.
 
 ```
 ## 2.2 Their findings
@@ -125,9 +164,9 @@ sjPlot::tab_model(base_logit,colt_logit,
 Those would be interesting to look at, as they seem to have an unusual patter of association.
 
 ```{r model2,warning=FALSE,message=FALSE}
-   base_logit <- glm(hypertension ~ RIDAGEYR + RIAGENDR + BMXBMI+DMDEDUC2+RIDRETH1 + sqrt(LBXBC0), data = data, family = "binomial")
+   base_logit <- glm(hypertension ~ RIDAGEYR + RIAGENDR + BMXBMI+DMDEDUC2+RIDRETH1 + sqrt(LBXBCO), data = data, family = "binomial")
    base_logit <- glm(hypertension ~ ns(RIDAGEYR,df=7) + RIAGENDR + ns(BMXBMI,df=7) + DMDEDUC2 + RIDRETH1 + ns(sqrt(LBXBCO), df=7) + years, data = data, family = "binomial")
-   base_logit <- glm(hypertension ~ ns(RIDAGEYR,df=7) + RIAGENDR + ns(BMXBMI,df=7) + DMDEDUC2 + RIDRETH1, data = data2, family = "binomial")
+   base_logit <- glm(hypertension ~ ns(RIDAGEYR,df=7) + RIAGENDR + ns(BMXBMI,df=7) + DMDEDUC2 + RIDRETH1, data = data, family = "binomial")
 
    ## try to do some prediction - and then get a plot of the age spline
   ##46 of these
@@ -135,10 +174,12 @@ Those would be interesting to look at, as they seem to have an unusual patter of
   dfimpute = data.frame(RIDAGEYR=yvals, RIAGENDR=rep("Male", 46), BMXBMI=rep(28.9, 46), DMDEDUC2=rep("HS", 46), RIDRETH1=rep("Non-Hispanic White", 46))
 
   predV = predict(base_logit, newdata=dfimpute)
-  lines(40:85, predV)
+  # lines(40:85, predV)
+  qplot(40:85,predV,geom = "line") + theme_bw()
 
  ##now look at BMI
   yBMI = 14:80
   dfBMIimpute = data.frame(RIDAGEYR=rep(60,67) , RIAGENDR=rep("Male", 67), BMXBMI=yBMI, DMDEDUC2=rep("HS", 67), RIDRETH1=rep("Non-Hispanic White", 67))
   predBMI = predict(base_logit, newdata=dfBMIimpute)
+  qplot(14:80,predBMI,geom = "line") + theme_bw()
 ```
