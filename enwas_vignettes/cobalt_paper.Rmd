@@ -36,7 +36,7 @@ sqlDefaultDb <- "NhanesLandingZone"
 ```{r data_blood,warning=FALSE,message=FALSE}
 tablnames = searchTableByName('BPX[_]')
 tablnames
-blood_df <- unionQuery(tablnames$TableName,cols =c("BPXDI1","BPXDI2","BPXSY1","BPXSY2"))
+blood_df <- unionQuery(tablnames$TableName,cols =c("BPXDI1","BPXDI2","BPXSY1","BPXSY2"))d
 
 ```
 
@@ -45,13 +45,23 @@ blood_df <- unionQuery(tablnames$TableName,cols =c("BPXDI1","BPXDI2","BPXSY1","B
 ```{r demo_body,warning=FALSE,message=FALSE}
 searchTableByName('BMX')
 searchTableByName('DEMO')
-# searchTablesByVar('BPQ050A')
+searchTablesByVar('BPQ050A')
 searchTablesByVar('BPQ020')
 searchTableByName('BPQ')
 
 searchTablesByVar('LBDBCOSI')
 searchTablesByVar('LBXBCO')
 searchTableByName('CRCO')
+##LDL levels
+LDLTabs = searchTablesByVar('LBDLDL')
+##Triglycerides
+triglyTabs = searchTablesByVar('LBXTR')
+##A1C
+A1C = searchTablesByVar("LBXGH")
+##been told by Dr. has diabetes
+DrDiab = searchTablesByVar("DIQ010")
+##HDLTabs
+HDLTabs = searchTablesByVar("LBDHDD")
 
 # find tables with the above functions and joint query like:
 patterns <- c("DemographicVariablesAndSampleWeights","ChromiumAndCobalt","BloodPressureAndCholesterol","BodyMeasures")
