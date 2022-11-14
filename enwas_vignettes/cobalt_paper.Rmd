@@ -36,7 +36,7 @@ sqlDefaultDb <- "NhanesLandingZone"
 ```{r data_blood,warning=FALSE,message=FALSE}
 tablnames = searchTableByName('BPX[_]')
 tablnames
-blood_df <- unionQuery(tablnames$TableName,cols =c("BPXDI1","BPXDI2","BPXSY1","BPXSY2"))d
+blood_df <- unionQuery(tablnames$TableName,cols =c("BPXDI1","BPXDI2","BPXSY1","BPXSY2"))
 
 ```
 
@@ -115,6 +115,26 @@ data$DIASTOLIC <- (data$BPXDI1+data$BPXDI2)/2
 data$SYSTOLIC <- (data$BPXSY1+data$BPXSY2)/2
 ```
 
+## QA/QC
+We now describe the process used to assess the base model.
+We have chosen to adjust for age, sex, BMI, ethnicity and education level.
+Initially we will fit simple natural splines, using automatic selection of the knots, but as
+we progress we will likely chose a set of sensible knots for each of the exposures to support 
+comparability between analyses.
+  FIXME: Laha, can you produce a table with the PHESANT output for these features?
+  FIXME: Laha can you put some code in here to cut the continuous variables into 20 groups
+so we can plot the risk of hypertension, per group?
+
+```{r QA/QC, warnings=FALSE, message=FALSE}
+  ## glm linear in the covariates
+    base_logit <- glm(hypertension ~ RIDAGEYR + RIAGENDR + BMXBMI+DMDEDUC2, data = data, family = "binomial")
+
+ ##spline covariates
+  base_logit <- glm(hypertension ~ ns(RIDAGEYR,df=7) + RIAGENDR + ns(BMXBMI,df=7) + DMDEDUC2 + RIDRETH1, 
+                     data = data, family = "binomial")
+
+
+```
 
 ## 2.1 Hypertension
  We follow the definition they described in the paper, using reported (averaged over 2 measurements) systolic and diastolic blood pressure measurements
