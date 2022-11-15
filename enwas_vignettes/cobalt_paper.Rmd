@@ -37,6 +37,7 @@ sqlDefaultDb <- "NhanesLandingZone"
 tablnames = searchTableByName('BPX[_]')
 tablnames
 blood_df <- unionQuery(tablnames$TableName,cols =c("BPXDI1","BPXDI2","BPXSY1","BPXSY2"))
+DT::datatable(blood_df)
 
 ```
 
@@ -115,27 +116,6 @@ data$DIASTOLIC <- (data$BPXDI1+data$BPXDI2)/2
 data$SYSTOLIC <- (data$BPXSY1+data$BPXSY2)/2
 ```
 
-## QA/QC
-We now describe the process used to assess the base model.
-We have chosen to adjust for age, sex, BMI, ethnicity and education level.
-Initially we will fit simple natural splines, using automatic selection of the knots, but as
-we progress we will likely chose a set of sensible knots for each of the exposures to support 
-comparability between analyses.
-  FIXME: Laha, can you produce a table with the PHESANT output for these features?
-  FIXME: Laha can you put some code in here to cut the continuous variables into 20 groups
-so we can plot the risk of hypertension, per group?
-
-```{r QA/QC, warnings=FALSE, message=FALSE}
-  ## glm linear in the covariates
-    base_logit <- glm(hypertension ~ RIDAGEYR + RIAGENDR + BMXBMI+DMDEDUC2, data = data, family = "binomial")
-
- ##spline covariates
-  base_logit <- glm(hypertension ~ ns(RIDAGEYR,df=7) + RIAGENDR + ns(BMXBMI,df=7) + DMDEDUC2 + RIDRETH1, 
-                     data = data, family = "binomial")
-
-
-```
-
 ## 2.1 Hypertension
  We follow the definition they described in the paper, using reported (averaged over 2 measurements) systolic and diastolic blood pressure measurements
 as well as self-reported statements regarding whether a physician had ever told them that they have high blood pressure.  One might also look at the use
@@ -162,6 +142,57 @@ barplot(table(data$hypertension))
 # High TG levels were defined as levels >150 mg/dl.
 
 ```
+## QA/QC
+We now describe the process used to assess the base model.
+We have chosen to adjust for age, sex, BMI, ethnicity and education level.
+Initially we will fit simple natural splines, using automatic selection of the knots, but as
+we progress we will likely chose a set of sensible knots for each of the exposures to support 
+comparability between analyses.
+  FIXME: Laha, can you produce a table with the PHESANT output for these features? (DONE)
+  FIXME: Laha can you put some code in here to cut the continuous variables into 20 groups(DONE)
+so we can plot the risk of hypertension, per group?
+
+### PHESANT process
+```{r}
+phs_dat = phesant(data)
+DT::datatable(phs_dat$phs_res)
+```
+
+### Base Models
+
+```{r QA/QC, warnings=FALSE, message=FALSE}
+## glm linear in the covariates
+data = phs_dat$data
+lm_logit <- glm(hypertension ~ RIDAGEYR + RIAGENDR + BMXBMI+DMDEDUC2, data = data, family = "binomial")
+
+##spline covariates
+ns_logit <- glm(hypertension ~ ns(RIDAGEYR,df=7) + RIAGENDR + ns(BMXBMI,df=7) + DMDEDUC2 + RIDRETH1, 
+                   data = data, family = "binomial")
+
+```
+### QA/QC
+
+There is no much difference when plot residuals against age.
+```{r}
+library(arm)
+layout(matrix(c(1,2,3,4), ncol=2, byrow=TRUE))
+par(mar=c(4.0,4.0,2.5,2))
+binnedplot(data$RIDAGEYR,residuals(lm_logit,type = "response"),nclass=20,xlab="Age",col.int="red")
+binnedplot(data$RIDAGEYR,residuals(ns_logit,type = "response"),nclass=20,xlab="Age",col.int="blue")
+binnedplot(data$BMXBMI,residuals(lm_logit,type = "response"),nclass=20,xlab="BMI",col.int="red")
+binnedplot(data$BMXBMI,residuals(ns_logit,type = "response"),nclass=20,xlab="BMI",col.int="blue")
+
+```
+However, the following plot shows the spline model better than linear model.
+```{r}
+
+layout(matrix(c(1,2), ncol=2, byrow=TRUE))
+par(mar=c(4.0,4.0,3.5,1))
+binnedplot(fitted(lm_logit),residuals(lm_logit,type = "response"),col.int="red")
+binnedplot(fitted(ns_logit),residuals(ns_logit,type = "response"),col.int="blue")
+```
+
+
 ## 2.2 Their findings
 FIXME: needs some rewriting.
 Using the data collected from the National Health and Nutrition Examination Survey (2015-2018), we performed logistic regression to explore the association of blood cobalt 
@@ -191,7 +222,9 @@ sjPlot::tab_model(base_logit,colt_logit,
 ```
   FIXME: below is code from RG - we probably want to be using spline functions for AGE and BMI - and then checking those functions.
   We are missing a bunch of the covariates in the Cobalt paper - specifically things like triglycerides etc from Table 2 in that paper.
-Those would be interesting to look at, as they seem to have an unusual patter of association.
+Those would be interesting to look at, as they seem to have an unusual pattern of association.
+
+*** Robert, you only keep one base model in the end, do you want to me plot or compare somethings***
 
 ```{r model2,warning=FALSE,message=FALSE}
    base_logit <- glm(hypertension ~ RIDAGEYR + RIAGENDR + BMXBMI+DMDEDUC2+RIDRETH1 + sqrt(LBXBCO), data = data, family = "binomial")
