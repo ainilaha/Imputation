@@ -10,10 +10,12 @@ knitr::opts_chunk$set(
 )
 ```
 
-## 1. Load libs
+## 0. Goal
 
 The goal of this vignette is to replicate the analysis presented in ``Association of blood cobalt concentrations with dyslipidemia, hypertension, and diabetes in a US population
 A cross-sectional study; Hongxin Wang, MD, Feng Li, MD, Jianghua Xue, MD, Yanshuang Li, MD, Jiyu Li, MD''
+
+## 1. Load libs
 
 ```{r setup,warning=FALSE,message=FALSE}
 library(splines)
@@ -22,17 +24,18 @@ library(ggpubr)
 library(dplyr)
 library(nhanesA)
 library(phonto)
+library(EnWAS)
 ```
 
 
-## 2. Data
+## 2. Data and Preprocessiing
 ```{r data_config,warning=FALSE,message=FALSE}
 sqlHost <- "localhost"
 sqlUserName <- "sa"
 sqlPassword <- "yourStrong(!)Password"
 sqlDefaultDb <- "NhanesLandingZone"
 ```
-#### 1) Blood Pressure Data
+#### 2.1) Blood Pressure Data
 ```{r data_blood,warning=FALSE,message=FALSE}
 tablnames = searchTableByName('BPX[_]')
 tablnames
@@ -41,18 +44,18 @@ DT::datatable(blood_df)
 
 ```
 
-#### e) Demo, Body Mesures, and Blood Pressure & Cholesterol 
+#### 2.2) Demo, Body Mesures, and Blood Pressure & Cholesterol 
 
 ```{r demo_body,warning=FALSE,message=FALSE}
-searchTableByName('BMX')
-searchTableByName('DEMO')
-searchTablesByVar('BPQ050A')
-searchTablesByVar('BPQ020')
-searchTableByName('BPQ')
-
-searchTablesByVar('LBDBCOSI')
-searchTablesByVar('LBXBCO')
-searchTableByName('CRCO')
+# searchTableByName('BMX')
+# searchTableByName('DEMO')
+# searchTablesByVar('BPQ050A')
+# searchTablesByVar('BPQ020')
+# searchTableByName('BPQ')
+# 
+# searchTablesByVar('LBDBCOSI')
+# searchTablesByVar('LBXBCO')
+# searchTableByName('CRCO')
 ##LDL levels
 LDLTabs = searchTablesByVar('LBDLDL')
 ##Triglycerides
@@ -69,6 +72,10 @@ patterns <- c("DemographicVariablesAndSampleWeights","ChromiumAndCobalt","BloodP
 cols <- c("RIDAGEYR","RIAGENDR","BMXBMI","RIDRETH1","DMDEDUC2","years",'BPQ050A','BPQ020',"LBDBCOSI","LBXBCO")
 base_df <- jointQuery(patterns,cols)
 ```
+### 2.3)  merge and preprocess data 
+- The gender(RIAGENDR) and ethnicity (RIDRETH1) have been converted to factors and assigned the factor levels.
+- Also, education has been transformed into lower than high school (<HS), high school (HS), and higher than school-school(>HS).
+- The blood pressure measurements (diastolic and systolic) are averaged from the first and second reads.
 
 ```{r data,warning=FALSE,message=FALSE}
 
@@ -91,47 +98,37 @@ data$DMDEDUC2 <- as.factor(nDEDUC)
  #the variables BPQ050A and BPQ040A are taken conditionally so they have missing values put in
  # for anyone who answered no to BPQ020 - and we need to fix that - since there answer to 50A 
  # had they been asked, would have been no (one presumes)
-
-
-
-
  #set up a dummy for the ones we want to change
   gg = is.na(data$BPQ050A) & data$BPQ020==2
   bpq50A = data$BPQ050A
   bpq50A[gg] = 2
-
- ##check it worked
- ##table(bpq50A, data$BPQ050A, useNA="always")
-
-data <- data[data$RIDAGEYR>20,]
-data$BPQ050A <- NULL # remove it because we do not use it the fellowing code
-
+ #check it worked
+ # table(bpq50A, data$BPQ050A, useNA="always")
+  
+# The current study included 6866 US adults aged 40 years or older. 
+data <- data[data$RIDAGEYR>=40,]
+data$BPQ050A = NULL
+data$BPQ020 = NULL
+data$bpq50A = bpq50A
 data <- na.omit(data)
 
-
-
-
-data <- data[data$BPXDI1!=0 | data$BPXDI2!=0,]
+# Average the the first and second reads
 data$DIASTOLIC <- (data$BPXDI1+data$BPXDI2)/2
 data$SYSTOLIC <- (data$BPXSY1+data$BPXSY2)/2
 ```
 
-## 2.1 Hypertension
- We follow the definition they described in the paper, using reported (averaged over 2 measurements) systolic and diastolic blood pressure measurements
-as well as self-reported statements regarding whether a physician had ever told them that they have high blood pressure.  One might also look at the use
-of prescribed hypertensives, as these will modulate the systolic and diastolic measures.  Data on self-report come from the BPQ tables in NHANES.
+## 2.4 Hypertension
+ We follow the definition they described in the paper, using reported (averaged over 2 measurements) systolic and diastolic blood pressure measurements as well as self-reported statements regarding whether a physician had ever told them that they have high blood pressure.  One might also look at the use of prescribed hypertensives, as these will modulate the systolic and diastolic measures.  Data on self-report come from the BPQ tables in NHANES.
 https://wwwn.cdc.gov/nchs/nhanes/2011-2012/BPQ_G.htm
 
 ```{r Hypertension,warning=FALSE,message=FALSE}
 # Hypertension was defined as systolic blood pressure (SBP) ≥140 mm Hg, diastolic blood pressure ≥90mm Hg, or the use of antihypertensive medication. 
 
-  # FIXME: you want to use BPQ040 or BPQ050 I think - are they taking medication, not the report of their physician.  Probably you want 050 - so they are
+  # FIXME: you want to use BPQ040 or BPQ050 I think - are they taking medication, not the report of their physician.  Probably you want 050 - so they are (Done)
 # taking it now and that would effect the BP as measured.
-data$hypertension <- data$DIASTOLIC >= 90 | data$SYSTOLIC >= 140 |  data$BPQ020==1
+data$hypertension <- data$DIASTOLIC >= 90 | data$SYSTOLIC >= 140 |  data$bpq50A==1
 barplot(table(data$hypertension))
-# 
-#   FIXME: they report: The current study included 6866 US adults aged 40 years or older. 
-#     We need to restrict to age 40 and older.  Do we have the same number of participants?
+
 #   FIXME: could you see how close we are to matching the first few rows in Table 2 of the Cobalt paper?
 # 
 # Hypertension was defined as systolic blood pressure (SBP) ≥140 mm Hg, diastolic blood pressure ≥90mm Hg, or the use of antihypertensive medication. 
@@ -140,83 +137,98 @@ barplot(table(data$hypertension))
 # High LDL-C levels were defined as levels >130 mg/ dl. 
 # Low HDL-C levels were defined as levels <40 mg/dl in males and <50 mg/dl in females. 
 # High TG levels were defined as levels >150 mg/dl.
-
 ```
-## QA/QC
-We now describe the process used to assess the base model.
-We have chosen to adjust for age, sex, BMI, ethnicity and education level.
-Initially we will fit simple natural splines, using automatic selection of the knots, but as
-we progress we will likely chose a set of sensible knots for each of the exposures to support 
-comparability between analyses.
-  FIXME: Laha, can you produce a table with the PHESANT output for these features? (DONE)
-  FIXME: Laha can you put some code in here to cut the continuous variables into 20 groups(DONE)
-so we can plot the risk of hypertension, per group?
-
-### PHESANT process
+#### 2.5 ) PHESANT-like process
+We can run the PHESANT-like process to covert the each column into data types. It also provides ratio of unique values, ratio of zeros, and ratio of NAs, which calculate by the mumber of unique values, zeros, and NAs divide by total records  
 ```{r}
 phs_dat = phesant(data)
+data = phs_dat$data
 DT::datatable(phs_dat$phs_res)
+
 ```
 
-### Base Models
+
+
+
+
+## 3.Base Models and QA/QC
+
+In the following section, we run the regression with adjusted variables. The authors do not use a spline model in the paper, but we added a spline model for comparison.  
 
 ```{r QA/QC, warnings=FALSE, message=FALSE}
 ## glm linear in the covariates
 data = phs_dat$data
-lm_logit <- glm(hypertension ~ RIDAGEYR + RIAGENDR + BMXBMI+DMDEDUC2, data = data, family = "binomial")
+lm_logit <- glm(hypertension ~ RIDAGEYR + RIAGENDR + BMXBMI+DMDEDUC2+RIDRETH1, data = data, family = "binomial",na.action=na.omit)
 
 ##spline covariates
-ns_logit <- glm(hypertension ~ ns(RIDAGEYR,df=7) + RIAGENDR + ns(BMXBMI,df=7) + DMDEDUC2 + RIDRETH1, 
-                   data = data, family = "binomial")
+ns_logit <- glm(hypertension ~ ns(RIDAGEYR,df=7)*RIAGENDR + ns(BMXBMI,df=7) + DMDEDUC2 + RIDRETH1, 
+                   data = data, family = "binomial",na.action=na.omit)
+
+
+# ns_logit1 <- glm(hypertension ~ ns(RIDAGEYR, knots = seq(40, 85, by = 5), Boundary.knots=c(35,90)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)),Boundary.knots=c(10,85)) + DMDEDUC2 + RIDRETH1, 
+#                    data = data, family = "binomial",na.action=na.omit)
+
+# sjPlot::tab_model(lm_logit,ns_logit,
+#                   dv.labels = c("Linear", "Spline"),
+#                   show.ci = FALSE,show.stat = TRUE,show.se = TRUE,p.style = "scientific", digits.p = 2)
 
 ```
-### QA/QC
-
-There is no much difference when plot residuals against age.
+### 3.1) QA/QC
+The following plots show binned Hypertension data; each binned contains about 600 data points. "Label" denotes label data from the survey, and the Linear and Spline indicate the fitted values or residuals from the linear and spline models. 
 ```{r}
-library(arm)
-layout(matrix(c(1,2,3,4), ncol=2, byrow=TRUE))
-par(mar=c(4.0,4.0,2.5,2))
-binnedplot(data$RIDAGEYR,residuals(lm_logit,type = "response"),nclass=20,xlab="Age",col.int="red")
-binnedplot(data$RIDAGEYR,residuals(ns_logit,type = "response"),nclass=20,xlab="Age",col.int="blue")
-binnedplot(data$BMXBMI,residuals(lm_logit,type = "response"),nclass=20,xlab="BMI",col.int="red")
-binnedplot(data$BMXBMI,residuals(ns_logit,type = "response"),nclass=20,xlab="BMI",col.int="blue")
+# Age
+df_age_fitt = list("3-Label"=make_bins(x=data$RIDAGEYR,y=as.numeric(data$hypertension),nbin=600),
+                  "1-Linear"=make_bins(x=data$RIDAGEYR,y=lm_logit$fitted.values,nbin=600),
+                  "2-Spline"=make_bins(x=data$RIDAGEYR,y=ns_logit$fitted.values,nbin=600)
+                )
+df_age_res = list("Linear"=make_bins(x=data$RIDAGEYR,y=lm_logit$residuals,nbin=600),
+                  "Spline"=make_bins(x=data$RIDAGEYR,y=ns_logit$residuals,nbin=600)
+                )
+age_fitt = plot_bins2(df_age_fitt,xlab="Age (year)",ylab="Hypertension",is_facet=F) 
+age_res = plot_bins2(df_age_res,xlab="Age (year)",ylab="Resisuals",is_facet=F) 
+
+#BMI
+df_bmi_fit =list("1-Linear"=make_bins(x=data$BMXBMI,y=lm_logit$fitted.values,nbin=600),
+                "2-Spline"=make_bins(x=data$BMXBMI,y=ns_logit$fitted.values,nbin=600),
+                "3-Label"=make_bins(x=data$BMXBMI,y=as.numeric(data$hypertension),nbin=600)
+                )
+
+df_bmi_res = list("Linear"=make_bins(x=data$BMXBMI,y=lm_logit$residuals,nbin=600),
+                  "Spline"=make_bins(x=data$BMXBMI,y=ns_logit$residuals,nbin=600)
+                )
+bmi_fit <- plot_bins2(df_bmi_fit,xlab="BMI",ylab="Hypertension",is_facet=F) 
+bmi_res <- plot_bins2(df_bmi_res,xlab="BMI",ylab="Resisuals",is_facet=F) 
 
 ```
-However, the following plot shows the spline model better than linear model.
-```{r}
+- Panel a) and c) show the binned plots for the fitted values of the models and hypertension from the data. Overall, the spline model fitted the data better than linear logistic regression model. 
+- Panels b) and d) show the binned plot for the models' residuals. Although both models have some trends in the residuals plot, the liner model is quite far from the 0 in the binned age plot.
 
-layout(matrix(c(1,2), ncol=2, byrow=TRUE))
-par(mar=c(4.0,4.0,3.5,1))
-binnedplot(fitted(lm_logit),residuals(lm_logit,type = "response"),col.int="red")
-binnedplot(fitted(ns_logit),residuals(ns_logit,type = "response"),col.int="blue")
+```{r qa_qc_plot, echo=TRUE,warning=FALSE,message=FALSE, fig.width = 12,fig.height=8}
+
+ggpubr::ggarrange(age_fitt,age_res,bmi_fit,bmi_res,nrow = 2,ncol = 2,labels = c('a)','b)','c)','d)'))
 ```
 
 
-## 2.2 Their findings
+## 4. Their findings
 FIXME: needs some rewriting.
-Using the data collected from the National Health and Nutrition Examination Survey (2015-2018), we performed logistic regression to explore the association of blood cobalt 
-concentrations with total cholesterol (TC), low-density lipoprotein cholesterol (LDL-C), high- density lipoprotein cholesterol (HDL-C), triglycerides, hypertension, and diabetes.
-A total of 6866 adults were included in this study. Participants with higher blood cobalt levels appeared to be older and have a lower body mass index and, were more likely to be 
-female (P for trend < .05). After fully adjusting for demographic characteristics (Model 2), compared with the lowest quartile, the highest quartile of blood cobalt 
-concentrations had lower odds ratios (ORs) for elevated TC [OR: 0.62, 95% confidential interval (CI): 0.53 to 0.72, P<.001], 
+Using the data collected from the National Health and Nutrition Examination Survey (2015-2018), we performed logistic regression to explore the association of blood cobalt concentrations with total cholesterol (TC), low-density lipoprotein cholesterol (LDL-C), high- density lipoprotein cholesterol (HDL-C), triglycerides, hypertension, and diabetes. A total of 6866 adults were included in this study. Participants with higher blood cobalt levels appeared to be older and have a lower body mass index and, were more likely to be 
+female (P for trend < .05). After fully adjusting for demographic characteristics (Model 2), compared with the lowest quartile, the highest quartile of blood cobalt  concentrations had lower odds ratios (ORs) for elevated TC [OR: 0.62, 95% confidential interval (CI): 0.53 to 0.72, P<.001], 
 elevated LDL-C (OR: 0.65, 95% CI: 0.53-0.80, P<.001) and low HDL-C (OR: 0.81, 95% CI: 0.69-0.96, P = .013). 
 The adjusted ORs for elevated TC, elevated LDL-C and low HDL-C were negatively correlated with increased blood cobalt concentrations (P for trend < .05). 
 The adjusted ORs for hypertension and diabetes were not associated with blood cobalt concentrations (P>.05 and P for trend>.05).
 In conclusion, higher blood cobalt concentrations were associated with a lower risk of dyslipidemia. 
 However, blood cobalt concentrations were not associated with the risk of hypertension or diabetes.
 
-## 3. Model
-
-The paper does not say that they use interaction or transformation, but I tried them, and nothing new has been found in showing the following model comparison.
+#### 4.1 Cobalt Model
+As we can see from the summary of the table for both models, cobalt does not significantly impact hypertension.
 
 ```{r model1,warning=FALSE,message=FALSE}
-base_logit <- glm(hypertension ~ RIDAGEYR + RIAGENDR + BMXBMI+DMDEDUC2+LBDBCOSI, data = data, family = "binomial")
-colt_logit <- glm(hypertension ~ RIDAGEYR + RIAGENDR + BMXBMI+DMDEDUC2+LBXBCO, data = data, family = "binomial")
+lm_logit <- glm(hypertension ~ RIDAGEYR + RIAGENDR + BMXBMI+DMDEDUC2+RIDRETH1+LBXBCO, data = data, family = "binomial")
+ns_logit <- glm(hypertension ~ ns(RIDAGEYR,df=7)*RIAGENDR + ns(BMXBMI,df=7) + DMDEDUC2 + RIDRETH1+LBXBCO, 
+                   data = data, family = "binomial",na.action=na.omit)
 
-
-sjPlot::tab_model(base_logit,colt_logit,
-                  dv.labels = c("LBDBCOSI", "LBXBCO"),
+sjPlot::tab_model(lm_logit,ns_logit,
+                  dv.labels = c("lm", "spline"),
                   show.ci = FALSE,show.stat = TRUE,show.se = TRUE,p.style = "scientific", digits.p = 2)
 
 ```
@@ -227,8 +239,8 @@ Those would be interesting to look at, as they seem to have an unusual pattern o
 *** Robert, you only keep one base model in the end, do you want to me plot or compare somethings***
 
 ```{r model2,warning=FALSE,message=FALSE}
-   base_logit <- glm(hypertension ~ RIDAGEYR + RIAGENDR + BMXBMI+DMDEDUC2+RIDRETH1 + sqrt(LBXBCO), data = data, family = "binomial")
-   base_logit <- glm(hypertension ~ ns(RIDAGEYR,df=7) + RIAGENDR + ns(BMXBMI,df=7) + DMDEDUC2 + RIDRETH1 + ns(sqrt(LBXBCO), df=7) + years, data = data, family = "binomial")
+   # base_logit <- glm(hypertension ~ RIDAGEYR + RIAGENDR + BMXBMI+DMDEDUC2+RIDRETH1 + sqrt(LBXBCO), data = data, family = "binomial")
+   # base_logit <- glm(hypertension ~ ns(RIDAGEYR,df=7) + RIAGENDR + ns(BMXBMI,df=7) + DMDEDUC2 + RIDRETH1 + ns(sqrt(LBXBCO), df=7) + years, data = data, family = "binomial")
    base_logit <- glm(hypertension ~ ns(RIDAGEYR,df=7) + RIAGENDR + ns(BMXBMI,df=7) + DMDEDUC2 + RIDRETH1, data = data, family = "binomial")
 
    ## try to do some prediction - and then get a plot of the age spline
