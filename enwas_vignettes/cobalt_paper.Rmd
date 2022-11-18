@@ -227,17 +227,7 @@ ggpubr::ggarrange(age_fitt,bmi_fit,nrow = 1,ncol = 2,labels = c('a)','b)'))
 
 
 ## 4. Their findings
-FIXME: needs some rewriting.
-Using the data collected from the National Health and Nutrition Examination Survey (2015-2018), we performed logistic regression to explore the association of blood cobalt concentrations with total cholesterol (TC), low-density lipoprotein cholesterol (LDL-C), high- density lipoprotein cholesterol (HDL-C), triglycerides, hypertension, and diabetes. A total of 6866 adults were included in this study. Participants with higher blood cobalt levels appeared to be older and have a lower body mass index and, were more likely to be 
-female (P for trend < .05). After fully adjusting for demographic characteristics (Model 2), compared with the lowest quartile, the highest quartile of blood cobalt  concentrations had lower odds ratios (ORs) for elevated TC [OR: 0.62, 95% confidential interval (CI): 0.53 to 0.72, P<.001], 
-elevated LDL-C (OR: 0.65, 95% CI: 0.53-0.80, P<.001) and low HDL-C (OR: 0.81, 95% CI: 0.69-0.96, P = .013). 
-The adjusted ORs for elevated TC, elevated LDL-C and low HDL-C were negatively correlated with increased blood cobalt concentrations (P for trend < .05). 
-The adjusted ORs for hypertension and diabetes were not associated with blood cobalt concentrations (P>.05 and P for trend>.05).
-In conclusion, higher blood cobalt concentrations were associated with a lower risk of dyslipidemia. 
-However, blood cobalt concentrations were not associated with the risk of hypertension or diabetes.
-
-#### 4.1 Cobalt Model
-As we can see from the summary of the table for both models, cobalt does not significantly impact hypertension.
+As the authors pointed out, the blood cobalt concentrations have not associated with the risk of hypertension based on the following summary table. The cobalt concentration does not significantly impact hypertension.
 
 ```{r model1,warning=FALSE,message=FALSE}
 lm_logit <- glm(hypertension ~ RIDAGEYR + RIAGENDR + BMXBMI+DMDEDUC2+RIDRETH1+LBXBCO, data = data, family = "binomial")
