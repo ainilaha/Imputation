@@ -40,7 +40,7 @@ sqlDefaultDb <- "NhanesLandingZone"
 tablnames = searchTableByName('BPX[_]')
 tablnames
 blood_df <- unionQuery(tablnames$TableName,cols =c("BPXDI1","BPXDI2","BPXSY1","BPXSY2"))
-DT::datatable(blood_df)
+dim(blood_df)
 
 ```
 
@@ -72,14 +72,28 @@ patterns <- c("DemographicVariablesAndSampleWeights","ChromiumAndCobalt","BloodP
 cols <- c("RIDAGEYR","RIAGENDR","BMXBMI","RIDRETH1","DMDEDUC2","years",'BPQ050A','BPQ020',"LBDBCOSI","LBXBCO")
 base_df <- jointQuery(patterns,cols)
 ```
-### 2.3)  merge and preprocess data 
-- The gender(RIAGENDR) and ethnicity (RIDRETH1) have been converted to factors and assigned the factor levels.
-- Also, education has been transformed into lower than high school (<HS), high school (HS), and higher than school-school(>HS).
-- The blood pressure measurements (diastolic and systolic) are averaged from the first and second reads.
+### 2.3)  merge and PHESANT-like process
+ 
+We can run the PHESANT-like process to convert each column into data types. It also provides the ratio of unique values, the proportion of zeros, and the ratio of NAs, which is calculated by the number of unique values, zeros, and NAs divided by total records. The categorical data types (ordered or unrecorded) are presented by integers, and the PHESANT function category them as multilevel. For example, education (DMDEDUC2) is category as Multilevel-7 means the PHESANT process considers it multilevel and has 7 levels. 
 
 ```{r data,warning=FALSE,message=FALSE}
 
 data <- merge(blood_df,base_df,by="SEQN")
+
+phs_dat = phesant(data)
+data = phs_dat$data
+DT::datatable(phs_dat$phs_res)
+
+```
+The above table has 15 records, but it contains variables like Participant ID.
+Further, we need to preprocess the data according to the scientific question for the base model and selection phenotypes.
+In this notebook, we perform the following preprocessing. 
+- The gender(RIAGENDR) and ethnicity (RIDRETH1) have been converted to factors and assigned the factor levels.
+- Also, education has been transformed into lower than high school (<HS), high school (HS), and higher than school-school(>HS).
+- The blood pressure measurements (diastolic and systolic) are averaged from the first and second reads.
+
+```{r}
+
 # it would convert to ordered if we do not make the as factor because all those values are presented by integers in NHANES
 data$years <- as.factor(data$years)
 ##FIXME: use nhanesA here  - we need to have real factor levels not integers
@@ -118,32 +132,52 @@ data$SYSTOLIC <- (data$BPXSY1+data$BPXSY2)/2
 ```
 
 ## 2.4 Hypertension
- We follow the definition they described in the paper, using reported (averaged over 2 measurements) systolic and diastolic blood pressure measurements as well as self-reported statements regarding whether a physician had ever told them that they have high blood pressure.  One might also look at the use of prescribed hypertensives, as these will modulate the systolic and diastolic measures.  Data on self-report come from the BPQ tables in NHANES.
+We follow the definition they described in the paper, using reported systolic and diastolic blood pressure measurements as well as self-reported statements regarding whether a physician had ever told them that they have high blood pressure.  
+
+Note that it is unclear whether the authors used averaged over 2 measurements for the systolic and diastolic blood pressure measurements. Still, we use average them because it would give us more accurate blood pressure measurements.
+
+One might also look at the use of prescribed hypertensives, as these will modulate the systolic and diastolic measures.  Data on self-report come from the BPQ tables in NHANES.
 https://wwwn.cdc.gov/nchs/nhanes/2011-2012/BPQ_G.htm
 
 ```{r Hypertension,warning=FALSE,message=FALSE}
-# Hypertension was defined as systolic blood pressure (SBP) ≥140 mm Hg, diastolic blood pressure ≥90mm Hg, or the use of antihypertensive medication. 
-
-  # FIXME: you want to use BPQ040 or BPQ050 I think - are they taking medication, not the report of their physician.  Probably you want 050 - so they are (Done)
-# taking it now and that would effect the BP as measured.
+# "Hypertension was defined as systolic blood pressure (SBP) ≥140 mm Hg, diastolic blood pressure ≥90mm Hg, or the use of antihypertensive medication. "
 data$hypertension <- data$DIASTOLIC >= 90 | data$SYSTOLIC >= 140 |  data$bpq50A==1
 barplot(table(data$hypertension))
 
-#   FIXME: could you see how close we are to matching the first few rows in Table 2 of the Cobalt paper?
-# 
-# Hypertension was defined as systolic blood pressure (SBP) ≥140 mm Hg, diastolic blood pressure ≥90mm Hg, or the use of antihypertensive medication. 
-# Diabetes was defined as fasting glucose > 110 mg/dl, hemoglobin A1c (HbA1c) > 6.5% or a history of diabetes. 
-# High TC levels were defined as levels >200 mg/dl. 
-# High LDL-C levels were defined as levels >130 mg/ dl. 
-# Low HDL-C levels were defined as levels <40 mg/dl in males and <50 mg/dl in females. 
-# High TG levels were defined as levels >150 mg/dl.
 ```
-#### 2.5 ) PHESANT-like process
-We can run the PHESANT-like process to covert the each column into data types. It also provides ratio of unique values, ratio of zeros, and ratio of NAs, which calculate by the mumber of unique values, zeros, and NAs divide by total records  
-```{r}
-phs_dat = phesant(data)
-data = phs_dat$data
-DT::datatable(phs_dat$phs_res)
+
+## 2.5 Compare with Table-2
+```{r, message=FALSE,warning=FALSE}
+pcobalt = ifelse(data$LBXBCO <= 0.12, "<=0.12", 
+                ifelse(data$LBXBCO >= 0.13 & data$LBXBCO <= 0.14, "0.13-0.14",
+                  ifelse(data$LBXBCO >= 0.15 & data$LBXBCO <= 0.18, "0.15-0.18",
+                         ifelse(data$LBXBCO >= 0.19, ">=1.9",
+                         NA)  )))
+data$pcobalt = pcobalt
+
+DBP = data |> group_by(pcobalt) |> summarise(mean=mean(DIASTOLIC),SD=sd(DIASTOLIC))
+DBP$stat = paste(round(DBP$mean,1),"±",round(DBP$SD,1))
+
+SBP = data |> group_by(pcobalt) |> summarise(mean=mean(SYSTOLIC),SD=sd(SYSTOLIC))
+SBP$stat = paste(round(SBP$mean,1),"±",round(SBP$SD,1))
+
+dbp_t = t(DBP)
+colnames(dbp_t) = DBP$pcobalt
+
+sbp_t = t(SBP)
+colnames(sbp_t) = SBP$pcobalt
+
+table2 = rbind(sbp_t["stat",],dbp_t["stat",])
+table2 = table2[,c("<=0.12","0.13-0.14","0.15-0.18",">=1.9")]
+table2 = cbind("Blood Pressures"=c("SBP (mm Hg), mean±SD","DBP (mm Hg), mean±SD"),table2)
+```
+It shows the number we have is not exactly the same as the one in the table-2 in the paper. The authors did not use the average of two reads of the blood pressure measurements.
+
+```{r, message=FALSE,warning=FALSE}
+library(kableExtra)
+kbl(table2) |>
+  kable_classic() |>
+  add_header_above(c(" " = 1, "Cobalt Quartiles (ug/L)" = 4))
 
 ```
 
@@ -153,59 +187,42 @@ DT::datatable(phs_dat$phs_res)
 
 ## 3.Base Models and QA/QC
 
-In the following section, we run the regression with adjusted variables. The authors do not use a spline model in the paper, but we added a spline model for comparison.  
+In the following section, we run the logistic regression models as Generalized Linear Models (GLM). In the models, the outcome of the hypertension indicator and the adjusted variables are age(RIDAGEYR), gender(RIAGENDR), BMI(BMXBMI), education(DMDEDUC2), and ethnicity (RIDRETH1). The first GLM is with linear terms, and the second GLM also adds terms linearly together but applies a natural spline to the continuous variables.      
 
 ```{r QA/QC, warnings=FALSE, message=FALSE}
 ## glm linear in the covariates
-data = phs_dat$data
+
 lm_logit <- glm(hypertension ~ RIDAGEYR + RIAGENDR + BMXBMI+DMDEDUC2+RIDRETH1, data = data, family = "binomial",na.action=na.omit)
 
 ##spline covariates
-ns_logit <- glm(hypertension ~ ns(RIDAGEYR,df=7)*RIAGENDR + ns(BMXBMI,df=7) + DMDEDUC2 + RIDRETH1, 
+ns_logit <- glm(hypertension ~ ns(RIDAGEYR,df=7)+RIAGENDR + ns(BMXBMI,df=7) + DMDEDUC2 + RIDRETH1, 
                    data = data, family = "binomial",na.action=na.omit)
-
-
-# ns_logit1 <- glm(hypertension ~ ns(RIDAGEYR, knots = seq(40, 85, by = 5), Boundary.knots=c(35,90)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)),Boundary.knots=c(10,85)) + DMDEDUC2 + RIDRETH1, 
-#                    data = data, family = "binomial",na.action=na.omit)
-
-# sjPlot::tab_model(lm_logit,ns_logit,
-#                   dv.labels = c("Linear", "Spline"),
-#                   show.ci = FALSE,show.stat = TRUE,show.se = TRUE,p.style = "scientific", digits.p = 2)
 
 ```
 ### 3.1) QA/QC
-The following plots show binned Hypertension data; each binned contains about 600 data points. "Label" denotes label data from the survey, and the Linear and Spline indicate the fitted values or residuals from the linear and spline models. 
+
 ```{r}
 # Age
-df_age_fitt = list("3-Label"=make_bins(x=data$RIDAGEYR,y=as.numeric(data$hypertension),nbin=600),
-                  "1-Linear"=make_bins(x=data$RIDAGEYR,y=lm_logit$fitted.values,nbin=600),
-                  "2-Spline"=make_bins(x=data$RIDAGEYR,y=ns_logit$fitted.values,nbin=600)
-                )
-df_age_res = list("Linear"=make_bins(x=data$RIDAGEYR,y=lm_logit$residuals,nbin=600),
-                  "Spline"=make_bins(x=data$RIDAGEYR,y=ns_logit$residuals,nbin=600)
+df_age_fitt = list("Binned Data"=make_bins(x=data$RIDAGEYR,y=as.numeric(data$hypertension),nbin=600),
+                  "Linear"=make_bins(x=data$RIDAGEYR,y=lm_logit$fitted.values,nbin=600),
+                  "Spline"=make_bins(x=data$RIDAGEYR,y=ns_logit$fitted.values,nbin=600)
                 )
 age_fitt = plot_bins2(df_age_fitt,xlab="Age (year)",ylab="Hypertension",is_facet=F) 
-age_res = plot_bins2(df_age_res,xlab="Age (year)",ylab="Resisuals",is_facet=F) 
 
 #BMI
-df_bmi_fit =list("1-Linear"=make_bins(x=data$BMXBMI,y=lm_logit$fitted.values,nbin=600),
-                "2-Spline"=make_bins(x=data$BMXBMI,y=ns_logit$fitted.values,nbin=600),
-                "3-Label"=make_bins(x=data$BMXBMI,y=as.numeric(data$hypertension),nbin=600)
+df_bmi_fit =list("Linear"=make_bins(x=data$BMXBMI,y=lm_logit$fitted.values,nbin=600),
+                "Spline"=make_bins(x=data$BMXBMI,y=ns_logit$fitted.values,nbin=600),
+                "Binned Data"=make_bins(x=data$BMXBMI,y=as.numeric(data$hypertension),nbin=600)
                 )
 
-df_bmi_res = list("Linear"=make_bins(x=data$BMXBMI,y=lm_logit$residuals,nbin=600),
-                  "Spline"=make_bins(x=data$BMXBMI,y=ns_logit$residuals,nbin=600)
-                )
 bmi_fit <- plot_bins2(df_bmi_fit,xlab="BMI",ylab="Hypertension",is_facet=F) 
-bmi_res <- plot_bins2(df_bmi_res,xlab="BMI",ylab="Resisuals",is_facet=F) 
 
 ```
-- Panel a) and c) show the binned plots for the fitted values of the models and hypertension from the data. Overall, the spline model fitted the data better than linear logistic regression model. 
-- Panels b) and d) show the binned plot for the models' residuals. Although both models have some trends in the residuals plot, the liner model is quite far from the 0 in the binned age plot.
+The following plots show binned Hypertension data; each binned contains about 600 data points. Binned Data presents the proportion of the participants who reported hypertension. Linear and Spline present the fitted values (probabilities) from the GLM with linear terms and apply the natural spline function on continuous terms of the participants who have hypertension. Both panels a) and b) show that the GLM model with spline terms fits the data very well, whereas the GLM model only with linear terms performs poorly.
 
-```{r qa_qc_plot, echo=TRUE,warning=FALSE,message=FALSE, fig.width = 12,fig.height=8}
+```{r qa_qc_plot, echo=TRUE,warning=FALSE,message=FALSE, fig.width = 12,fig.height=6}
 
-ggpubr::ggarrange(age_fitt,age_res,bmi_fit,bmi_res,nrow = 2,ncol = 2,labels = c('a)','b)','c)','d)'))
+ggpubr::ggarrange(age_fitt,bmi_fit,nrow = 1,ncol = 2,labels = c('a)','b)'))
 ```
 
 
@@ -224,7 +241,7 @@ As we can see from the summary of the table for both models, cobalt does not sig
 
 ```{r model1,warning=FALSE,message=FALSE}
 lm_logit <- glm(hypertension ~ RIDAGEYR + RIAGENDR + BMXBMI+DMDEDUC2+RIDRETH1+LBXBCO, data = data, family = "binomial")
-ns_logit <- glm(hypertension ~ ns(RIDAGEYR,df=7)*RIAGENDR + ns(BMXBMI,df=7) + DMDEDUC2 + RIDRETH1+LBXBCO, 
+ns_logit <- glm(hypertension ~ ns(RIDAGEYR,df=7)+RIAGENDR + ns(BMXBMI,df=7) + DMDEDUC2 + RIDRETH1+LBXBCO, 
                    data = data, family = "binomial",na.action=na.omit)
 
 sjPlot::tab_model(lm_logit,ns_logit,
