@@ -218,7 +218,13 @@ df_bmi_fit =list("Linear"=make_bins(x=data$BMXBMI,y=lm_logit$fitted.values,nbin=
 bmi_fit <- plot_bins2(df_bmi_fit,xlab="BMI",ylab="Hypertension",is_facet=F) 
 
 ```
-The following plots show binned Hypertension data; each binned contains about 600 data points. Binned Data presents the proportion of the participants who reported hypertension. Linear and Spline present the fitted values (probabilities) from the GLM with linear terms and apply the natural spline function on continuous terms of the participants who have hypertension. Both panels a) and b) show that the GLM model with spline terms fits the data very well, whereas the GLM model only with linear terms performs poorly.
+The following plots show binned Hypertension data; each bin contains about 600 data points and we compute the proportion of the participants who reported hypertension. 
+Linear and Spline present the fitted values (probabilities) from the GLM with linear terms and apply the natural spline function on continuous terms of the participants who have 
+hypertension. For both age, panel a), and BMI, panel b),  the GLM model using splines agrees with the estimates obtained by binning, while when these terms are modeled using
+a simple linear term there are more substantial discrepancies. 
+
+To compute the model estimates for each bin we simply average the computed fitted values (which are defined to be back-transformed to probabilities for logistic regression) over the 
+same individuals in each bin. One might want to examine the relationship on the logit scale, which is easily done.
 
 ```{r qa_qc_plot, echo=TRUE,warning=FALSE,message=FALSE, fig.width = 12,fig.height=6}
 
@@ -228,6 +234,7 @@ ggpubr::ggarrange(age_fitt,bmi_fit,nrow = 1,ncol = 2,labels = c('a)','b)'))
 
 ## 4. Their findings
 As the authors pointed out, the blood cobalt concentrations have not associated with the risk of hypertension based on the following summary table. The cobalt concentration does not significantly impact hypertension.
+FIXME: but they have a bunch of other features in their table 2 - and it would be good if we can start to look at them.
 
 ```{r model1,warning=FALSE,message=FALSE}
 lm_logit <- glm(hypertension ~ RIDAGEYR + RIAGENDR + BMXBMI+DMDEDUC2+RIDRETH1+LBXBCO, data = data, family = "binomial")
@@ -239,11 +246,18 @@ sjPlot::tab_model(lm_logit,ns_logit,
                   show.ci = FALSE,show.stat = TRUE,show.se = TRUE,p.style = "scientific", digits.p = 2)
 
 ```
+  FIXME:  This likely belongs in the QA/QC section.  The point of this code is to show the reader how they can estimate the functional form of the spline that they are fitting
+to the data.  To do that, we pick a covariate, say Age, where we want to compute the spline.  Then we pick a set of Age values that cover the range of ages in the model.  
+To get predictions from the model for a specific age we also need to specify values for all the other covariates in the model.  
+Our suggestion is that for categorical variables choose the most common category and for continuous variables use the median value.
+
   FIXME: below is code from RG - we probably want to be using spline functions for AGE and BMI - and then checking those functions.
   We are missing a bunch of the covariates in the Cobalt paper - specifically things like triglycerides etc from Table 2 in that paper.
 Those would be interesting to look at, as they seem to have an unusual pattern of association.
 
 *** Robert, you only keep one base model in the end, do you want to me plot or compare somethings***
+FIXME: yes the point here is to develop a better summary of the comparison of models with spline terms. I really don't like the R output that shows each term individually, as you can't really interpret them and they take up a lot of room.  I think we should instead, create one line for each spline term, and in it only put the value of the LRT comparing the model with the spline to the model without it.  From that comparison you can get the chi-squared statistic, the p-value and the df and those could be put into the table.  I think that would be a better thing.
+
 
 ```{r model2,warning=FALSE,message=FALSE}
    # base_logit <- glm(hypertension ~ RIDAGEYR + RIAGENDR + BMXBMI+DMDEDUC2+RIDRETH1 + sqrt(LBXBCO), data = data, family = "binomial")
