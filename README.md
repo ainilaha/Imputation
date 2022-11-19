@@ -28,38 +28,20 @@ Imputation methods for biomedical data
   - [B.Spline with MICE](https://ccb-hms.github.io/Imputation/5_inv_and_spline/spline_mice.html)
 
   
-#### 6.NHANES data
-  - [Download and combine data](https://ccb-hms.github.io/Imputation/6_nhanes_data/com_data.html)
-  - [Data Explore](https://ccb-hms.github.io/Imputation/6_nhanes_data/data_explor.html)
-  - [Downlaod and Save](https://ccb-hms.github.io/Imputation/6_nhanes_data/download_save_data.html)
-  - [Data Explore more](https://ccb-hms.github.io/Imputation/6_nhanes_data/nhanes_exploratory.html)
-  - [Test PHSEANT](https://ccb-hms.github.io/Imputation/6_nhanes_data/phesant.html)
-  - [Check Variable information](https://ccb-hms.github.io/Imputation/6_nhanes_data/check_vars.html)
-  
+#### 6.phonto and NHANES data
+- [Quick start](https://ccb-hms.github.io/Imputation/6_phonto/quick_start.html)
+- [Examples of Missing Data Plots](https://ccb-hms.github.io/Imputation/6_phonto/missing_exploratory.html)
+- [Query Data](https://ccb-hms.github.io/Imputation/6_phonto/query_data.html)
+- [Tansformation](https://ccb-hms.github.io/Imputation/6_phonto/transformation_cmp.html)
+- [Table-I](https://ccb-hms.github.io/Imputation/6_phonto/table1.html)
+
 #### 7. EnWAS
-
-  - [Pre EnWAS 1 (testing and selecting base model)](https://ccb-hms.github.io/Imputation/7_enwas/pre_try/EnWAS1_selecting_base_model.html)
-  - [Pre EnWAS 2 (explore splines and data distribution)](https://ccb-hms.github.io/Imputation/7_enwas/pre_try/EnWAS2_splines_data_distribution.html)
-  - [Pre EnWAS 3 (split plots for lines)](https://ccb-hms.github.io/Imputation/7_enwas/pre_try/EnWAS3_split_plots_for_lines.html)
-  - [Pre EnWAS 4 (EnWAS with Survey package)](https://ccb-hms.github.io/Imputation/7_enwas/pre_try/EnWAS4_survey_package.html)
-  - [Variable Selection](https://ccb-hms.github.io/Imputation/7_enwas/diet_var_selection.html)
-  - [Simple EnWAS Base Model](https://ccb-hms.github.io/Imputation/7_enwas/EnWAS_base_model_waist.html)
-  - [Simple EnWAS](https://ccb-hms.github.io/Imputation/7_enwas/EnWAS_simple.html)
-  - [Diastolic:EnWAS Base Model](https://ccb-hms.github.io/Imputation/7_enwas/blood_pres/blood_pres_diastolic_base_model.html)
-  - [Diastolic:EnWAS](https://ccb-hms.github.io/Imputation/7_enwas/blood_pres/blood_pres_diastolic.html)
-  - [Systolic: Blood pres EnWAS](https://ccb-hms.github.io/Imputation/7_enwas/blood_pres/blood_pres_systolic.html)
-
-#### 8. PHONTO Package Vignettes
-  - [Data Check](https://ccb-hms.github.io/Imputation/phesant_vignettes/data_check.html)
-  - [Query Data](https://ccb-hms.github.io/Imputation/phesant_vignettes/query_data.html)
-
-#### 9. EnWAS Package Vignettes
-  - [Base Model checking](https://ccb-hms.github.io/Imputation/enwas_vignettes/base_model.html)
-  - [EnWAS:Blood Pressure Diastolic](https://ccb-hms.github.io/Imputation/enwas_vignettes/enwas1.html)
-  - [EnWAS:Blood Pressure Systolic](https://ccb-hms.github.io/Imputation/enwas_vignettes/enwas2.html)
-  - [EnWAS:Blood waist circumference](https://ccb-hms.github.io/Imputation/enwas_vignettes/enwas3.html)
+  - [Base Model checking](https://ccb-hms.github.io/Imputation/7_enwas/base_model.html)
+  - [EnWAS:Blood Pressure Diastolic](https://ccb-hms.github.io/Imputation/7_enwas/enwas1.html)
+  - [EnWAS:Blood Pressure Systolic](https://ccb-hms.github.io/Imputation/7_enwas/enwas2.html)
+  - [EnWAS:Blood waist circumference](https://ccb-hms.github.io/Imputation/7_enwas/enwas3.html)
+  - [Reproduce Cobalt Paper](https://ccb-hms.github.io/Imputation/7_enwas/cobalt_paper.html)
 
 
 #### Update Notes:
   - [Notebook](https://ccb-hms.github.io/Imputation/updates_notes.html)
-  - [rMarkdown](https://github.com/ccb-hms/Imputation/blob/main/updates_notes.Rmd)

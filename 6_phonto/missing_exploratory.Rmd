@@ -1,0 +1,64 @@
+---
+title: "NHANES Exploratory Data Analysis"
+
+date: "Updated on : `r date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+### configuration DB 
+
+```{r data_config,warning=FALSE,message=FALSE}
+sqlHost <- "localhost"
+sqlUserName <- "sa"
+sqlPassword <- "yourStrong(!)Password"
+sqlDefaultDb <- "NhanesLandingZone"
+```
+
+## Load libs
+
+```{r libs,warning=FALSE,message=FALSE}
+library(naniar)
+library(visdat)
+library(phonto)
+```
+
+
+
+
+
+## Missing value in Row
+
+```{r missing_r}
+demo = phonto::nhanes('DEMO_E')
+```
+
+
+## Plot missing pattern
+
+```{r miss_clipp,warning=FALSE}
+vis_miss(demo,warn_large_data=FALSE)
+
+```
+
+## Missing pattern across age
+
+```{r missing}
+gg_miss_fct(demo,fct = RIDAGEYR)
+
+```
+
+
+## show missing percentage
+
+```{r missing1}
+gg_miss_var(demo,show_pct = TRUE)
+
+```
+
+
+
+
+

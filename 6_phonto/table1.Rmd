@@ -1,0 +1,126 @@
+---
+title: "Table-I"
+date: "Updated on : `r date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Set up DB account information
+
+```{r data_config,warning=FALSE,message=FALSE}
+library(phonto)
+sqlHost <- "localhost"
+sqlUserName <- "sa"
+sqlPassword <- "yourStrong(!)Password"
+sqlDefaultDb <- "NhanesLandingZone"
+```
+
+### functions
+```{r}
+catVars = function(vars, df){
+  res = data.frame(matrix(nrow = 0, ncol = 4)) 
+  n = nrow(df)
+  for(v in vars){
+  cat = table(df[,v])
+  prec = round(cat/n *100,2)
+  tm_df = data.frame(count=cat,prec=prec)
+  emty_r = c(paste0("<b>",v,"</b>"),"","","")
+  names(emty_r) = c("count.Var1","count.Freq","prec.Var1","prec.Freq")
+  emty_r = t(as.data.frame(emty_r))
+  res = rbind(res,emty_r)
+  tm_df$count.Var1 = paste("&nbsp; &nbsp; &nbsp; &nbsp; ",tm_df$count.Var1)
+  res = rbind(res,tm_df)
+  }
+  res = res[,c("count.Var1","count.Freq","prec.Freq")]
+  colnames(res) = c("Characteristics","Total participants, n","Mean (SE) or %")
+  res
+
+}
+
+conVars = function(vars, df){
+  res = data.frame(matrix(nrow = 0, ncol = 4)) 
+  for(v in vars){
+  tem_df = na.omit(df[,v])
+  varnames = paste0("<b>",v,"</b>")
+  stderr = sd(tem_df)/sqrt(length(tem_df))
+  mean_err = paste0(round(mean(tem_df),2)," (",round(stderr,2),")")
+  r_temp = c(varnames,length(tem_df),mean_err)
+  res = rbind(res,t(r_temp))
+  }
+
+  colnames(res) = c("Characteristics","Total participants, n","Mean (SE) or %")
+  res
+}
+
+
+```
+
+### Demographic Data
+```{r demo}
+cols = c("RIDAGEYR","RIAGENDR","DMDEDUC2","RIDRETH1")
+demo = unionQuery('DemographicVariablesAndSampleWeights',cols)
+
+demo$RIAGENDR <- as.factor(demo$RIAGENDR)
+levels(demo$RIAGENDR) <- c("Male","Female")
+demo$RIDRETH1 <- as.factor(demo$RIDRETH1)
+levels(demo$RIDRETH1) <- c('Mexican American','Other Hispanic','Non-Hispanic White','Non-Hispanic Black','Other Race - Including Multi-Racial')
+
+nDEDUC = ifelse(demo$DMDEDUC2 < 3, "<High school", ifelse(demo$DMDEDUC2 == 3, "High school", 
+                                                    ifelse(demo$DMDEDUC2 < 6, ">High school", NA)))
+demo$nDEDUC = nDEDUC
+colnames(demo)[c(2,3,6,5)] = c("Age (years)","Gender","Education","Race")
+
+
+
+cat_df = catVars(c("Gender","Education","Race"),demo)
+con_df = conVars("Age (years)",demo)
+
+demo_df = rbind(con_df,cat_df)
+row.names(demo_df) = NULL
+
+demo_df |> knitr::kable()
+```
+
+
+### Body Measures
+```{r}
+cols = c("BMXWAIST","BMXBMI")
+bdx = unionQuery('BodyMeasures',cols)
+colnames(bdx)[c(2,3)] = c("Waist Circumference, cm","BMI, kg/m²")
+bdx_df = conVars(c("Waist Circumference, cm","BMI, kg/m²"),bdx)
+row.names(bdx_df) = NULL
+
+bdx_df |> knitr::kable()
+```
+
+### Blood Measures
+```{r}
+cols = c('BPXDI1','BPXDI2','BPXSY1','BPXSY2')
+bpx = unionQuery('BloodPressure',cols)
+bpx = na.omit(bpx)
+bpx = bpx[bpx$BPXDI1!=0 & bpx$BPXDI2!=0, ]
+bpx[,"Diastolic, mmHg"] = (bpx$BPXDI1 + bpx$BPXDI2)/2 
+bpx[,"Systolic, mmHg"] = (bpx$BPXSY1 + bpx$BPXSY1)/2 
+
+
+bpx_df = conVars(c("Diastolic, mmHg","Systolic, mmHg"),bpx)
+row.names(bpx_df) = NULL
+
+bpx_df |> knitr::kable()
+```
+
+### Table-1
+
+We can put them together now.
+
+```{r}
+rbind(demo_df,bdx_df,bpx_df) |> knitr::kable()
+```
+
+
+
+
+
