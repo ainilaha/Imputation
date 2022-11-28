@@ -20,6 +20,12 @@ library(phonto)
 library(DT)
 ```
 
+### Describe NHANES and our data
+  FIXME: here outline the NHANES survey - refer to published on-line resources at the CDC.  Point out that the survey is carried out in two year "epochs", and that within an epoch the same people are generally surveyed - but not all particpate in all of the components of the survey.  But, importantly, there are no people that span two (or more epochs), so any joins have to be within a 2 year epoch. 
+
+  Within each survey epoch the data are organized in named tables (you can outline the notion of the SAS name, the short variable name, the longer name and so on).
+
+ And importantly our code should be taking advantage of that - or at least making it really clear that is how the data are organized.
 ### searchTableByName
 
 We can do the following can find the tables with string "BPX".

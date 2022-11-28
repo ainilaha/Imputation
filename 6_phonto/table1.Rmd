@@ -115,6 +115,7 @@ bpx_df |> knitr::kable()
 ### Table-1
 
 We can put them together now.
+##FIXME:  I don't see how you can just rbind these together - don't you need merge here?
 
 ```{r}
 rbind(demo_df,bdx_df,bpx_df) |> knitr::kable()
