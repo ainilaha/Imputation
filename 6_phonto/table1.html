@@ -349,7 +349,7 @@ display: none;
 
 
 <h1 class="title toc-ignore">Table-I</h1>
-<h4 class="date">Updated on : Sat Nov 19 00:56:09 2022</h4>
+<h4 class="date">Updated on : Tue Nov 29 04:35:12 2022</h4>
 
 </div>
 
@@ -579,7 +579,9 @@ bpx_df |&gt; knitr::kable()</code></pre>
 </div>
 <div id="table-1" class="section level3">
 <h3>Table-1</h3>
-<p>We can put them together now.</p>
+<p>We can put them together now. ##FIXME: I don’t see how you can just
+rbind these together - don’t you need merge here? It is not rbind the
+data. It is rbind the results of the statistics.</p>
 <pre class="r"><code>rbind(demo_df,bdx_df,bpx_df) |&gt; knitr::kable()</code></pre>
 <table>
 <colgroup>

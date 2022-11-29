@@ -116,6 +116,7 @@ bpx_df |> knitr::kable()
 
 We can put them together now.
 ##FIXME:  I don't see how you can just rbind these together - don't you need merge here?
+It is not rbind the data. It is rbind the results of the statistics.
 
 ```{r}
 rbind(demo_df,bdx_df,bpx_df) |> knitr::kable()

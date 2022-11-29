@@ -21,54 +21,101 @@ library(DT)
 ```
 
 ### Describe NHANES and our data
-  FIXME: here outline the NHANES survey - refer to published on-line resources at the CDC.  Point out that the survey is carried out in two year "epochs", and that within an epoch the same people are generally surveyed - but not all particpate in all of the components of the survey.  But, importantly, there are no people that span two (or more epochs), so any joins have to be within a 2 year epoch. 
 
-  Within each survey epoch the data are organized in named tables (you can outline the notion of the SAS name, the short variable name, the longer name and so on).
+[National Health and Nutrition Examination Survey （NHANES)](https://www.cdc.gov/nchs/nhanes/index.htm) datasets are collected from the Centers for Disease Control and Prevention in the USA, including demographics, dietary, laboratory, examination, and questionnaire data. 
 
- And importantly our code should be taking advantage of that - or at least making it really clear that is how the data are organized.
-### searchTableByName
+The survey is carried out in two year "epochs" from 1999-2000 to 2017-2018, and that within an epoch the same people are generally surveyed. However, not all of participates in all of the components (i.e demographics, dietary, laboratory, examination, and questionnaire) of the survey.  
 
-We can do the following can find the tables with string "BPX".
+
+
+<FONT COLOR="RED"> RG: But, importantly, there are no people that span two (or more epochs), so any joins have to be within a 2 year epoch. </FONT>
+
+<FONT COLOR="BLUE"> Laha: Actually, is it possible that people may assigned new SEQNs in different "epochs"? do we know about that?*** </FONT>
+
+  <FONT COLOR="RED"> RG Within each survey epoch the data are organized in named tables (you can outline the notion of the SAS name, the short variable name, the longer name and so on). </FONT>\
+  
+<FONT COLOR="BLUE"> Laha: We do not have the SAS names in the database for now. I can copy them from the website, but I think we want to a function to retrieve those information from the database. </FONT>
+ 
+ 
+Although we can download NHANES data from [its website](https://www.cdc.gov/nchs/nhanes/index.htm), it is pretty inconvenient to manipulate data in such a way. For example, one could search variables in body measurements and demographics data from the year 1999 to 2006. It would take a significant amount of time to download and put such data together. Another more challenging issue is that researchers may want to search for certain data containing a specific variable. For instance, one might want to know if data files contain variable URXDAZ - Daidzein (ng/mL) and load all the data to further analysis; it would be not only extremely inconvenient to download all the files and search them but also possible that we may miss some of the data if we do it manually. 
+
+In this notebook, we demonstrate the data manipulation with our R functions to show how those functions can help us in our work. 
+
+### 1. searchTableByName()
+
+searchTableByName(): can search the tables by the name patterns, and it returns a data frame of the results, which contains the questionnaire (the table names provided in NHANES websites), a long descriptive table name (eg.BloodPressure) and the survey years. 
+
+More information about the function check the help document for the function by
+
+`> ?searchTableByName`
+
 ```{r}
 res = searchTableByName("BPX")
-unique(res$TableName)
 datatable(res)
 ```
-##FIXME: Laha - I don't understand what you are saying here - could you try to explain what you think the
-##problem is.  You can say that it has OscillometricMeasurements in it, and that likely means that they
-##used some other way to measure blood pressure.  I would not say "get rid of it", I would say, you might
-##want to find some more information about these different tables. You might want to say that the user can
-##use some sort of regular expression - but that they are different for the SQL database than for normal R
-## regular expressions and then give a reference to where we can find them out.  You can say that because NHANES uses
-## some unusual naming conventions analysts should be very careful when using regular expressions.
-You may notice that the table name of the last row is different from the rest of the row, and you may want to try something like the one below to get rid of it. However, the following method would need to include the first row in the above result. Therefore, we need to be careful of the patterns we pass in the function; otherwise, we may miss some of the data because the name convention of NHANES does not always keep consistent.  
-##explain what you did - what does the regular expression mean, what were you trying for (not select the BPXO_J, but that means you didn't select the BPX table with no undescore.  You must put yourself into the frame of mind of the naive user and explain things is great detail here.
+The above search result includes the table BloodPressureOscillometricMeasurements, which may not want what we want. We can replace the search pattern "BPX" with "BPX[_]," which matches only the table containing the string "BPX_"; therefore, the "BPXO_J" will be excluded. t the BPX table with no undescore.  You must put yourself into the frame of mind of the naive user and explain things is great detail here.
 ```{r}
 res = searchTableByName("BPX[_]")
 datatable(res)
 ```
-### unionQuery and PHESANT-like
-##FIXME: explain what PHESANT is supposed to do - ie it should identify features like SEQN that are not intended for analysis, but rather help organize the data, for features that are going to be used in an analysis they help you to understand what type of variable, what sorts of values are contained, how many values are missing, is it a continuous variable or a discrete one, and where to find out more about the valees that are stored there.  You should explain what PHESANT is doing.
-##FIXME - in the HTML I have SEQN is not right - says continuous, not Participant ID - I think you need to fix something.
 
-In this package we are trying to help users navigate the complexity of the NHANES data.  When data are first extracted from the NHANES data base, they are in quite raw form.  Most discrete variables are represented only by integers and you will need to find out what those integer values correspond to.  When you have extracted some data, as we do below, using unionQuery (FIXME: Laha is this the main function people should use) we try to help explain what the different features are.
+# 2. unionQuery()
+The unionQuery() function, table list of table name and a set of column names, it combines the researched results and returns the results as a data frame.
+
+More information about the function check the help document for the function by
+
+`> ?unionQuery`
+
+```{r search_union,warning=FALSE,message=FALSE}
+tablnames = searchTableByName('BPX[_]')
+blood_df <- unionQuery(tablnames$TableName,cols =c("BPXDI1","BPXDI2","BPXSY1","BPXSY2"))
+DT::datatable(blood_df)
+```
+
+## 3. jointQuery()
+The jointQuery() function, table list of table name and a set of column names, it merges the researched results and returns the results as a data frame.
+
+More information about the function check the help document for the function by
+
+`> ?jointQuery`
+
+```{r}
+tables <- c("DemographicVariablesAndSampleWeights","BloodPressure")
+cols <- c("RIDAGEYR","RIAGENDR","RIDRETH1","DMDEDUC2","years","BPXDI1","BPXDI2","BPXSY1","BPXSY2")
+data <- jointQuery(tables,cols)
+datatable(data)
+```
+
+### 4. PHESANT-like
+
+We can run the PHESANT-like process to convert each column into data types. It also provides the ratio of unique values (`r_unique`), the proportion of zeros (`r_zeros`), and the ratio of NAs (`r_NAs`), which is calculated by the number of unique values, zeros, and NAs divided by total records. The categorical data types (ordered or unrecorded) are presented by integers, and the PHESANT function category them as multilevel. For example, education (DMDEDUC2) is category as Multilevel-7 means the PHESANT process considers it multilevel and has 7 levels.
+
+```{r}
+phs_dat = phesant(data)
+data = phs_dat$data
+DT::datatable(phs_dat$phs_res)
+```
+
+### 5.Setup factor levels for catigorycial varaibles
+
+Categorical variables are presented with integers as shown below.
+
+```{r}
+data[,c('RIAGENDR', 'RIDRETH1','DMDEDUC2')] |> head() |> knitr::kable()
+```
+The real factor levels can be set with nhanesTranslate() functions from nhanesA package as shown below.
+
+```{r}
+data = nhanesA::nhanesTranslate('DEMO_D', c('RIAGENDR', 'RIDRETH1','DMDEDUC2'), data=data[1:1000,])
+# head(data)
+datatable(data[,c('SEQN','RIAGENDR', 'RIDRETH1','DMDEDUC2')])
+```
 
 ##FIXME: Laha - somewhere you should have an explicit definition of what is in the code - what makes something continuous - what makesit discrete, what makes it ordered? In the first pass, all the categorical values are discrete integers - that does not make them ordered - you have to look at the actual levels - and we need to explain how our users will do that.
 
-There are ''continuous variables'', and ''categorical variables'' (the latter are integer valued, with relatively few levels - Laha - how many?  Any features that have special meaning are captured in our XXX table, and their type is displayed. In general these should not be used in any modeling excercises.
-
-In the table below we provide information about the characteristics of each of the variables. 
-`r_unique` and `r_zero` denote the proportion of values that are unique or zero, respectively. 
-So since every participant must have a unique ID we see that there are no zeros, no missing values and the r_unique value is one, indicating that there are no duplicated SEQN values.
-
-##FIXME: - do you really need to extract that many columns for this example?
-```{r}
-cols = c("DR1DAY","DRQSPREP","DR1TNUMF","DR1TKCAL","DR1TPROT","DR1TCARB","DR1TSUGR","DR1TFIBE","DR1TTFAT","DR1TSFAT","DR1TMFAT","DR1TPFAT","DR1TCHOL","DR1TATOC","DR1TRET","DR1TVARA","DR1TBCAR","DR1TCRYP","DR1TLZ","DR1TVB1","DR1TVB2","DR1TNIAC","DR1TVB6","DR1TFOLA","DR1TFA","DR1TFF","DR1TFDFE","DR1TVB12","DR1TVC","DR1TVK","DR1TCALC","DR1TPHOS","DR1TMAGN","DR1TIRON","DR1TZINC","DR1TCOPP","DR1TSODI","DR1TPOTA","DR1TSELE","DR1TMOIS","DR1TS040","DR1TS080","DR1TS120","DR1TS160","DR1TS180","DR1TM161","DR1TM181","DR1TM201","DR1TP183","DR1TP204")
-diet = unionQuery("DietaryInterviewTotalNutrientIntakesFirstDay",cols)
-phs_dat = phesant(diet)
-datatable(phs_dat$phs_res)
-```
-
-##FIXME - Laha, I think next I would do some examples of discrete variables where you show how to use nhanesA functionality to get to the names for the levels and things like that. 
 
 ##FIXME - the more I think about it, we should only report a factor, if the column has been transformed into an R factor, and then you can get from that whether it is ordered or unordered.  When you get a column with integer values only (and less than whatever the PHESANT cut-off is, then call them "categorical" - let's reserve the label "factor" for R factors.
+
+Currently, we are doing as the following flow chat, but both the ordered and unordered are considered as multilevel.
+![PHESANT flow chat](phesant_like.png){width=80%}
+

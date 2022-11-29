@@ -200,6 +200,25 @@ ns_logit <- glm(hypertension ~ ns(RIDAGEYR,df=7)+RIAGENDR + ns(BMXBMI,df=7) + DM
 
 ```
 ### 3.1) QA/QC
+```{r}
+# library(pROC)
+library(plotROC)
+test = data_frame(hypertension=data$hypertension,lm=lm_logit$fitted.values,ns=ns_logit$fitted.values)
+longtest <- reshape2::melt(test,id.vars="hypertension")
+colnames(longtest) = c('hypertension','model','value')
+ggplot(longtest, aes(d = as.numeric(hypertension), m = value, color = model))+ geom_abline()+ geom_roc(size = 1.25) + style_roc()
+
+# plot(roc(data$hypertension,
+#                    fitted(lm_logit)),
+#                print.auc = T, 
+#                col = "red")
+# 
+# plot(roc(data$hypertension,
+#                    fitted(ns_logit)),
+#                print.auc = T, 
+#                col = "blue", 
+#                add = T)
+```
 
 ```{r}
 # Age
