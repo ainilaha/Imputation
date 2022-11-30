@@ -26,7 +26,10 @@ The [National Health and Nutrition Examination Survey （NHANES)](https://www.cd
 
 The survey is carried out in two year "epochs" from 1999-2000 to 2017-2018, and that within an epoch a set of people are surveyed. However, not all of the participants are surveyed for all of the components (e.g. demographics, dietary, laboratory, examination, and questionnaire) of the survey.  
 
-
+Each participant is assigned a unique ID and that is stored in the database as \texttt{SEQN} which is then used as a primary key. Any merging of data extracted from different tables should be based on \texttt{SEQN}. 
+Within each of the two-year epochs NHANES has produced a set of tables, or data files.  One example is the [Body Measures](https://wwwn.cdc.gov/nchs/nhanes/2001-2002/BMX_B.htm)
+table, which provides data from the 2001-2002 surveys. The web page provides details on the measurements and how they are recorded.
+##FIXME: Laha could we put a screen shot of that page in here?  Perhaps grab the SEQN table and BMXWT table - that would make it easier to discuss how this all works.
 
 <FONT COLOR="RED"> RG: But, importantly, there are no people that span two (or more epochs), so any joins have to be within a 2 year epoch. </FONT>
 
@@ -47,9 +50,18 @@ Although we can download NHANES data from [its website](https://www.cdc.gov/nchs
 
 In this notebook, we demonstrate the data manipulation with our R functions to show how those functions can help us in our work. 
 
+### 0. We might want to outline some search strategies.
+How do i find out about variables that encode Height information?  Can you run through a set of commands that would get someone
+information about which tables they are in, then use that to get a data frame with height in it?
+
 ### 1. searchTableByName()
 
-searchTableByName(): can search the tables by the name patterns, and it returns a data frame of the results, which contains the questionnaire (the table names provided in NHANES websites), a long descriptive table name (eg.BloodPressure) and the survey years. 
+This function lets users search for tables in the database by the table name, which can be either the short names used by NHANES or the 
+longer descriptive names. [FIXME: is this correct Laha? If so can you add something to the man page to show this and an example of using
+the long descriptive names - also the man page says: includerdc: If TRUE then RDC only tables are included (default=FALSE).
+but what is an RDC table? can you explain on the man page?]
+
+searchTableByName(): can search the tables by the name patterns, and it returns a data frame of the results, which contains the questionnaire (the table names provided in NHANES websites), a longer descriptive table name (eg.BloodPressure) and the survey years. 
 
 More information about the function check the help document for the function by
 
