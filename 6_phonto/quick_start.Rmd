@@ -27,9 +27,13 @@ The [National Health and Nutrition Examination Survey （NHANES)](https://www.cd
 The survey is carried out in two year "epochs" from 1999-2000 to 2017-2018, and that within an epoch a set of people are surveyed. However, not all of the participants are surveyed for all of the components (e.g. demographics, dietary, laboratory, examination, and questionnaire) of the survey.  
 
 Each participant is assigned a unique ID and that is stored in the database as \texttt{SEQN} which is then used as a primary key. Any merging of data extracted from different tables should be based on \texttt{SEQN}. 
-Within each of the two-year epochs NHANES has produced a set of tables, or data files.  One example is the [Body Measures](https://wwwn.cdc.gov/nchs/nhanes/2001-2002/BMX_B.htm)
+Within each of the two-year epochs NHANES has produced a set of tables, or data files. One example is the [Body Measures](https://wwwn.cdc.gov/nchs/nhanes/2001-2002/BMX_B.htm)
 table, which provides data from the 2001-2002 surveys. The web page provides details on the measurements and how they are recorded.
-##FIXME: Laha could we put a screen shot of that page in here?  Perhaps grab the SEQN table and BMXWT table - that would make it easier to discuss how this all works.
+Here two examples:
+![SEQN](seqn.png){width=80%}
+![weight](weight.png){width=80%}
+
+
 
 <FONT COLOR="RED"> RG: But, importantly, there are no people that span two (or more epochs), so any joins have to be within a 2 year epoch. </FONT>
 
@@ -37,57 +41,61 @@ table, which provides data from the 2001-2002 surveys. The web page provides det
 Yes, you can read up their documentation, but they move to different parts of the country and the sampling fraction is very low, so
 the probability of the same person being surveyed twice is very small. *** </FONT>
 
-  <FONT COLOR="RED"> RG Within each survey epoch the data are organized in named tables (you can outline the notion of the SAS name, the short variable name, the longer name and so on). </FONT>\
+  <FONT COLOR="RED"> RG Within each survey epoch the data are organized in named tables (you can outline the notion of the SAS name, the short variable name, the longer name and so on). </FONT>
   
 <FONT COLOR="BLUE"> Laha: We do not have the SAS names in the database for now. I can copy them from the website, but I think we want to a function to retrieve those information from the database. We should have them soon.</FONT>
 
-FIXME:: 
-The CDC provides substantial web-based tools for investigating the data and XXX has produced an R package (nhanesA - cite and get the author's name). Most of the data collected can easily be downloaded from the CDC website, however accessing the data in that way can 
-be problematic and error prone.  In the spirit of producing more easily reproduced and shared analyses we have created a SQL database in a Docker (cite Docker) container that contains most of the available data.  Around that SQL database we have constructed a number of R packages and other tools that help scientists analyze the data.  Since all of the code and data are under version control, anyone can obtain the same version of the data and code and get identical results.  
+The CDC provides substantial [web-based tools](https://www.cdc.gov/nchs/nhanes/index.htm) for investigating the data and metadata has produced an R package called nhanesA([Endres et. al](https://cran.r-project.org/web/packages/nhanesA/index.html)). Most of the data collected can easily be downloaded from the CDC website, however accessing the data in that way can be problematic and error prone. nhanesA package provides a set of tools to search and download the data and metadata, which makes the data more accessible to the users. However, the function needs to access the NHANES website every time the user calls the R function, which leads to slow getting data and raises errors occasionally due to network issues.
 
-##FIXME: there are lots of problems, but remember that the CDC provides very good search capabilities - so they can get answers similar to what we provide - but they are typically not easy to replicate, involve using web tools to search, then downloading the data, uploading tables - remember nhanesA does a bunch of this stuff - it is just slow, but we need to acknowledge it.  What the nhanesA approach lacks is really the notion that everything is in one place and all versioned - so that we can just grab the right version and replicate.
-Although we can download NHANES data from [its website](https://www.cdc.gov/nchs/nhanes/index.htm), it is pretty inconvenient to manipulate data in such a way. For example, one could search variables in body measurements and demographics data from the year 1999 to 2006. It would take a significant amount of time to download and put such data together. Another more challenging issue is that researchers may want to search for certain data containing a specific variable. For instance, one might want to know if data files contain variable URXDAZ - Daidzein (ng/mL) and load all the data to further analysis; it would be not only extremely inconvenient to download all the files and search them but also possible that we may miss some of the data if we do it manually. 
+In the spirit of producing more easily reproduced and shared analyses we have created a SQL database in a Docker (cite Docker) container that contains most of the available data.  Around that SQL database we have constructed a number of R packages and other tools that help scientists analyze the data. Since all of the code and data are under version control, anyone can obtain the same version of the data and code and get identical results.  
+
+
 
 In this notebook, we demonstrate the data manipulation with our R functions to show how those functions can help us in our work. 
+
+We can load the data if we know which data file we want to load by using nhanes() function. Otherwise, we can retrieve the data as following steps
+- search the tables/data files though variable names or tables names
+- load the data with unionQuery or jointQuery
 
 ### 0. We might want to outline some search strategies.
 How do i find out about variables that encode Height information?  Can you run through a set of commands that would get someone
 information about which tables they are in, then use that to get a data frame with height in it?
 
+Laha: Agreed, but currently we can only search with the variable names like BMXHT, which not user-friendly. I will revise the function so support names like,"Height","height","HEIGHT",once we have the metadata in the database.
+
 ### 1. searchTableByName()
 
 This function lets users search for tables in the database by the table name, which can be either the short names used by NHANES or the 
-longer descriptive names. [FIXME: is this correct Laha? If so can you add something to the man page to show this and an example of using
+longer descriptive names. 
+
+ <FONT COLOR="RED"> FIXME: is this correct Laha? If so can you add something to the man page to show this and an example of using
 the long descriptive names - also the man page says: includerdc: If TRUE then RDC only tables are included (default=FALSE).
-but what is an RDC table? can you explain on the man page?]
+but what is an RDC table? can you explain on the man page? searchTableByName(): can search the tables by the name patterns, and it returns a data frame of the results, which contains the questionnaire (the table names provided in NHANES websites), a longer descriptive table name (eg.BloodPressure) and the survey years. </FONT>
 
-searchTableByName(): can search the tables by the name patterns, and it returns a data frame of the results, which contains the questionnaire (the table names provided in NHANES websites), a longer descriptive table name (eg.BloodPressure) and the survey years. 
+ <FONT COLOR="blue">No, it does not support search the long tale name, it was designed for search short table names as the nhanesA package does. But I can added it if that is what we want.</FONT>
 
-More information about the function check the help document for the function by
 
-`> ?searchTableByName`
-
+For example, we can search blood pressure related table by the following code. We choose "BPX" as the parameters based the CDC table name conventions.
 ```{r}
 res = searchTableByName("BPX")
 datatable(res)
 ```
-##FIXME - you need to explain why the other tables are more interesting - why did you choose BPX - what were you looking for - that will explain why the OscillometricMeasurements are not what you want - also your function returns 3 columns, the first names Questionairre - is the one that users will find searching the NHANES site - so we need to be clear about that.  THen the TableName column is Nathan's invention - unique to our DB - and we should explain that too - then you might just go and look at what is really in BPXO_J and explain why we might now want that.
+In the research data frame, Questionnaire present CDC tables, and TableName present long descriptive names which hold the data across the years.
 
-The above search result includes the table BloodPressureOscillometricMeasurements, which may not want what we want. We can replace the search pattern "BPX" with "BPX[_]," which matches only the table containing the string "BPX_"; therefore, the "BPXO_J" will be excluded. t the BPX table with no undescore. FIXME: this next sentence is encouraging you - Laha:  You must put yourself into the frame of mind of the naive user and explain things in great detail here.
+
+The above search result includes the table BloodPressureOscillometricMeasurements, and a different kind of measurements of blood pressures, which may not want what we want. Then, we can replace the search pattern "BPX" with "BPX[_]," which matches only the table containing the string "BPX_"; therefore, the "BPXO_J" will be excluded. t the BPX table with no undescore. FIXME: this next sentence is encouraging you - Laha:  You must put yourself into the frame of mind of the naive user and explain things in great detail here.
 ```{r}
 res = searchTableByName("BPX[_]")
 datatable(res)
 ```
 
 # 2. unionQuery()
-The unionQuery() function, table list of table name and a set of column names, it combines the researched results and returns the results as a data frame.
+
+The unionQuery() function is designed to aggregate data across the years. Tt aggregate the researched results and returns the results as a data frame. For example, the blood pressure tables in CDC are BPX, BPX_B,...BPX_J from years 1999-2000 to 2017-2018. The users can aggregate some or all of the data.
+
 ##FIXME - here we disagree - I think this function is designed to aggregate data, within a table, across years - you might need to explain how the BPX type tables differ across years - but if we want blood pressure for everyone over the whole range of the study we need to somehow query across the set of tables.  
 ##FIXME: we do that for different (maybe they are conceptual tables) - and maybe we need to explain that more up at the top.  Again you could start by saying that they measured blood pressure every epoch, that's how you get the tables BPX,...BPX_J.  Maybe you show that they didn't measure all the same things every survey.  Maybe you explain that BPXO_J is another way of measuring blood pressure.
 
-##FIXME: we can expect them to know enough R - so probably you don't need to remind them more than once about how to get man pages
-More information about the function check the help document for the function by
-
-`> ?unionQuery`
 
 ```{r search_union,warning=FALSE,message=FALSE}
 tablnames = searchTableByName('BPX[_]')
@@ -96,19 +104,26 @@ DT::datatable(blood_df)
 ```
 
 ## 3. jointQuery()
-The jointQuery() function, table list of table name and a set of column names, it merges the researched results and returns the results as a data frame.
+The jointQuery() function, table list of table name and a set of column names, it merges the researched results and returns the results as a data frame. The data are join by SEQN because it is unique id to the epochs.
 ##FIXME: ok this one is more interesting - but you need to perhaps explain that SEQN is the primary key in this database and that jointQuery is going to merge on that quantity.  And this might be where you want to be clear that SEQNs are unique to epochs - they don't appear in more than one, and even if it was the same person there is no way to know that.
 
-More information about the function check the help document for the function by
-
-`> ?jointQuery`
-
+The function support the long decriptive name like
 ```{r}
-tables <- c("DemographicVariablesAndSampleWeights","BloodPressure")
+tables <- c("DemographicVariablesAndSampleWeights","BloodPressure") 
 cols <- c("RIDAGEYR","RIAGENDR","RIDRETH1","DMDEDUC2","years","BPXDI1","BPXDI2","BPXSY1","BPXSY2")
 data <- jointQuery(tables,cols)
 datatable(data)
 ```
+and we can  also use the CDC table names if we know table names,
+
+The function support the long descriptive name like
+```{r}
+tables <- c("DEMO_C","BPX_C") 
+cols <- c("RIDAGEYR","RIAGENDR","RIDRETH1","DMDEDUC2","years","BPXDI1","BPXDI2","BPXSY1","BPXSY2")
+data <- jointQuery(tables,cols)
+datatable(data)
+```
+
 
 ### 4. PHESANT-like
 
@@ -130,9 +145,9 @@ data[,c('RIAGENDR', 'RIDRETH1','DMDEDUC2')] |> head() |> knitr::kable()
 The real factor levels can be set with nhanesTranslate() functions from nhanesA package as shown below.
 
 ```{r}
-data = nhanesA::nhanesTranslate('DEMO_D', c('RIAGENDR', 'RIDRETH1','DMDEDUC2'), data=data[1:1000,])
-# head(data)
-datatable(data[,c('SEQN','RIAGENDR', 'RIDRETH1','DMDEDUC2')])
+# data = nhanesA::nhanesTranslate('DEMO_D', c('RIAGENDR', 'RIDRETH1','DMDEDUC2'), data=data[1:1000,])
+# # head(data)
+# datatable(data[,c('SEQN','RIAGENDR', 'RIDRETH1','DMDEDUC2')])
 ```
 
 ##FIXME: Laha - somewhere you should have an explicit definition of what is in the code - what makes something continuous - what makesit discrete, what makes it ordered? In the first pass, all the categorical values are discrete integers - that does not make them ordered - you have to look at the actual levels - and we need to explain how our users will do that.
