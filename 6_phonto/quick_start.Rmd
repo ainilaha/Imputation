@@ -33,15 +33,11 @@ Here two examples:
 ![SEQN](seqn.png){width=80%}
 ![weight](weight.png){width=80%}
 
+##FIXME: can you describe the SQLserver technology that Nathan is using and provide some URL (or other) references to how to query that. Point out that we have some R wrappers (along the lines of nhanesA functions) but that the user might benefit from using SQL directly. They will need to get pointed to a reference manual.
 
 
-<FONT COLOR="RED"> RG: But, importantly, there are no people that span two (or more epochs), so any joins have to be within a 2 year epoch. </FONT>
-
-<FONT COLOR="BLUE"> Laha: Actually, is it possible that people may assigned new SEQNs in different "epochs"? do we know about that?
-Yes, you can read up their documentation, but they move to different parts of the country and the sampling fraction is very low, so
-the probability of the same person being surveyed twice is very small. *** </FONT>
-
-  <FONT COLOR="RED"> RG Within each survey epoch the data are organized in named tables (you can outline the notion of the SAS name, the short variable name, the longer name and so on). </FONT>
+  <FONT COLOR="RED"> RG Within each survey epoch the data are organized in named tables (you can outline the notion of the Questionnaire
+ name, vs Nathan's scheme for longer names). Refer to the example below in searchTableByName </FONT>
   
 <FONT COLOR="BLUE"> Laha: We do not have the SAS names in the database for now. I can copy them from the website, but I think we want to a function to retrieve those information from the database. We should have them soon.</FONT>
 
@@ -82,8 +78,13 @@ datatable(res)
 ```
 In the research data frame, Questionnaire present CDC tables, and TableName present long descriptive names which hold the data across the years.
 
+##FIXME: this is where you probably need to update a man page for searchTableByName - as you will have to point out that the
+"BPX[_]" string is passed to the database engine directly.  As I was trying to suggest above, you have to consider things from the
+naive users point of view.  They don't know that there is a SQL database in the backend and they need some help to understand how
+the table name argument is used here.  I am not sure they would understand the description you have below.
 
-The above search result includes the table BloodPressureOscillometricMeasurements, and a different kind of measurements of blood pressures, which may not want what we want. Then, we can replace the search pattern "BPX" with "BPX[_]," which matches only the table containing the string "BPX_"; therefore, the "BPXO_J" will be excluded. t the BPX table with no undescore. FIXME: this next sentence is encouraging you - Laha:  You must put yourself into the frame of mind of the naive user and explain things in great detail here.
+The above search result includes the table BloodPressureOscillometricMeasurements, and a different kind of measurements of blood pressures, which may not want what we want. Then, we can replace the search pattern "BPX" with "BPX[_]," which matches only the table containing the string "BPX_"; therefore, the table named "BPXO_J" will not match the search string and hence won't be returned
+as an option. But, the table named "BPX" also has no underscore and it also will not match. FIXME: this next sentence is encouraging you - Laha:  You must put yourself into the frame of mind of the naive user and explain things in great detail here.
 ```{r}
 res = searchTableByName("BPX[_]")
 datatable(res)
@@ -98,8 +99,8 @@ The unionQuery() function is designed to aggregate data across the years. Tt agg
 
 
 ```{r search_union,warning=FALSE,message=FALSE}
-tablnames = searchTableByName('BPX[_]')
-blood_df <- unionQuery(tablnames$TableName,cols =c("BPXDI1","BPXDI2","BPXSY1","BPXSY2"))
+tablenames = searchTableByName('BPX[_]')
+blood_df <- unionQuery(tablenames$TableName,cols =c("BPXDI1","BPXDI2","BPXSY1","BPXSY2"))
 DT::datatable(blood_df)
 ```
 
@@ -115,7 +116,7 @@ data <- jointQuery(tables,cols)
 datatable(data)
 ```
 and we can  also use the CDC table names if we know table names,
-
+##FIXME - we need an example of the longer descriptive names
 The function support the long descriptive name like
 ```{r}
 tables <- c("DEMO_C","BPX_C") 
@@ -129,13 +130,19 @@ datatable(data)
 
 We can run the PHESANT-like process to convert each column into data types. It also provides the ratio of unique values (`r_unique`), the proportion of zeros (`r_zeros`), and the ratio of NAs (`r_NAs`), which is calculated by the number of unique values, zeros, and NAs divided by total records. The categorical data types (ordered or unrecorded) are presented by integers, and the PHESANT function category them as multilevel. For example, education (DMDEDUC2) is category as Multilevel-7 means the PHESANT process considers it multilevel and has 7 levels.
 
+##FIXME: in phonto - you should say something like raw values for factor like things (some number of levels are first called multi-level data and then once they have been made into R factors, the table output will reflect that).
+
 ```{r}
 phs_dat = phesant(data)
 data = phs_dat$data
 DT::datatable(phs_dat$phs_res)
 ```
 
-### 5.Setup factor levels for catigorycial varaibles
+### 5.Setup factor levels for categorical variables
+
+In the raw NHANES data stored in the database all categorical variables are represented as integers.  In order to make use of these for 
+analysis you will need to transform them into factors in R.  It is important that you get these right and at that point we 
+really want to help them do some checking - 
 
 Categorical variables are presented with integers as shown below.
 
