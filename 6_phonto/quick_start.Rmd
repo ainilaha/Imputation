@@ -33,7 +33,7 @@ Here two examples:
 ![SEQN](seqn.png){width=80%}
 ![weight](weight.png){width=80%}
 
-##FIXME: can you describe the SQLserver technology that Nathan is using and provide some URL (or other) references to how to query that. Point out that we have some R wrappers (along the lines of nhanesA functions) but that the user might benefit from using SQL directly. They will need to get pointed to a reference manual.
+Users familiar with SQL can connect and explore the data with database client tools such as HeidiSQL and DataGrip, or programming languages. In the [example](https://github.com/ccb-hms/NHANES/blob/main/Code/R/regressionExample.R), we show using R connect to the database and get access to data and sample analysis. In addition, we also wrapped some functions for users to get access to the data easily, the function can be see in [phonto package](https://github.com/ccb-hms/phonto/tree/main/vignettes).
 
 
   <FONT COLOR="RED"> RG Within each survey epoch the data are organized in named tables (you can outline the notion of the Questionnaire
@@ -71,12 +71,13 @@ but what is an RDC table? can you explain on the man page? searchTableByName(): 
  <FONT COLOR="blue">No, it does not support search the long tale name, it was designed for search short table names as the nhanesA package does. But I can added it if that is what we want.</FONT>
 
 
-For example, we can search blood pressure related table by the following code. We choose "BPX" as the parameters based the CDC table name conventions.
+For example, we can search blood pressure related table by the following code. We choose "BPX" as the parameters based the CDC table name conventions. The users can pass more sophistic search patterns according "LIKE string" in sql Server, more details can be found [here](https://learn.microsoft.com/en-us/sql/t-sql/language-elements/like-transact-sql?view=sql-server-ver16).
 ```{r}
 res = searchTableByName("BPX")
 datatable(res)
 ```
 In the research data frame, Questionnaire present CDC tables, and TableName present long descriptive names which hold the data across the years.
+
 
 ##FIXME: this is where you probably need to update a man page for searchTableByName - as you will have to point out that the
 "BPX[_]" string is passed to the database engine directly.  As I was trying to suggest above, you have to consider things from the
@@ -108,7 +109,7 @@ DT::datatable(blood_df)
 The jointQuery() function, table list of table name and a set of column names, it merges the researched results and returns the results as a data frame. The data are join by SEQN because it is unique id to the epochs.
 ##FIXME: ok this one is more interesting - but you need to perhaps explain that SEQN is the primary key in this database and that jointQuery is going to merge on that quantity.  And this might be where you want to be clear that SEQNs are unique to epochs - they don't appear in more than one, and even if it was the same person there is no way to know that.
 
-The function support the long decriptive name like
+The function support the long descriptive name like
 ```{r}
 tables <- c("DemographicVariablesAndSampleWeights","BloodPressure") 
 cols <- c("RIDAGEYR","RIAGENDR","RIDRETH1","DMDEDUC2","years","BPXDI1","BPXDI2","BPXSY1","BPXSY2")
@@ -116,8 +117,6 @@ data <- jointQuery(tables,cols)
 datatable(data)
 ```
 and we can  also use the CDC table names if we know table names,
-##FIXME - we need an example of the longer descriptive names
-The function support the long descriptive name like
 ```{r}
 tables <- c("DEMO_C","BPX_C") 
 cols <- c("RIDAGEYR","RIAGENDR","RIDRETH1","DMDEDUC2","years","BPXDI1","BPXDI2","BPXSY1","BPXSY2")
@@ -149,12 +148,19 @@ Categorical variables are presented with integers as shown below.
 ```{r}
 data[,c('RIAGENDR', 'RIDRETH1','DMDEDUC2')] |> head() |> knitr::kable()
 ```
+And the real factor levels for year 2003-2004 can be found in [the cookbook]() as shown below.
+![gender](gender.png)
+![enthinicity](ethinicity.png)
+![education](edu.png)
+
+
+
 The real factor levels can be set with nhanesTranslate() functions from nhanesA package as shown below.
 
 ```{r}
-# data = nhanesA::nhanesTranslate('DEMO_D', c('RIAGENDR', 'RIDRETH1','DMDEDUC2'), data=data[1:1000,])
-# # head(data)
-# datatable(data[,c('SEQN','RIAGENDR', 'RIDRETH1','DMDEDUC2')])
+data = nhanesA::nhanesTranslate('DEMO_C', c('RIAGENDR', 'RIDRETH1','DMDEDUC2'), data=data[1:1000,])
+# head(data)
+datatable(data[,c('SEQN','RIAGENDR', 'RIDRETH1','DMDEDUC2')])
 ```
 
 ##FIXME: Laha - somewhere you should have an explicit definition of what is in the code - what makes something continuous - what makesit discrete, what makes it ordered? In the first pass, all the categorical values are discrete integers - that does not make them ordered - you have to look at the actual levels - and we need to explain how our users will do that.
