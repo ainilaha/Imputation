@@ -1,5 +1,5 @@
 ---
-title: "NHANES Exploratory Data Analysis"
+title: "Explore Missing Data"
 
 date: "Updated on : `r date()`"
 output: html_document
@@ -22,6 +22,7 @@ sqlDefaultDb <- "NhanesLandingZone"
 ```{r libs,warning=FALSE,message=FALSE}
 library(naniar)
 library(visdat)
+library(corrplot)
 library(phonto)
 ```
 
@@ -29,33 +30,47 @@ library(phonto)
 
 
 
-## Missing value in Row
+## Load data
 
 ```{r missing_r}
 demo = phonto::nhanes('DEMO_E')
+DT::datatable(demo)
 ```
 
 
-## Plot missing pattern
 
-```{r miss_clipp,warning=FALSE}
-vis_miss(demo,warn_large_data=FALSE)
 
-```
-
-## Missing pattern across age
+## Missing pattern across variables (eg. age)
 
 ```{r missing}
 gg_miss_fct(demo,fct = RIDAGEYR)
 
 ```
 
-
 ## show missing percentage
 
 ```{r missing1}
 gg_miss_var(demo,show_pct = TRUE)
 
+```
+
+## Plot missing pattern
+
+```{r miss_clipp,warning=FALSE}
+vis_miss(demo,warn_large_data=FALSE)
+```
+
+## Missing Correlation
+
+```{r}
+
+missing_cols = sapply(demo, function(x)sum(is.na(x)))
+missing_cols = missing_cols[missing_cols>0] # select the data with missing values
+missing_cols
+
+correlation = cor(is.na(demo[,names(missing_cols)]))
+corrplot(correlation, type = "upper", order = "hclust",
+         tl.col = "black", tl.srt = 45)
 ```
 
 
