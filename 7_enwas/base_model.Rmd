@@ -32,11 +32,23 @@ sqlDefaultDb <- "NhanesLandingZone"
 ```
 
 ### 2.1 Load data for the base model
+##FIXME: Laha, it is really important that you state what the purpose of the
+## vignette is. Then we can make sure it answers the questions.  I know this 
+##was developed over time, but you could replace it with something that follows the outline in the box I made for our paper.  
+##FIXME: here you want to describe what we are modeling for a response and what we are modeling for outcomes.
+##I thought our first base model was around nutrition - but that seems to be gone.  This is the base model for the cobalt example then?
 
+##FIXME - you need to describe the data more. What are you using, you should say something like.  For NHANES both systolic and diastolic blood pressure were measured. Each was measured two times and we chose to use the average of the two measurements.  Individuals with either value missing were excluded from the analysis.
 We averaged two reads of diastolic blood pressures(`(BPXDI1+BPXDI2)/2 AS DIASTOLIC` ) along with confounders gender(`RIAGENDR`), age (`RIDAGEYR`), ethnicity (`RIDRETH1`), BMI(`BMXBMI`) and the ratio of family income to poverty (`INDFMPIR`) presents socioeconomic status (SES).
 
+##FIXME - I don't understand the sentence below - you have to explain in detail how/what you did. What does it mean filled with 0?
 We removed the blood pressure filled with 0, and NAs in the data. The gender(`RIAGENDR`) and ethnicity (`RIDRETH1`) are converted to categorical variables.
+##FIXME: they are converted to factors? They were always categorical variables.
 
+
+##FIXME; the code below mixes questionairre names - BPX_, but misses BPX with
+no underscore. And then uses long names in jointQuery - please fix it so that 
+it just uses one, and show probably with comments in the code how you know you go all the tables you need - also output in html looks like it has not run recently as there are no years reported in the table.
 ```{r pre}
 
 cols = c("RIDAGEYR","RIAGENDR","BMXBMI","RIDRETH1","DMDEDUC2","years")
@@ -69,9 +81,13 @@ base_df$DIASTOLIC <- (base_df$BPXDI1+base_df$BPXDI2)/2
 
 
 
-## 3. Identify Confonders and Build Base Model
+## 3. Identify Confounders and Build Base Model
+##but it isn't given -- you have to state the scientific question somewhere
 Given the scientific question, we can identify a response or outcome of interest and covariates in the base models. 
 
+##FIXME - I think this is based on cobalt - and so you can say that they adjusted for certain things and we will to.
+
+##The statement below is not what I am seeing - the p-values for the interaction seem to be large and not significant.  We need to do a little work on the reporting of the model.  That is on me to figure out in the next week or so.
 The interaction terms of BMI and sex have a low p-value and seem meaningful to add the variable. However, adding interaction terms of BMI and sex changed the estimate of interaction terms of age and sex, making the model not change too much in general. ANOVA LRT results also show that the 'Sum of Sq' is also considerably small.
 
 
@@ -94,6 +110,10 @@ print_anova(anova(ns_base0,ns_base1,test="LRT"))
 
 
 ### 3.1 Check socioeconomic status (SES) and years impacts
+
+##FIXME: somehow this seems out of place.  Everything above, that shows
+up in Section 3, seems like it should be removed. Section 3.2 should come before
+this and then this section should come.
 
 The ratio of family income to poverty (`INDFMPIR`) has reasonable distribution in the range of 0 to 4.99 but has a peak at 5 because 5 represents the values greater than or equal to 5.00. There is no clear pattern in the smooth scatter plot of diastolic and INDFMPIR.
 
