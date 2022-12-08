@@ -36,8 +36,7 @@ Imputation methods for biomedical data
 - [Table-I](https://ccb-hms.github.io/Imputation/6_phonto/table1.html)
 
 #### 7. EnWAS
-  - [Base Model checking](https://ccb-hms.github.io/Imputation/7_enwas/base_model.html)
-  - [EnWAS:Blood Pressure Diastolic](https://ccb-hms.github.io/Imputation/7_enwas/enwas1.html)
+  - [EnWAS:Blood Pressure Diastolic](https://ccb-hms.github.io/Imputation/7_enwas/Diastolic_BPX_EnWAS.html)
   - [EnWAS:Blood Pressure Systolic](https://ccb-hms.github.io/Imputation/7_enwas/enwas2.html)
   - [EnWAS:Blood waist circumference](https://ccb-hms.github.io/Imputation/7_enwas/enwas3.html)
   - [Reproduce Cobalt Paper](https://ccb-hms.github.io/Imputation/7_enwas/cobalt_paper.html)
