@@ -11,11 +11,13 @@ knitr::opts_chunk$set(
 ```
 ## 0. Objective
 
-This notebook aims to demonstrate a work procedures of Environment‐Wide Association Study (EnWAS) (shown in Figure-1) that proposed in [Towards a Common Framework to Support Phenotypic Studies in Large Data Sets]().
+This notebook demonstrates an Environment‐Wide Association Study (EnWAS) (shown in Figure-1) that proposed in [Towards a Common Framework to Support Phenotypic Studies in Large Data Sets]().
+##FIXME:  usually for the figures you are going to put in a label statement in the chunk description and then a ref statement in the text.
 <center>
-![ <em> Figure-1 EnWAS Work Process  </em>](process.png){width=80%}
+![ <em> Figure-1 EnWAS Workflow  </em>](process.png){width=80%}
 </center>
 
+##FIXME: no need to repeat what is in the figure - that is why you put it there.
 1. Identify a response, or outcome of interest.
 2. Identify a set of confounders that will be adjusted for.  These are typically not of interest themselves, but are important established confounders such as age or sex that should be adjusted for.
 3. Fit a baseline model to the response and the identified confounders.
@@ -23,29 +25,38 @@ This notebook aims to demonstrate a work procedures of Environment‐Wide Associ
 5. Identify a set of phenotypes and exposures that you want to test for association with the response variable of interest.
 6. Carry out a set of regression models, one for each exposure/phenotype in Step 5, and report on the analysis.
 
-
+#FIXME: not sure where you got your references for linear regression, but I don't think we need them.
 In this example, we are interested in finding nutrition predictors associated with diastolic blood pressure. To show work with the above steps, we will perform a [linear regression](https://bookdown.org/jefftemplewebb/IS-6489/linear-regression.html) model and a linear regression with applying [natural spline](https://bmcmedresmethodol.biomedcentral.com/articles/10.1186/s12874-019-0666-3) functions on the continuous variables. In short, a spline-based linear regression model can capture the non-linearity trend of the data by using piece-wise polynomial functions on continuous variables. More information about spline can be found on [wikipedia](https://en.wikipedia.org/wiki/Spline_(mathematics))
 
 
-## Step 1. Identify Data
+## Step 1. Identify The Data Source
 
-We are using the [NHANES](https://www.cdc.gov/nchs/nhanes/index.htm) to demonstrate in this notebook, more details about data can be found on [CDC website](https://www.cdc.gov/nchs/nhanes/index.htm). A quick start notebook about accessing the data in our docker database with provided R function shown in [here](https://ccb-hms.github.io/Imputation/6_phonto/quick_start.html).
+We will use the [NHANES](https://www.cdc.gov/nchs/nhanes/index.htm) as our data source more details about data can be found on the CDC website. A quick start notebook about accessing the data in our docker database with provided R function shown in [here](https://ccb-hms.github.io/Imputation/6_phonto/quick_start.html).
 
 
 ## Step 2. Identify a response and a set of confounders that will be adjusted for.
 
 #### 1 ) Identify a response, or outcome of interest.
-In this demonstration, we choose diastolic [blood pressure](https://wwwn.cdc.gov/Nchs/Nhanes/2015-2016/BPX_I.htm#BPXDI1) as the outcome interest, which saved in BPX_* table (eg. BPX, BPX_B,...,BPX_I) in NHANES.
+In this demonstration, we choose diastolic [blood pressure](https://wwwn.cdc.gov/Nchs/Nhanes/2015-2016/BPX_I.htm#BPXDI1) as the outcome interest. These data are
+contained in tables in the NHANES database.
 
+For each survey a number of people were chosen to provide blood pressure measurements and these were obtained in duplicate on two separate days.
 To get an more accurate measurement of the diastolic blood pressure, we average two times of measurements for each participants.
 
 #### 2 ) Identify a set of confounders that will be adjusted for.  These are typically not of interest themselves, but are important established confounders such as age or sex that should be adjusted for.
 
-We know that gender, age, ethnicity, education and BMI are related to blood pressure, and choose them as the confounders that will be adjusted for blood pressure.
+Based on our literature review we feel that sex, age, ethnicity, education and BMI are likely to affect blood pressure, and we choose them as the confounders to adjust for.  In a more
+realistic analysis we would likely also want to find out who is taking medications that are intended to alter blood pressure, but for simplicity of the exposition we will ignore
+that issue in this analysis.
 
+Normally the model fitting and QA/QC process would be carried out in an exploratory and iterative fashion, however that is not easy to capture in a static document.  Instead we will
+compare two basic models, one where we assume that there is a straight line relationship between continuous confounders and our response, and a second approach where we use spline 
+models.  This approach has some similarities to the Generalized Additive Model (GAMs) and much of the literature there is useful. There are some differences though, and we will outline
+them as we go.
 
-## Step 3 Load data and preprocess along with PHESEANT
+## Step 3 Load data and preprocess using phonto 
 
+##FIXME - you can hide this in the document if you want, otherwise you need to do a little more writing to lead in to it.
 setup database configuration
 
 ```{r setup,warning=FALSE,message=FALSE}
