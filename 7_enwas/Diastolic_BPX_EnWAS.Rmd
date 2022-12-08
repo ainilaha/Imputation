@@ -317,8 +317,8 @@ enwas_res = data.frame(x=ns$estimate,
 ```
 
 The following scatter plot remove the error bars and text labeled the top 20 most difference variables.
-
 Scatter plot for estimates of EnWAS  non-transformed (`EnWAS`) with inverse normal transformation (`EnWAS INT`).
+
 ```{r enwas_inv230, echo=TRUE,warning=F, out.width = '90%',dpi = 200}
 library(ggrepel)
 
@@ -331,6 +331,9 @@ ggplot(aes(x,y,label = term,colour=term)) +
   theme_minimal()+
   theme(legend.position = "none")+xlab("EnWAS") + ylab("EnWAS INT")
 ```
+
+
+
 We can also compare the non-transformed with log-z transformation, and log-z transformation with inverse normal transformation.
 
 
