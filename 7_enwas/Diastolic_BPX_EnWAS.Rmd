@@ -247,27 +247,27 @@ xwas_log <- enwas(ns_str,exposure_vars,data,trans = "log")
 xwas_inv <- enwas(ns_str,exposure_vars,data,trans = "inv")
 ```
 
-Figure @\ref(fig:enwas00forest) shows the estimates and CI of the exposure variables and only displays the top 10 (if they have more than 30 satisfy the filters) ranked by absolute values of the estimates. The variables with their CI containing zeros are also removed.
+Figure \@ref(fig:enwas00forest) shows the estimates and CI of the exposure variables and only displays the top 10 (if they have more than 30 satisfy the filters) ranked by absolute values of the estimates. The variables with their CI containing zeros are also removed.
 
-```{r enwas00forest, fig.cap = "Forest Plot for non tranformation EnWAS", echo=F,warning=F, out.width = '90%',dpi = 200}
+```{r enwas00forest, fig.cap = "Forest Plot for non tranformation EnWAS", fig.align = 'center',warning=F, out.width = '85%',dpi = 200}
 forest_plot(xwas$enwas_res,10) # filter out CI contains 0
 ```
 
 
 
 
-Figure @\ref(fig:enwasinv1log)  shows the top 10 exposures, ranked by the differences in the estimates for the same variables.
+Figure \@ref(fig:enwasinv1log)  shows the top 10 exposures, ranked by the differences in the estimates for the same variables.
 - `ns` denotes the variables non-transformed, but the estimates  with beta^hat * SD(X)
 - `ns_inv` denotes variables transformed inverse normal transformation
 - `ns-log` denotes variables transformed with log followed by z-transformation
 
-```{r enwasinv1log, fig.cap = "Multiple Forest Plots", echo=F,warning=F, out.width = '90%',dpi = 200}
+```{r enwasinv1log, fig.cap = "Multiple Forest Plots", fig.align = 'center',echo=F,warning=F, out.width = '90%',dpi = 200}
 forest_plot_mult(list(ns=xwas$enwas_res,ns_inv=xwas_inv$enwas_res,ns_log=xwas_log$enwas_res),10)
 ```
 
 The following scatter plot shows the inverse normal transformation estimates against estimates (beta^hat * SD(X)) of nontransformed variables. The top 20 has added text for the variables, but it is pretty clear to show the information.
 
-```{r enwas_inv22, echo=TRUE,warning=F, echo=F,out.width = '90%',dpi = 200}
+```{r enwas_inv22, echo=F,warning=F, echo=F,out.width = '90%',fig.align = 'center',out.width = '85%'}
 ns=xwas$enwas_res
 ns_inv=xwas_inv$enwas_res
 ns_log=xwas_log$enwas_res
@@ -288,9 +288,9 @@ enwas_res = data.frame(x=ns$estimate,
 ```
 
 
-Figure @\ref(fig:enwasinv230) estimates of EnWAS  non-transformed (`EnWAS`) with inverse normal transformation (`EnWAS INT`). The the top 20 most difference variables label with variable names.
+Figure \@ref(fig:enwasinv230) estimates of EnWAS  non-transformed (`EnWAS`) with inverse normal transformation (`EnWAS INT`). The the top 20 most difference variables label with variable names.
 
-```{r enwasinv230, fig.cap = "Scatter Plot for EnWAS against EnWAS with INT", warning=FALSE,echo=F, out.width = '90%',dpi = 200}
+```{r enwasinv230, fig.cap = "Scatter Plot for EnWAS against EnWAS with INT", warning=FALSE,echo=F,fig.align = 'center', out.width = '90%',dpi = 200}
 library(ggrepel)
 top_n_diff <- 10
 enwas_res |>
