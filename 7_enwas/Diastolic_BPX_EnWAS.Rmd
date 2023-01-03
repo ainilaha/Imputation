@@ -84,7 +84,7 @@ In NHANES database, the gender(`RIAGENDR`) encode as 1 for male and 2 for female
 # remove age under 20 and diastolic with 0s
 base_df = base_df |> subset(RIDAGEYR>20 & BPXDI1!=0 & BPXDI2!=0 )
 # assign the gender and ethnicity to the real levels
-# base_df = nhanesA::nhanesTranslate('DEMO_I', c('RIAGENDR', 'RIDRETH1'), data=base_df)
+base_df = phonto::nhanesTranslate('DEMO_I', c('RIAGENDR', 'RIDRETH1'), data=base_df)
 # Transform education to:
 #  < High School
 #   - High School

@@ -155,12 +155,16 @@ And the real factor levels for year 2003-2004 can be found in [the cookbook]() a
 
 
 
-The real factor levels can be set with nhanesTranslate() functions from nhanesA package as shown below.
+The real factor levels can be set with nhanesTranslate() function.
 
-```{r}
-data = nhanesA::nhanesTranslate('DEMO_C', c('RIAGENDR', 'RIDRETH1','DMDEDUC2'), data=data[1:1000,])
+```{r,warning=FALSE}
+data = phonto::nhanes("DEMO_C")
+data = phonto::nhanesTranslate('DEMO_C', c('RIAGENDR', 'RIDRETH1'), data=data)
 # head(data)
-datatable(data[,c('SEQN','RIAGENDR', 'RIDRETH1','DMDEDUC2')])
+data[,c('SEQN','RIDAGEYR','RIAGENDR', 'RIDRETH1')] |> DT::datatable()
+
+#  We can  also  check the the variables  code  and values:
+# phonto::nhanesTranslate('DEMO_C', c('RIAGENDR','RIDRETH1'))
 ```
 
 ##FIXME: Laha - somewhere you should have an explicit definition of what is in the code - what makes something continuous - what makesit discrete, what makes it ordered? In the first pass, all the categorical values are discrete integers - that does not make them ordered - you have to look at the actual levels - and we need to explain how our users will do that.
