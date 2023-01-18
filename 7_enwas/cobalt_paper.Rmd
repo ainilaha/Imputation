@@ -15,6 +15,9 @@ knitr::opts_chunk$set(
 The goal of this vignette is to replicate the analysis presented in ``Association of blood cobalt concentrations with dyslipidemia, hypertension, and diabetes in a US population
 A cross-sectional study; Hongxin Wang, MD, Feng Li, MD, Jianghua Xue, MD, Yanshuang Li, MD, Jiyu Li, MD''
 
+ The authors report using data for the years 2015 to 2018 which cover two of the two-year reporting epochs in NHANES.
+The Questionnaires we want will have the suffixes _I and _J. 
+
 ## 1. Load libs
 
 ```{r setup,warning=FALSE,message=FALSE}
@@ -22,32 +25,38 @@ library(splines)
 library(ggplot2)
 library(ggpubr)
 library(dplyr)
-library(nhanesA)
+#library(nhanesA)
 library(phonto)
 library(EnWAS)
 ```
 
 
 ## 2. Data and Preprocessiing
-```{r data_config,warning=FALSE,message=FALSE}
-sqlHost <- "localhost"
-sqlUserName <- "sa"
-sqlPassword <- "yourStrong(!)Password"
-sqlDefaultDb <- "NhanesLandingZone"
-```
 #### 2.1) Blood Pressure Data
-```{r data_blood,warning=FALSE,message=FALSE}
-tablnames = searchTableByName('BPX[_]')
-tablnames
-blood_df <- unionQuery(tablnames$TableName,cols =c("BPXDI1","BPXDI2","BPXSY1","BPXSY2"))
-dim(blood_df)
 
+ In the next code segment we show how to obtain blood pressure measurements from NHANES tables.  We have
+already ascertained that these measurements are contained in Questionnaires that are named BPX_? and that
+there were replicate measurements taken.  Both systolic (BPXS) and diastolic (BPXD) measurements were taken
+on each occassion.  We
+```{r data_blood,warning=FALSE,message=FALSE}
+bptablenames = searchTableByName('BPX[_]')
+tablnames
 ```
+We can see that blood pressure data was collected for other years as well, but for now we will just extract
+the data for the 2015-2016 and 2017-2018 years. We combine these into a single dataframe.
+
+```{r extract_data, warning=FALSE, message=FALSE}
+blood_df <- unionQuery(c("BPX_I", "BPX_J"), cols =c("BPXDI1","BPXDI2","BPXSY1","BPXSY2"))
+dim(blood_df)
+blood_df[1:10,]
+```
+  In our analysis we can then look at the average of the measurements across the two different time points as a way to
+better estimate the actual blood pressure for each participant.
 
 #### 2.2) Demo, Body Mesures, and Blood Pressure & Cholesterol 
 
 ```{r demo_body,warning=FALSE,message=FALSE}
-# searchTableByName('BMX')
+ searchTableByName('BMX')
 # searchTableByName('DEMO')
 # searchTablesByVar('BPQ050A')
 # searchTablesByVar('BPQ020')
