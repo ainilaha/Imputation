@@ -28,6 +28,7 @@ library(dplyr)
 #library(nhanesA)
 library(phonto)
 library(EnWAS)
+library(knitr)
 ```
 
 
@@ -40,7 +41,7 @@ there were replicate measurements taken.  Both systolic (BPXS) and diastolic (BP
 on each occassion.  We
 ```{r data_blood,warning=FALSE,message=FALSE}
 bptablenames = searchTableByName('BPX[_]')
-tablnames
+bptablenames |> kable()
 ```
 We can see that blood pressure data was collected for other years as well, but for now we will just extract
 the data for the 2015-2016 and 2017-2018 years. We combine these into a single dataframe.
@@ -48,7 +49,7 @@ the data for the 2015-2016 and 2017-2018 years. We combine these into a single d
 ```{r extract_data, warning=FALSE, message=FALSE}
 blood_df <- unionQuery(c("BPX_I", "BPX_J"), cols =c("BPXDI1","BPXDI2","BPXSY1","BPXSY2"))
 dim(blood_df)
-blood_df[1:10,]
+blood_df[1:10,] |> kable()
 ```
   In our analysis we can then look at the average of the measurements across the two different time points as a way to
 better estimate the actual blood pressure for each participant.
