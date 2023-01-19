@@ -55,6 +55,9 @@ better estimate the actual blood pressure for each participant.
 
 #### 2.2) Demo, Body Mesures, and Blood Pressure & Cholesterol 
 
+The authors state: 
+Participants with cobalt and lipid data were included (n = 6866). Demographic characteristics of the participants, including age, gender, body mass index (BMI), education level, race, family poverty-income ratio and smoking status, were collected. Clinical data, such as blood pressure, total cholesterol (TC), low-density lipoprotein cholesterol (LDL-C), HDL-C, triglycerides (TGs), hypertension, diabetes and history of medication use, including antihypertensive drugs, hypoglycemic drugs, and lipid-lowering drugs, were extracted.
+
 ```{r demo_body,warning=FALSE,message=FALSE}
  searchTableByName('BMX')
 # searchTableByName('DEMO')
