@@ -3213,7 +3213,7 @@ display: none;
 
 
 <h1 class="title toc-ignore">Cobalt Paper</h1>
-<h4 class="date">Updated on : Sat Nov 19 03:54:45 2022</h4>
+<h4 class="date">Updated on : Thu Jan 19 05:34:26 2023</h4>
 
 </div>
 
@@ -3225,6 +3225,9 @@ display: none;
 hypertension, and diabetes in a US population A cross-sectional study;
 Hongxin Wang, MD, Feng Li, MD, Jianghua Xue, MD, Yanshuang Li, MD, Jiyu
 Li, MD’’</p>
+<p>The authors report using data for the years 2015 to 2018 which cover
+two of the two-year reporting epochs in NHANES. The Questionnaires we
+want will have the suffixes _I and _J.</p>
 </div>
 <div id="load-libs" class="section level2">
 <h2>1. Load libs</h2>
@@ -3232,37 +3235,186 @@ Li, MD’’</p>
 library(ggplot2)
 library(ggpubr)
 library(dplyr)
-library(nhanesA)
+#library(nhanesA)
 library(phonto)
-library(EnWAS)</code></pre>
+library(EnWAS)
+library(knitr)</code></pre>
 </div>
 <div id="data-and-preprocessiing" class="section level2">
 <h2>2. Data and Preprocessiing</h2>
-<pre class="r"><code>sqlHost &lt;- &quot;localhost&quot;
-sqlUserName &lt;- &quot;sa&quot;
-sqlPassword &lt;- &quot;yourStrong(!)Password&quot;
-sqlDefaultDb &lt;- &quot;NhanesLandingZone&quot;</code></pre>
 <div id="blood-pressure-data" class="section level4">
 <h4>2.1) Blood Pressure Data</h4>
-<pre class="r"><code>tablnames = searchTableByName(&#39;BPX[_]&#39;)
-tablnames
-#&gt;   Questionnaire     TableName     years
-#&gt; 1         BPX_B BloodPressure 2001-2002
-#&gt; 2         BPX_C BloodPressure 2003-2004
-#&gt; 3         BPX_D BloodPressure 2005-2006
-#&gt; 4         BPX_E BloodPressure 2007-2008
-#&gt; 5         BPX_F BloodPressure 2009-2010
-#&gt; 6         BPX_G BloodPressure 2011-2012
-#&gt; 7         BPX_H BloodPressure 2013-2014
-#&gt; 8         BPX_I BloodPressure 2015-2016
-#&gt; 9         BPX_J BloodPressure 2017-2018
-blood_df &lt;- unionQuery(tablnames$TableName,cols =c(&quot;BPXDI1&quot;,&quot;BPXDI2&quot;,&quot;BPXSY1&quot;,&quot;BPXSY2&quot;))
+<p>In the next code segment we show how to obtain blood pressure
+measurements from NHANES tables. We have already ascertained that these
+measurements are contained in Questionnaires that are named BPX_? and
+that there were replicate measurements taken. Both systolic (BPXS) and
+diastolic (BPXD) measurements were taken on each occassion. We</p>
+<pre class="r"><code>bptablenames = searchTableByName(&#39;BPX[_]&#39;)
+bptablenames |&gt; kable()</code></pre>
+<table>
+<thead>
+<tr class="header">
+<th align="left">Questionnaire</th>
+<th align="left">TableName</th>
+<th align="left">years</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">BPX_B</td>
+<td align="left">BloodPressure</td>
+<td align="left">2001-2002</td>
+</tr>
+<tr class="even">
+<td align="left">BPX_C</td>
+<td align="left">BloodPressure</td>
+<td align="left">2003-2004</td>
+</tr>
+<tr class="odd">
+<td align="left">BPX_D</td>
+<td align="left">BloodPressure</td>
+<td align="left">2005-2006</td>
+</tr>
+<tr class="even">
+<td align="left">BPX_E</td>
+<td align="left">BloodPressure</td>
+<td align="left">2007-2008</td>
+</tr>
+<tr class="odd">
+<td align="left">BPX_F</td>
+<td align="left">BloodPressure</td>
+<td align="left">2009-2010</td>
+</tr>
+<tr class="even">
+<td align="left">BPX_G</td>
+<td align="left">BloodPressure</td>
+<td align="left">2011-2012</td>
+</tr>
+<tr class="odd">
+<td align="left">BPX_H</td>
+<td align="left">BloodPressure</td>
+<td align="left">2013-2014</td>
+</tr>
+<tr class="even">
+<td align="left">BPX_I</td>
+<td align="left">BloodPressure</td>
+<td align="left">2015-2016</td>
+</tr>
+<tr class="odd">
+<td align="left">BPX_J</td>
+<td align="left">BloodPressure</td>
+<td align="left">2017-2018</td>
+</tr>
+</tbody>
+</table>
+<p>We can see that blood pressure data was collected for other years as
+well, but for now we will just extract the data for the 2015-2016 and
+2017-2018 years. We combine these into a single dataframe.</p>
+<pre class="r"><code>blood_df &lt;- unionQuery(c(&quot;BPX_I&quot;, &quot;BPX_J&quot;), cols =c(&quot;BPXDI1&quot;,&quot;BPXDI2&quot;,&quot;BPXSY1&quot;,&quot;BPXSY2&quot;))
 dim(blood_df)
-#&gt; [1] 96766     5</code></pre>
+#&gt; [1] 18248     5
+blood_df[1:10,] |&gt; kable()</code></pre>
+<table>
+<thead>
+<tr class="header">
+<th align="right">SEQN</th>
+<th align="right">BPXDI1</th>
+<th align="right">BPXDI2</th>
+<th align="right">BPXSY1</th>
+<th align="right">BPXSY2</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="right">89073</td>
+<td align="right">84</td>
+<td align="right">82</td>
+<td align="right">136</td>
+<td align="right">138</td>
+</tr>
+<tr class="even">
+<td align="right">97007</td>
+<td align="right">NA</td>
+<td align="right">NA</td>
+<td align="right">NA</td>
+<td align="right">NA</td>
+</tr>
+<tr class="odd">
+<td align="right">102169</td>
+<td align="right">64</td>
+<td align="right">64</td>
+<td align="right">106</td>
+<td align="right">108</td>
+</tr>
+<tr class="even">
+<td align="right">95867</td>
+<td align="right">100</td>
+<td align="right">94</td>
+<td align="right">150</td>
+<td align="right">150</td>
+</tr>
+<tr class="odd">
+<td align="right">98093</td>
+<td align="right">NA</td>
+<td align="right">NA</td>
+<td align="right">NA</td>
+<td align="right">NA</td>
+</tr>
+<tr class="even">
+<td align="right">98361</td>
+<td align="right">NA</td>
+<td align="right">NA</td>
+<td align="right">NA</td>
+<td align="right">NA</td>
+</tr>
+<tr class="odd">
+<td align="right">100907</td>
+<td align="right">74</td>
+<td align="right">78</td>
+<td align="right">122</td>
+<td align="right">124</td>
+</tr>
+<tr class="even">
+<td align="right">100818</td>
+<td align="right">66</td>
+<td align="right">62</td>
+<td align="right">110</td>
+<td align="right">110</td>
+</tr>
+<tr class="odd">
+<td align="right">100835</td>
+<td align="right">NA</td>
+<td align="right">NA</td>
+<td align="right">NA</td>
+<td align="right">NA</td>
+</tr>
+<tr class="even">
+<td align="right">98159</td>
+<td align="right">NA</td>
+<td align="right">NA</td>
+<td align="right">NA</td>
+<td align="right">NA</td>
+</tr>
+</tbody>
+</table>
+<p>In our analysis we can then look at the average of the measurements
+across the two different time points as a way to better estimate the
+actual blood pressure for each participant.</p>
 </div>
 <div id="demo-body-mesures-and-blood-pressure-cholesterol" class="section level4">
 <h4>2.2) Demo, Body Mesures, and Blood Pressure &amp; Cholesterol</h4>
-<pre class="r"><code># searchTableByName(&#39;BMX&#39;)
+<pre class="r"><code> searchTableByName(&#39;BMX&#39;)
+#&gt;    Questionnaire    TableName     years
+#&gt; 1            BMX BodyMeasures 1999-2000
+#&gt; 2          BMX_B BodyMeasures 2001-2002
+#&gt; 3          BMX_C BodyMeasures 2003-2004
+#&gt; 4          BMX_D BodyMeasures 2005-2006
+#&gt; 5          BMX_E BodyMeasures 2007-2008
+#&gt; 6          BMX_F BodyMeasures 2009-2010
+#&gt; 7          BMX_G BodyMeasures 2011-2012
+#&gt; 8          BMX_H BodyMeasures 2013-2014
+#&gt; 9          BMX_I BodyMeasures 2015-2016
+#&gt; 10         BMX_J BodyMeasures 2017-2018
 # searchTableByName(&#39;DEMO&#39;)
 # searchTablesByVar(&#39;BPQ050A&#39;)
 # searchTablesByVar(&#39;BPQ020&#39;)
@@ -3303,8 +3455,8 @@ data &lt;- merge(blood_df,base_df,by=&quot;SEQN&quot;)
 phs_dat = phesant(data)
 data = phs_dat$data
 DT::datatable(phs_dat$phs_res)</code></pre>
-<div id="htmlwidget-f3635bde3d839d251833" style="width:100%;height:auto;" class="datatables html-widget"></div>
-<script type="application/json" data-for="htmlwidget-f3635bde3d839d251833">{"x":{"filter":"none","vertical":false,"data":[["SEQN","BPXDI1","BPXDI2","BPXSY1","BPXSY2","RIDAGEYR","RIAGENDR","BMXBMI","RIDRETH1","DMDEDUC2","years","BPQ050A","BPQ020","LBDBCOSI","LBXBCO"],[1,0.007411,0.007549,0.010156,0.010431,0.005627,0.000274,0.055723,0.000686,0.000961,0.000274,0.000412,0.000412,0.020176,0.020176],[0,0.007823,0.007,0,0,0,0,0,0,0,0,0,0,0,0],[0,0.089212,0.048724,0.089212,0.048724,0,0,0.017019,0,0,0,0.541998,0,0.042822,0.042822],["Respondent sequence number","Continuous","Continuous","Continuous","Continuous","Continuous","Binary","Continuous","Multilevel-5","Multilevel-7","Binary","Multilevel-3","Multilevel-3","Continuous","Continuous"]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th> <\/th>\n      <th>r_unique<\/th>\n      <th>r_zero<\/th>\n      <th>r_NAs<\/th>\n      <th>types<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"columnDefs":[{"className":"dt-right","targets":[1,2,3]},{"orderable":false,"targets":0}],"order":[],"autoWidth":false,"orderClasses":false}},"evals":[],"jsHooks":[]}</script>
+<div id="htmlwidget-62227cf5444301d2d5e3" style="width:100%;height:auto;" class="datatables html-widget"></div>
+<script type="application/json" data-for="htmlwidget-62227cf5444301d2d5e3">{"x":{"filter":"none","vertical":false,"data":[["SEQN","BPXDI1","BPXDI2","BPXSY1","BPXSY2","RIDAGEYR","RIAGENDR","BMXBMI","RIDRETH1","DMDEDUC2","years","BPQ050A","BPQ020","LBDBCOSI","LBXBCO"],[1,0.007411,0.007549,0.010156,0.010431,0.005627,0.000274,0.055723,0.000686,0.000961,0.000274,0.000412,0.000412,0.020176,0.020176],[0,0.007823,0.007,0,0,0,0,0,0,0,0,0,0,0,0],[0,0.089212,0.048724,0.089212,0.048724,0,0,0.017019,0,0,0,0.541998,0,0.042822,0.042822],["Respondent sequence number","Continuous","Continuous","Continuous","Continuous","Continuous","Multilevel(2)","Continuous","Multilevel(5)","Multilevel(7)","unknown","Multilevel(3)","Multilevel(3)","Continuous","Continuous"]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th> <\/th>\n      <th>r_unique<\/th>\n      <th>r_zero<\/th>\n      <th>r_NAs<\/th>\n      <th>types<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"columnDefs":[{"className":"dt-right","targets":[1,2,3]},{"orderable":false,"targets":0}],"order":[],"autoWidth":false,"orderClasses":false}},"evals":[],"jsHooks":[]}</script>
 <p>The above table has 15 records, but it contains variables like
 Participant ID. Further, we need to preprocess the data according to the
 scientific question for the base model and selection phenotypes. In this
