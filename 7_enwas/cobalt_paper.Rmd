@@ -61,6 +61,7 @@ Participants with cobalt and lipid data were included (n = 6866). Demographic ch
 
 ```{r demo_body,warning=FALSE,message=FALSE}
  searchTableByName('BMX')
+##need to fix this up to also collect all the SASLabels - 
 # searchTableByName('DEMO')
 # searchTablesByVar('BPQ050A')
 # searchTablesByVar('BPQ020')

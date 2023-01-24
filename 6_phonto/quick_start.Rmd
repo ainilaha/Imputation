@@ -22,9 +22,9 @@ library(DT)
 
 ### NHANES 
 
-The [National Health and Nutrition Examination Survey （NHANES)](https://www.cdc.gov/nchs/nhanes/index.htm) datasets are collected from the Centers for Disease Control and Prevention in the USA, including demographics, dietary, laboratory, examination, and questionnaire data. 
+The [National Health and Nutrition Examination Survey （NHANES)](https://www.cdc.gov/nchs/nhanes/index.htm) datasets are collected from the Centers for Disease Control and Prevention in the USA, including demographics, dietary, laboratory, examination, and questionnaire data. The five publicly available data categories are: - Demographics (DEMO) - Dietary (DIET) - Examination (EXAM) - Laboratory (LAB) - Questionnaire (Q). The abbreviated forms in parentheses may be substituted for the long form in nhanesA commands. There is also limited access data, eg. genetics, that requires written justification and prior approval before users are granted access. We restrict our tools to the publicly available data.
 
-The survey is carried out in two year "epochs" from 1999-2000 to 2017-2018, and that within an epoch a set of people are surveyed. However, not all of the participants are surveyed for all of the components (e.g. demographics, dietary, laboratory, examination, and questionnaire) of the survey.  
+The survey is carried out in two year "epochs" from 1999-2000 to 2017-2018, and that within an epoch a set of people are surveyed. However, not all of the participants are surveyed for all of the components. Within each of the data categories NHANES has organized the data in Questionnaires and provides web interfaces to descriptions of the contents of each questionnaire.  We do not replicate the web interface, users can browse that information using standard tools, but we have constructed an integrated SQL database representation of much of the publicly available NHANES data.  There are many advantages to placing all the data into one database as that facilitates searching and extraction of relevant values.
 
 Each participant is assigned a unique ID and that is stored in the database as \texttt{SEQN} which is then used as a primary key. Any merging of data extracted from different tables should be based on \texttt{SEQN}. 
 Within each of the two-year epochs NHANES has produced a set of tables, or data files. One example is the [Body Measures](https://wwwn.cdc.gov/nchs/nhanes/2001-2002/BMX_B.htm)
@@ -36,10 +36,10 @@ Here two examples:
 Users familiar with SQL can connect and explore the data with database client tools such as HeidiSQL and DataGrip, or programming languages. In the [example](https://github.com/ccb-hms/NHANES/blob/main/Code/R/regressionExample.R), we show using R connect to the database and get access to data and sample analysis. In addition, we also wrapped some functions for users to get access to the data easily, the function can be see in [phonto package](https://github.com/ccb-hms/phonto/tree/main/vignettes).
 
 
+
   <FONT COLOR="RED"> RG Within each survey epoch the data are organized in named tables (you can outline the notion of the Questionnaire
  name, vs Nathan's scheme for longer names). Refer to the example below in searchTableByName </FONT>
   
-<FONT COLOR="BLUE"> Laha: We do not have the SAS names in the database for now. I can copy them from the website, but I think we want to a function to retrieve those information from the database. We should have them soon.</FONT>
 
 The CDC provides substantial [web-based tools](https://www.cdc.gov/nchs/nhanes/index.htm) for investigating the data and metadata has produced an R package called nhanesA([Endres et. al](https://cran.r-project.org/web/packages/nhanesA/index.html)). Most of the data collected can easily be downloaded from the CDC website, however accessing the data in that way can be problematic and error prone. nhanesA package provides a set of tools to search and download the data and metadata, which makes the data more accessible to the users. However, the function needs to access the NHANES website every time the user calls the R function, which leads to slow getting data and raises errors occasionally due to network issues.
 
@@ -57,12 +57,17 @@ We can load the data if we know which data file we want to load by using nhanes(
 How do i find out about variables that encode Height information?  Can you run through a set of commands that would get someone
 information about which tables they are in, then use that to get a data frame with height in it?
 
-Laha: Agreed, but currently we can only search with the variable names like BMXHT, which not user-friendly. I will revise the function so support names like,"Height","height","HEIGHT",once we have the metadata in the database.
+NHANES surveys are organized in two-year intervals, starting with 1999-2000.
+There are five publicly available data categories: - Demographics (DEMO) - Dietary (DIET) - Examination (EXAM) - Laboratory (LAB) - Questionnaire (Q). The abbreviated forms in parentheses may be substituted for the long form in nhanesA commands.
+When querying the database you can restrict by type of data category and by year (as well as other options).
 
-### 1. searchTableByName()
+### 1. nhanesTables()
+  This function wil list all the tables
+ 
+### 1.1 searchTableByName()
 
 This function lets users search for tables in the database by the table name, which can be either the short names used by NHANES or the 
-longer descriptive names. 
+longer descriptive names.  For our Dockerized container no restricted data can be accessed (ie the RDC tables are excluded) and the includerdc option is not supported.
 
  <FONT COLOR="RED"> FIXME: is this correct Laha? If so can you add something to the man page to show this and an example of using
 the long descriptive names - also the man page says: includerdc: If TRUE then RDC only tables are included (default=FALSE).
@@ -91,6 +96,15 @@ res = searchTableByName("BPX[_]")
 datatable(res)
 ```
 
+# 1.2 Searching for Variables
+ One of the main challenges in using the NHANES data set is finding the tables that contain 
+ the data you want to analyze.  In this section we outline some of the basic methods you can use to do the searching. Suppose we wanted to find variables that had LDL (low density lipoproteins).  To do that we use the nhanesSearch function.
+```{r}
+s1 = nhanesSearch("LDL")
+LDLTabs = searchTablesByVar('LBDLDL')
+```
+ 
+ 
 # 2. unionQuery()
 
 The unionQuery() function is designed to aggregate data across the years. Tt aggregate the researched results and returns the results as a data frame. For example, the blood pressure tables in CDC are BPX, BPX_B,...BPX_J from years 1999-2000 to 2017-2018. The users can aggregate some or all of the data.
@@ -102,26 +116,29 @@ The unionQuery() function is designed to aggregate data across the years. Tt agg
 ```{r search_union,warning=FALSE,message=FALSE}
 tablenames = searchTableByName('BPX[_]')
 blood_df <- unionQuery(tablenames$TableName,cols =c("BPXDI1","BPXDI2","BPXSY1","BPXSY2"))
-DT::datatable(blood_df)
+DT::datatable(blood_df[1:400,])
 ```
 
 ## 3. jointQuery()
-The jointQuery() function, table list of table name and a set of column names, it merges the researched results and returns the results as a data frame. The data are join by SEQN because it is unique id to the epochs.
-##FIXME: ok this one is more interesting - but you need to perhaps explain that SEQN is the primary key in this database and that jointQuery is going to merge on that quantity.  And this might be where you want to be clear that SEQNs are unique to epochs - they don't appear in more than one, and even if it was the same person there is no way to know that.
+The jointQuery() function, table list of table name and a set of column names, it merges the researched results and returns the results as a data frame. The data are joined using SEQN which is the unique identifier for individuals.
+#FIXME: ok this one is more interesting - but you need to perhaps explain that SEQN is the primary key in this database and that jointQuery is going to merge on that quantity.  And this might be where you want to be clear that SEQNs are unique to epochs - they don't appear in more than one, and even if it was the same person there is no way to know that.
 
-The function support the long descriptive name like
+The function supports using either Questionnaire names or the long descriptive name like
+DemographicVariablesAndSampleWeights.
 ```{r}
 tables <- c("DemographicVariablesAndSampleWeights","BloodPressure") 
 cols <- c("RIDAGEYR","RIAGENDR","RIDRETH1","DMDEDUC2","years","BPXDI1","BPXDI2","BPXSY1","BPXSY2")
 data <- jointQuery(tables,cols)
-datatable(data)
+tdata = data[1:100,]
+DT::datatable(tdata)
 ```
-and we can  also use the CDC table names if we know table names,
+
 ```{r}
 tables <- c("DEMO_C","BPX_C") 
 cols <- c("RIDAGEYR","RIAGENDR","RIDRETH1","DMDEDUC2","years","BPXDI1","BPXDI2","BPXSY1","BPXSY2")
 data <- jointQuery(tables,cols)
-datatable(data)
+tdata = data[1:100,]
+datatable(tdata)
 ```
 
 
@@ -157,11 +174,11 @@ And the real factor levels for year 2003-2004 can be found in [the cookbook]() a
 
 The real factor levels can be set with nhanesTranslate() function.
 
-```{r,warning=FALSE}
-data = phonto::nhanes("DEMO_C")
-data = phonto::nhanesTranslate('DEMO_C', c('RIAGENDR', 'RIDRETH1'), data=data)
+```{r,DT.warn.size=FALSE}
+#data = phonto::nhanes("DEMO_C")
+data = phonto::nhanesTranslate('DEMO_C', c('RIAGENDR', 'RIDRETH1'), data=TRUE)
 # head(data)
-data[,c('SEQN','RIDAGEYR','RIAGENDR', 'RIDRETH1')] |> DT::datatable()
+datatable(data[1:100,c('SEQN','RIDAGEYR','RIAGENDR', 'RIDRETH1')] )
 
 #  We can  also  check the the variables  code  and values:
 # phonto::nhanesTranslate('DEMO_C', c('RIAGENDR','RIDRETH1'))
