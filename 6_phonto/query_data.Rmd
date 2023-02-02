@@ -29,10 +29,10 @@ library(nhanesA)
 
 It can be search by certain variable.
 
-### 1) Check variables constantancy
+### 1) Check variables Consistency
 
 ```{r search_tables,warning=FALSE,message=FALSE}
-checkDataConst("DEMO_C","DEMO_D") |> DT::datatable()
+checkDataConsistency("DEMO_C","DEMO_D") |> DT::datatable()
 ```
 
 ### 2) Union Query
@@ -45,4 +45,12 @@ unionQuery(c("DEMO_B","DEMO_D"),c("RIDAGEYR","RIAGENDR")) |> DT::datatable()
 
 ```{r uniq2,warning=FALSE,message=FALSE}
 jointQuery( list(BPQ_J=c("BPQ020", "BPQ050A"), DEMO_J=c("RIDAGEYR","RIAGENDR"))) |> DT::datatable()
+```
+
+```{r uniq3,warning=FALSE,message=FALSE}
+cols = list(DEMO_I=c("RIDAGEYR","RIAGENDR","RIDRETH1","DMDEDUC2","years"),
+                     DEMO_J=c("RIDAGEYR","RIAGENDR","RIDRETH1","DMDEDUC2","years"),
+                     BPQ_I=c('BPQ050A','BPQ020'),BPQ_J=c('BPQ050A','BPQ020'),
+                     HDL_I=c("LBDHDD"),HDL_J=c("LBDHDD"), TRIGLY_I=c("LBXTR","LBDLDL"))
+jointQuery(cols)|> DT::datatable()
 ```
