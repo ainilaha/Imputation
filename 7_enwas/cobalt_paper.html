@@ -3213,7 +3213,7 @@ display: none;
 
 
 <h1 class="title toc-ignore">Cobalt Paper</h1>
-<h4 class="date">Updated on : Mon Feb 20 14:53:12 2023</h4>
+<h4 class="date">Updated on : Mon Feb 20 17:08:11 2023</h4>
 
 </div>
 
@@ -3412,8 +3412,9 @@ blood_df[1:10,] |&gt; kable()</code></pre>
 across the two different time points as a way to better estimate the
 actual blood pressure for each participant.</p>
 </div>
-<div id="demo-body-mesures-and-blood-pressure-cholesterol" class="section level4">
-<h4>2.2) Demo, Body Mesures, and Blood Pressure &amp; Cholesterol</h4>
+<div id="loading-the-demographic-body-measures-and-cholesterol-data-into-r" class="section level4">
+<h4>2.2 Loading the Demographic, Body Measures, and Cholesterol data
+into R</h4>
 <p>The authors state: Participants with cobalt and lipid data were
 included (n = 6866). Demographic characteristics of the participants,
 including age, gender, body mass index (BMI), education level, race,
@@ -3423,11 +3424,12 @@ lipoprotein cholesterol (LDL-C), HDL-C, triglycerides (TGs),
 hypertension, diabetes and history of medication use, including
 antihypertensive drugs, hypoglycemic drugs, and lipid-lowering drugs,
 were extracted.</p>
-<p>In the calls below, we start with the variable names, which we had
+<p>In the code below, we start with the variable names, which we had
 obtained by searching based on the variable descriptions (not shown) and
-restrict by the years that the authors had chosen. ##FIXME - we need to
-not do TRIGLY and CRCO here as they have many fewer people ## probably
-we need to merge them in afterwards, keeping all other rows</p>
+restrict by the years that the authors had chosen. We will avoid looking
+at the LDL measurements and triglycerides as they were done on a subset
+of the participants, and we want to make sure we are as inclusive as
+possible.</p>
 <pre class="r"><code>
 ##get the appropriate table names for the variables we will need
 ##BP
@@ -3451,27 +3453,79 @@ cols = list(DEMO_I=c(&quot;RIDAGEYR&quot;,&quot;RIAGENDR&quot;,&quot;RIDRETH1&qu
             DIQ_J=&quot;DIQ010&quot;, BMX_I=&quot;BMXBMI&quot;, BMX_J=&quot;BMXBMI&quot;
             )
 var2Table = cols[c(1,3,5,7,9,11)]
-base_df &lt;- jointQuery(cols)</code></pre>
+base_df &lt;- jointQuery(cols)
+dim(base_df)
+#&gt; [1] 11891    12</code></pre>
+<p>##Smoking In the code chunk below we extract the smoking data, and
+then try to create the groupings used in the paper. They have three
+groups, non-smokers, current smokers and ex-smokers. We use the
+<code>SMQ_I</code> and <code>SMQ_J</code> tables. We will define
+non-smoker as someone who as never smoked more than 100 cigarettes
+(<code>SMQ020</code>), anyone who has smoked more will be either a
+current smoker or an ex-smoker (<code>SMQ040</code>)</p>
+<pre class="r"><code>smokingTab= unionQuery(c(&quot;SMQ_I&quot;, &quot;SMQ_J&quot;),cols = c(&quot;SMQ020&quot;,&quot;SMQ040&quot;))
+tdf = merge(base_df, smokingTab, all.x=TRUE)  
+tdf = tdf[tdf$RIDAGEYR&gt;=40,]
+nn = nhanesTranslate(&quot;SMQ_J&quot;, colnames=c(&quot;SMQ020&quot;,&quot;SMQ040&quot;))
+##have a look at the coding for SMQ020
+nn[[1]]
+#&gt;   Variable CodeOrValue ValueDescription
+#&gt; 1   SMQ020           1              Yes
+#&gt; 2   SMQ020           2               No
+#&gt; 3   SMQ020           7          Refused
+#&gt; 4   SMQ020           9       Don&#39;t know
+#&gt; 5   SMQ020           .          Missing
+##check to see what values are in the data
+table(tdf$SMQ020, useNA=&quot;always&quot;)
+#&gt; 
+#&gt;    1    2    7    9 &lt;NA&gt; 
+#&gt; 3304 3975    1    6    0
+##for SMQ040 too
+table(tdf$SMQ040, useNA=&quot;always&quot;)
+#&gt; 
+#&gt;    1    2    3 &lt;NA&gt; 
+#&gt; 1011  243 2050 3982
+smokingVar = ifelse(tdf$SMQ020==2, &quot;Non-smoker&quot;, ifelse(tdf$SMQ040==3, &quot;Ex-smoker&quot;,
+                    &quot;Smoker&quot;))
+table(smokingVar, useNA=&quot;always&quot;)
+#&gt; smokingVar
+#&gt;  Ex-smoker Non-smoker     Smoker       &lt;NA&gt; 
+#&gt;       2050       3975       1254          7
+##from the paper n=6866, Ex=1950,Non=3744,Current=1165</code></pre>
 <p>The two variables that require additional lab work are LDLs and
 cobalt levels. As a result they were done on a much smaller set of
 people. So instead of loading them simultaneously we extract them below
 and then use the <code>merge</code></p>
 <pre class="r"><code>ldlTab = unionQuery(c(&quot;TRIGLY_I&quot;,&quot;TRIGLY_J&quot;), cols=c(&quot;LBXTR&quot;,&quot;LBDLDL&quot;)) 
+dim(ldlTab)
+#&gt; [1] 6227    3
 cobaltTab = unionQuery(c(&quot;CRCO_I&quot;, &quot;CRCO_J&quot;), cols= &quot;LBXBCO&quot;)
+dim(cobaltTab)
+#&gt; [1] 7286    2
 var2Table = c(var2Table, list(&quot;TRIGLY_I&quot;=c(&quot;LBXTR&quot;,&quot;LBDLDL&quot;), CRCO_I=&quot;LBXBCO&quot;))
+##we merge keeping as many records as we can, the all.x argument is important
 bdf = merge(base_df, ldlTab, all.x=TRUE)
-base_df = merge(bdf, cobaltTab, all.x=TRUE)</code></pre>
-</div>
-<div id="merge-and-phesant-like-process" class="section level3">
-<h3>2.3) merge and PHESANT-like process</h3>
-<p>We can run the PHESANT-like process to convert each column into data
-types. It also provides the ratio of unique values, the proportion of
-zeros, and the ratio of NAs, which is calculated by the number of unique
-values, zeros, and NAs divided by total records. The categorical data
-types (ordered or unrecorded) are presented by integers, and the PHESANT
-function category them as multilevel. For example, education (DMDEDUC2)
-is category as Multilevel-7 means the PHESANT process considers it
-multilevel and has 7 levels.</p>
+base_df = merge(bdf, cobaltTab, all.x=TRUE)
+dim(base_df)
+#&gt; [1] 11891    15</code></pre>
+<p>If we were to remove all records with missing values at this point we
+would be left with a very small number of cases. So we will try to be
+careful not to loose too many data points. ### 2.3) merge and
+PHESANT-like process</p>
+<p>Now you have a dataframe with the data, but you will need to better
+understand the variables, exposures and responses. To help with that we
+have created some tools, based on related work in the UK Biobank called
+PHESANT (cite PHESANT)). The process takes each variable (column) and
+reports what type of data it is, continuous or multi-level (ie factors).
+We report the number of levels, you can use the
+<code>nhanesTranslate</code> function to learn more about the levels of
+the factor. Some numeric quantities are reported such as the ratio of
+unique values to the length of vector, the proportion of zeros, and the
+proportion of missing values. NHANES has chosen to store categorical
+data types (ordered or unordered) as integers. For example, education
+level, <code>DMDEDUC2</code> is identified as <code>Multilevel-8</code>.
+You can learn more about the details of the NHANES data in the Quick
+Start Vignette (cite quick start).</p>
 <pre class="r"><code>
 data &lt;- merge(blood_df,base_df,by=&quot;SEQN&quot;)
 ##fix up our list linking variable names to the table they came from
@@ -3479,8 +3533,8 @@ var2Table = c(var2Table, list(&quot;BPX_I&quot;=c(&quot;BPXDI1&quot;,&quot;BPXDI
 phs_dat = phesant(data)
 data = phs_dat$data
 DT::datatable(phs_dat$phs_res)</code></pre>
-<div id="htmlwidget-1278f2c2cf3e3e2c4b28" style="width:100%;height:auto;" class="datatables html-widget"></div>
-<script type="application/json" data-for="htmlwidget-1278f2c2cf3e3e2c4b28">{"x":{"filter":"none","vertical":false,"data":[["SEQN","BPXDI1","BPXDI2","BPXSY1","BPXSY2","DIASTOLIC","SYSTOLIC","RIDAGEYR","RIAGENDR","RIDRETH1","DMDEDUC2","years","BPQ050A","BPQ020","LBDHDD","LBXGH","DIQ010","BMXBMI","LBXTR","LBDLDL","LBXBCO"],[1,0.004794,0.004962,0.006307,0.006391,0.009335,0.011774,0.005466,0.000168,0.00042,0.000673,0.000168,0.000252,0.000252,0.011185,0.009251,0.000336,0.037844,0.032714,0.018417,0.012362],[0,0.005887,0.005046,0,0,0.003364,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0.085359,0.053486,0.085359,0.053486,0.042805,0.042805,0,0,0,0.09688,0,0.695568,0,0.063409,0.051047,0,0.014969,0.57102,0.575141,0.413506],["Respondent sequence number","Continuous","Continuous","Continuous","Continuous","Continuous","Continuous","Continuous","Multilevel(2)","Multilevel(5)","Multilevel(8)","unknown","Multilevel(3)","Multilevel(3)","Continuous","Continuous","Multilevel(4)","Continuous","Continuous","Continuous","Continuous"]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th> <\/th>\n      <th>r_unique<\/th>\n      <th>r_zero<\/th>\n      <th>r_NAs<\/th>\n      <th>types<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"columnDefs":[{"className":"dt-right","targets":[1,2,3]},{"orderable":false,"targets":0}],"order":[],"autoWidth":false,"orderClasses":false}},"evals":[],"jsHooks":[]}</script>
+<div id="htmlwidget-0f06dc06ddf20eec2ef4" style="width:100%;height:auto;" class="datatables html-widget"></div>
+<script type="application/json" data-for="htmlwidget-0f06dc06ddf20eec2ef4">{"x":{"filter":"none","vertical":false,"data":[["SEQN","BPXDI1","BPXDI2","BPXSY1","BPXSY2","DIASTOLIC","SYSTOLIC","RIDAGEYR","RIAGENDR","RIDRETH1","DMDEDUC2","years","BPQ050A","BPQ020","LBDHDD","LBXGH","DIQ010","BMXBMI","LBXTR","LBDLDL","LBXBCO"],[1,0.004794,0.004962,0.006307,0.006391,0.009335,0.011774,0.005466,0.000168,0.00042,0.000673,0.000168,0.000252,0.000252,0.011185,0.009251,0.000336,0.037844,0.032714,0.018417,0.012362],[0,0.005887,0.005046,0,0,0.003364,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0.085359,0.053486,0.085359,0.053486,0.042805,0.042805,0,0,0,0.09688,0,0.695568,0,0.063409,0.051047,0,0.014969,0.57102,0.575141,0.413506],["Respondent sequence number","Continuous","Continuous","Continuous","Continuous","Continuous","Continuous","Continuous","Multilevel(2)","Multilevel(5)","Multilevel(8)","unknown","Multilevel(3)","Multilevel(3)","Continuous","Continuous","Multilevel(4)","Continuous","Continuous","Continuous","Continuous"]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th> <\/th>\n      <th>r_unique<\/th>\n      <th>r_zero<\/th>\n      <th>r_NAs<\/th>\n      <th>types<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"columnDefs":[{"className":"dt-right","targets":[1,2,3]},{"orderable":false,"targets":0}],"order":[],"autoWidth":false,"orderClasses":false}},"evals":[],"jsHooks":[]}</script>
 <p>In the next code chunk we will convert the multilevel variables into
 R factors. To do this we make use of the nhanesTranslate function. While
 that function does most of the work, there are some variables we need to
@@ -3533,6 +3587,13 @@ data &lt;- data[data$RIDAGEYR&gt;=40,]
 </code></pre>
 <p>At this point we have 7286 individuals left.</p>
 </div>
+</div>
+<div id="replication-of-table-1" class="section level2">
+<h2>Replication of Table 1</h2>
+<p>Table 1 provides some basic summaries of the demographic data. We
+will create a temporary subset of the data that uses only the complete
+cases.</p>
+<pre class="table1"><code></code></pre>
 </div>
 <div id="hypertension" class="section level2">
 <h2>2.4 Hypertension</h2>

@@ -58,14 +58,13 @@ blood_df[1:10,] |> kable()
   In our analysis we can then look at the average of the measurements across the two different time points as a way to
 better estimate the actual blood pressure for each participant.
 
-#### 2.2) Demo, Body Mesures, and Blood Pressure & Cholesterol 
+#### 2.2 Loading the Demographic, Body Measures, and Cholesterol data into R
 
 The authors state: 
 Participants with cobalt and lipid data were included (n = 6866). Demographic characteristics of the participants, including age, gender, body mass index (BMI), education level, race, family poverty-income ratio and smoking status, were collected. Clinical data, such as blood pressure, total cholesterol (TC), low-density lipoprotein cholesterol (LDL-C), HDL-C, triglycerides (TGs), hypertension, diabetes and history of medication use, including antihypertensive drugs, hypoglycemic drugs, and lipid-lowering drugs, were extracted.
 
-In the calls below, we start with the variable names, which we had obtained by searching based on the variable descriptions (not shown) and restrict by the years that the authors had chosen.
-##FIXME - we need to not do TRIGLY and CRCO here as they have many fewer people
-## probably we need to merge them in afterwards, keeping all other rows
+In the code below, we start with the variable names, which we had obtained by searching based on the variable descriptions (not shown) and restrict by the years that the authors had chosen.  We will avoid looking at the LDL measurements and triglycerides as they were done on a subset of the participants, and we want to make sure we are as inclusive as possible.
+
 ```{r demo_body,warning=FALSE,message=FALSE}
 
 ##get the appropriate table names for the variables we will need
@@ -91,20 +90,47 @@ cols = list(DEMO_I=c("RIDAGEYR","RIAGENDR","RIDRETH1","DMDEDUC2","years"),
             )
 var2Table = cols[c(1,3,5,7,9,11)]
 base_df <- jointQuery(cols)
+dim(base_df)
 
 ```
+##Smoking
+In the code chunk below we extract the smoking data, and then try to create the groupings
+used in the paper.  They have three groups, non-smokers, current smokers and ex-smokers. We use the `SMQ_I` and `SMQ_J` tables. We will define non-smoker as someone who as never smoked more than 100 cigarettes (`SMQ020`), anyone who has smoked more will be either
+a current smoker or an ex-smoker (`SMQ040`)
+```{r Smoking }
+smokingTab= unionQuery(c("SMQ_I", "SMQ_J"),cols = c("SMQ020","SMQ040"))
+tdf = merge(base_df, smokingTab, all.x=TRUE)  
+tdf = tdf[tdf$RIDAGEYR>=40,]
+nn = nhanesTranslate("SMQ_J", colnames=c("SMQ020","SMQ040"))
+##have a look at the coding for SMQ020
+nn[[1]]
+##check to see what values are in the data
+table(tdf$SMQ020, useNA="always")
+##for SMQ040 too
+table(tdf$SMQ040, useNA="always")
+smokingVar = ifelse(tdf$SMQ020==2, "Non-smoker", ifelse(tdf$SMQ040==3, "Ex-smoker",
+                    "Smoker"))
+table(smokingVar, useNA="always")
+##from the paper n=6866, Ex=1950,Non=3744,Current=1165
+```
+
 The two variables that require additional lab work are LDLs and cobalt levels. As a result they were done on a much smaller set of people.  So instead of loading them simultaneously we extract them below and then use the `merge`
 ```{r load TRIGLY and CRCO}
 ldlTab = unionQuery(c("TRIGLY_I","TRIGLY_J"), cols=c("LBXTR","LBDLDL")) 
+dim(ldlTab)
 cobaltTab = unionQuery(c("CRCO_I", "CRCO_J"), cols= "LBXBCO")
+dim(cobaltTab)
 var2Table = c(var2Table, list("TRIGLY_I"=c("LBXTR","LBDLDL"), CRCO_I="LBXBCO"))
+##we merge keeping as many records as we can, the all.x argument is important
 bdf = merge(base_df, ldlTab, all.x=TRUE)
 base_df = merge(bdf, cobaltTab, all.x=TRUE)
+dim(base_df)
 ```
-
+If we were to remove all records with missing values at this point we would be left with a very small number of cases.  So we will try to be careful not to loose too many data points.
 ### 2.3)  merge and PHESANT-like process
- 
-We can run the PHESANT-like process to convert each column into data types. It also provides the ratio of unique values, the proportion of zeros, and the ratio of NAs, which is calculated by the number of unique values, zeros, and NAs divided by total records. The categorical data types (ordered or unrecorded) are presented by integers, and the PHESANT function category them as multilevel. For example, education (DMDEDUC2) is category as Multilevel-7 means the PHESANT process considers it multilevel and has 7 levels. 
+
+Now you have a dataframe with the data, but you will need to better understand the variables, exposures and responses.  To help with that we have created some tools, based on related work in the UK Biobank called PHESANT  (cite PHESANT)).  The process takes each variable (column)
+and reports what type of data it is, continuous or multi-level (ie factors). We report the number of levels, you can use the `nhanesTranslate` function to learn more about the levels of the factor. Some numeric quantities are reported such as the ratio of unique values to the length of vector, the proportion of zeros, and the proportion of missing values. NHANES has chosen to store categorical data types (ordered or unordered) as integers. For example, education level, `DMDEDUC2` is identified as `Multilevel-8 `.  You can learn more about the details of the NHANES data in the Quick Start Vignette (cite quick start).
 
 ```{r data,warning=FALSE,message=FALSE}
 
@@ -154,6 +180,15 @@ data <- data[data$RIDAGEYR>=40,]
 ```
 
 At this point we have `r nrow(data)` individuals left. 
+
+## Replication of Table 1
+Table 1 provides some basic summaries of the demographic data. We will create a 
+temporary subset of the data that uses only the complete cases.
+
+```{Table1, message=FALSE, warning=FALSE}
+
+
+```
 
 ## 2.4 Hypertension
 We follow the definition they described in the paper, using reported systolic and diastolic blood pressure measurements as well as self-reported statements regarding whether a physician had ever told them that they have high blood pressure.  
