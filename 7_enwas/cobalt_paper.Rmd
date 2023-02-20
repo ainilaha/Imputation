@@ -35,19 +35,23 @@ library(knitr)
 ## 2. Data and Preprocessiing
 #### 2.1) Blood Pressure Data
 
- In the next code segment we show how to obtain blood pressure measurements from NHANES tables.  We have
-already ascertained that these measurements are contained in Questionnaires that are named BPX_? and that
-there were replicate measurements taken.  Both systolic (BPXS) and diastolic (BPXD) measurements were taken
-on each occassion.  We
+ In the next code segment we show how to obtain blood pressure measurements from NHANES tables.  We have already ascertained that these measurements are contained in Questionnaires that are named BPX_I and BPX_J and that there were replicate measurements taken.  Both systolic (BPXS) and diastolic (BPXD) measurements were taken
+on each occassion.  We will use the average of these two measurements.
 ```{r data_blood,warning=FALSE,message=FALSE}
 bptablenames = nhanesSearchTableNames('BPX[_]')
 bptablenames |> kable()
 ```
-We can see that blood pressure data was collected for other years as well, but for now we will just extract
-the data for the 2015-2016 and 2017-2018 years. We combine these into a single dataframe.
+We can see that blood pressure data was collected for other years as well, but for now we will just extract the data for the 2015-2016 and 2017-2018 years. We combine these into a single dataframe.
 
 ```{r extract_data, warning=FALSE, message=FALSE}
 blood_df <- unionQuery(c("BPX_I", "BPX_J"), cols =c("BPXDI1","BPXDI2","BPXSY1","BPXSY2"))
+dim(blood_df)
+# Average the the first and second reads
+# taking some care to keep one measurement if the other is missing
+blood_df$DIASTOLIC <- rowMeans(blood_df[, c("BPXDI1", "BPXDI2")], na.rm=TRUE)
+blood_df$DIASTOLIC[is.na(blood_df$BPXDI1) & is.na(blood_df$BPXDI2)] = NA
+blood_df$SYSTOLIC <- rowMeans(blood_df[, c("BPXSY1", "BPXSY2")], na.rm=TRUE)
+blood_df$SYSTOLIC[is.na(blood_df$BPXSY1) & is.na(blood_df$BPXSY2)] = NA
 dim(blood_df)
 blood_df[1:10,] |> kable()
 ```
@@ -60,7 +64,8 @@ The authors state:
 Participants with cobalt and lipid data were included (n = 6866). Demographic characteristics of the participants, including age, gender, body mass index (BMI), education level, race, family poverty-income ratio and smoking status, were collected. Clinical data, such as blood pressure, total cholesterol (TC), low-density lipoprotein cholesterol (LDL-C), HDL-C, triglycerides (TGs), hypertension, diabetes and history of medication use, including antihypertensive drugs, hypoglycemic drugs, and lipid-lowering drugs, were extracted.
 
 In the calls below, we start with the variable names, which we had obtained by searching based on the variable descriptions (not shown) and restrict by the years that the authors had chosen.
-
+##FIXME - we need to not do TRIGLY and CRCO here as they have many fewer people
+## probably we need to merge them in afterwards, keeping all other rows
 ```{r demo_body,warning=FALSE,message=FALSE}
 
 ##get the appropriate table names for the variables we will need
@@ -81,14 +86,22 @@ COBTabs = nhanesSearchVarName("LBXBCO",ystart="2015", ystop="2018" )
 cols = list(DEMO_I=c("RIDAGEYR","RIAGENDR","RIDRETH1","DMDEDUC2","years"), 
             DEMO_J=c("RIDAGEYR","RIAGENDR","RIDRETH1","DMDEDUC2","years"),
             BPQ_I=c('BPQ050A','BPQ020'),BPQ_J=c('BPQ050A','BPQ020'), 
-            HDL_I=c("LBDHDD"),HDL_J=c("LBDHDD"), TRIGLY_I=c("LBXTR","LBDLDL"),
-            TRIGLY_J=c("LBXTR","LBDLDL"),GHB_I="LBXGH",GHB_J="LBXGH",DIQ_I="DIQ010",
-            DIQ_J="DIQ010", BMX_I="BMXBMI", BMX_J="BMXBMI", CRCO_I="LBXBCO",CRCO_J="LBXBCO"
+            HDL_I=c("LBDHDD"),HDL_J=c("LBDHDD"),GHB_I="LBXGH",GHB_J="LBXGH",DIQ_I="DIQ010",
+            DIQ_J="DIQ010", BMX_I="BMXBMI", BMX_J="BMXBMI"
             )
-var2Table = cols[c(1,3,5,7,9,11,13)]
+var2Table = cols[c(1,3,5,7,9,11)]
 base_df <- jointQuery(cols)
 
 ```
+The two variables that require additional lab work are LDLs and cobalt levels. As a result they were done on a much smaller set of people.  So instead of loading them simultaneously we extract them below and then use the `merge`
+```{r load TRIGLY and CRCO}
+ldlTab = unionQuery(c("TRIGLY_I","TRIGLY_J"), cols=c("LBXTR","LBDLDL")) 
+cobaltTab = unionQuery(c("CRCO_I", "CRCO_J"), cols= "LBXBCO")
+var2Table = c(var2Table, list("TRIGLY_I"=c("LBXTR","LBDLDL"), CRCO_I="LBXBCO"))
+bdf = merge(base_df, ldlTab, all.x=TRUE)
+base_df = merge(bdf, cobaltTab, all.x=TRUE)
+```
+
 ### 2.3)  merge and PHESANT-like process
  
 We can run the PHESANT-like process to convert each column into data types. It also provides the ratio of unique values, the proportion of zeros, and the ratio of NAs, which is calculated by the number of unique values, zeros, and NAs divided by total records. The categorical data types (ordered or unrecorded) are presented by integers, and the PHESANT function category them as multilevel. For example, education (DMDEDUC2) is category as Multilevel-7 means the PHESANT process considers it multilevel and has 7 levels. 
@@ -105,8 +118,9 @@ DT::datatable(phs_dat$phs_res)
 ```
 
 In the next code chunk we will convert the multilevel variables into R factors. To do this we make use of the nhanesTranslate function. While that function does most of the work, there are some variables we need to deal with manually to replicate the analysis. First, the years variable is something we added, so we need to deal with it manually.  Then we use `nhanesTranslate` to transform all of the internal values.  Then we need to do a little more work on modifying levels of the education variable.  The authors decided to group education into three levels, less than high school (<HS), high school (HS), and more than school-school(>HS).  We also need to address some issues around the hypertension variables.
-Particpants were asked (Q010)
-- The blood pressure measurements (diastolic and systolic) are averaged from the first and second reads.
+Particpants were asked (BPQ020) whether they had ever been told by a doctor or health care professional that they had high blood pressure.  The survey was designed to then skip over a number of questions about their hypertension if they said they did not have hypertension. However this then introduces missing values in the question BPQ050A, which was whether or not they were currently taking a prescription for hypertension. Presumably only people who had been told by their doctor they have hypertension would be taking a perscription and we will need to manually adjust the data so that these are answered No, rather than missing.
+
+In the next code chunk we modify the data accordingly, drop out everyone who is under 40 and remove any individuals that have missing data in any row.
 
 ```{r}
 ##years is something we have added so we need to translate it directly
@@ -117,7 +131,8 @@ for(tabname in names(var2Table)) {
 }
 levsED = levels(data$DMDEDUC2)
 ##examine them and then put into groupings <HS, HS and > HS
-levels(data$DMDEDUC2) <- c("HS",">HS","<HS",">HS","<HS",NA)
+levels(data$DMDEDUC2) <- c(">HS","HS",">HS","<HS","<HS","DK","R")
+levels(data$DMDEDUC2) <- c(">HS", "HS", "<HS",NA, NA)
 ##
 #the variables BPQ050A and BPQ040A are taken conditionally so they have missing values put in
 # for anyone who answered no to BPQ020 - and we need to fix that - since there answer to 50A 
@@ -125,20 +140,20 @@ levels(data$DMDEDUC2) <- c("HS",">HS","<HS",">HS","<HS",NA)
  #set up a dummy for the ones we want to change - also turn "Don't know" from BPQ020 into NA
   gg = is.na(data$BPQ050A) & data$BPQ020=="No"
   bpq50A = data$BPQ050A
-  bpq50A[gg] = 2
+  bpq50A[gg] = "No"
  #check it worked
  # table(bpq50A, data$BPQ050A, useNA="always")
   
 # The current study included 6866 US adults aged 40 years or older. 
 data$BPQ050A = bpq50A
 ##remove any record with at least one NA and then subset to those over 40
-data <- na.omit(data)
+##data <- na.omit(data)
 data <- data[data$RIDAGEYR>=40,]
 
-# Average the the first and second reads
-data$DIASTOLIC <- (data$BPXDI1+data$BPXDI2)/2
-data$SYSTOLIC <- (data$BPXSY1+data$BPXSY2)/2
+
 ```
+
+At this point we have `r nrow(data)` individuals left. 
 
 ## 2.4 Hypertension
 We follow the definition they described in the paper, using reported systolic and diastolic blood pressure measurements as well as self-reported statements regarding whether a physician had ever told them that they have high blood pressure.  
@@ -163,11 +178,15 @@ pcobalt = ifelse(data$LBXBCO <= 0.12, "<=0.12",
                          NA)  )))
 data$pcobalt = pcobalt
 
-DBP = data |> group_by(pcobalt) |> summarise(mean=mean(DIASTOLIC),SD=sd(DIASTOLIC))
+DBP = data |> group_by(pcobalt) |> summarise(mean=mean(DIASTOLIC, na.rm=TRUE),SD=sd(DIASTOLIC,na.rm=TRUE))
 DBP$stat = paste(round(DBP$mean,1),"±",round(DBP$SD,1))
+DBPmn = mean(data$DIASTOLIC, na.rm=TRUE)
+DBPsd = sd(data$DIASTOLIC, na.rm=TRUE)
 
-SBP = data |> group_by(pcobalt) |> summarise(mean=mean(SYSTOLIC),SD=sd(SYSTOLIC))
+SBP = data |> group_by(pcobalt) |> summarise(mean=mean(SYSTOLIC,na.rm=TRUE),SD=sd(SYSTOLIC, na.rm=TRUE))
 SBP$stat = paste(round(SBP$mean,1),"±",round(SBP$SD,1))
+SBPmn = mean(data$SYSTOLIC, na.rm=TRUE)
+SBPsd = sd(data$SYSTOLIC, na.rm=TRUE)
 
 dbp_t = t(DBP)
 colnames(dbp_t) = DBP$pcobalt
@@ -199,19 +218,22 @@ In the following section, we run the logistic regression models as Generalized L
 
 ```{r QA/QC, warnings=FALSE, message=FALSE}
 ## glm linear in the covariates
+##we first want to reduce to those that have values for these covariates
+subSet = data[, c("hypertension","RIDAGEYR", "RIAGENDR", "BMXBMI","DMDEDUC2", "RIDRETH1")]
+subSet = na.omit(subSet)
 
-lm_logit <- glm(hypertension ~ RIDAGEYR + RIAGENDR + BMXBMI+DMDEDUC2+RIDRETH1, data = data, family = "binomial",na.action=na.omit)
+lm_logit <- glm(hypertension ~ RIDAGEYR + RIAGENDR + BMXBMI+DMDEDUC2+RIDRETH1, data = subSet, family = "binomial",na.action=na.omit)
 
 ##spline covariates
 ns_logit <- glm(hypertension ~ ns(RIDAGEYR,df=7)+RIAGENDR + ns(BMXBMI,df=7) + DMDEDUC2 + RIDRETH1, 
-                   data = data, family = "binomial",na.action=na.omit)
+                   data = subSet, family = "binomial",na.action=na.omit)
 
 ```
 ### 3.1) QA/QC
 ```{r}
 # library(pROC)
 library(plotROC)
-test = data_frame(hypertension=data$hypertension,lm=lm_logit$fitted.values,ns=ns_logit$fitted.values)
+test = data_frame(hypertension=subSet$hypertension,lm=lm_logit$fitted.values,   ns=ns_logit$fitted.values)
 longtest <- reshape2::melt(test,id.vars="hypertension")
 colnames(longtest) = c('hypertension','model','value')
 ggplot(longtest, aes(d = as.numeric(hypertension), m = value, color = model))+ geom_abline()+ geom_roc(size = 1.25) + style_roc()
@@ -230,16 +252,16 @@ ggplot(longtest, aes(d = as.numeric(hypertension), m = value, color = model))+ g
 
 ```{r}
 # Age
-df_age_fitt = list("Binned Data"=make_bins(x=data$RIDAGEYR,y=as.numeric(data$hypertension),nbin=600),
-                  "Linear"=make_bins(x=data$RIDAGEYR,y=lm_logit$fitted.values,nbin=600),
-                  "Spline"=make_bins(x=data$RIDAGEYR,y=ns_logit$fitted.values,nbin=600)
+df_age_fitt = list("Binned Data"=make_bins(x=subSet$RIDAGEYR,y=as.numeric(subSet$hypertension),nbin=600),
+                  "Linear"=make_bins(x=subSet$RIDAGEYR,y=lm_logit$fitted.values,nbin=600),
+                  "Spline"=make_bins(x=subSet$RIDAGEYR,y=ns_logit$fitted.values,nbin=600)
                 )
 age_fitt = plot_bins2(df_age_fitt,xlab="Age (year)",ylab="Hypertension",is_facet=F) 
 
 #BMI
-df_bmi_fit =list("Linear"=make_bins(x=data$BMXBMI,y=lm_logit$fitted.values,nbin=600),
-                "Spline"=make_bins(x=data$BMXBMI,y=ns_logit$fitted.values,nbin=600),
-                "Binned Data"=make_bins(x=data$BMXBMI,y=as.numeric(data$hypertension),nbin=600)
+df_bmi_fit =list("Linear"=make_bins(x=subSet$BMXBMI,y=lm_logit$fitted.values,nbin=600),
+                "Spline"=make_bins(x=subSet$BMXBMI,y=ns_logit$fitted.values,nbin=600),
+                "Binned Data"=make_bins(x=subSet$BMXBMI,y=as.numeric(subSet$hypertension),nbin=600)
                 )
 
 bmi_fit <- plot_bins2(df_bmi_fit,xlab="BMI",ylab="Hypertension",is_facet=F) 
@@ -264,9 +286,12 @@ As the authors pointed out, the blood cobalt concentrations have not associated 
 FIXME: but they have a bunch of other features in their table 2 - and it would be good if we can start to look at them.
 
 ```{r model1,warning=FALSE,message=FALSE}
-lm_logit <- glm(hypertension ~ RIDAGEYR + RIAGENDR + BMXBMI+DMDEDUC2+RIDRETH1+LBXBCO, data = data, family = "binomial")
+subSet2 = data[, c("hypertension","RIDAGEYR", "RIAGENDR", "BMXBMI","DMDEDUC2", "RIDRETH1", "LBXBCO")]
+subSet2 = na.omit(subSet2)
+
+lm_logit <- glm(hypertension ~ RIDAGEYR + RIAGENDR + BMXBMI+DMDEDUC2+RIDRETH1+LBXBCO, data = subSet2, family = "binomial")
 ns_logit <- glm(hypertension ~ ns(RIDAGEYR,df=7)+RIAGENDR + ns(BMXBMI,df=7) + DMDEDUC2 + RIDRETH1+LBXBCO, 
-                   data = data, family = "binomial",na.action=na.omit)
+                   data = subSet2, family = "binomial",na.action=na.omit)
 
 sjPlot::tab_model(lm_logit,ns_logit,
                   dv.labels = c("lm", "spline"),
