@@ -175,7 +175,7 @@ data$BPQ050A = bpq50A
 ##remove any record with at least one NA and then subset to those over 40
 ##data <- na.omit(data)
 data <- data[data$RIDAGEYR>=40,]
-
+dim(data)
 
 ```
 
@@ -185,8 +185,17 @@ At this point we have `r nrow(data)` individuals left.
 Table 1 provides some basic summaries of the demographic data. We will create a 
 temporary subset of the data that uses only the complete cases.
 
-```{Table1, message=FALSE, warning=FALSE}
-
+```{r, message=FALSE, warning=FALSE}
+pcobalt = ifelse(data$LBXBCO <= 0.12, "<=0.12", 
+                ifelse(data$LBXBCO >= 0.13 & data$LBXBCO <= 0.14, "0.13-0.14",
+                  ifelse(data$LBXBCO >= 0.15 & data$LBXBCO <= 0.18, "0.15-0.18",
+                         ifelse(data$LBXBCO >= 0.19, ">=1.9",
+                         NA)  )))
+##make it an ordered factor 
+pcob = factor(pcobalt, levels=c("<=0.12","0.13-0.14", "0.15-0.18",">=1.9"), ordered=TRUE)
+data$pcobalt = pcob
+table(pcob, useNA="always")
+AgeGp = data |> group_by(pcobalt) |> summarise(mean=mean(RIDAGEYR,na.rm=TRUE),SD=sd(RIDAGEYR,na.rm=TRUE))
 
 ```
 
@@ -206,12 +215,6 @@ barplot(table(data$hypertension))
 
 ## 2.5 Compare with Table-2
 ```{r, message=FALSE,warning=FALSE}
-pcobalt = ifelse(data$LBXBCO <= 0.12, "<=0.12", 
-                ifelse(data$LBXBCO >= 0.13 & data$LBXBCO <= 0.14, "0.13-0.14",
-                  ifelse(data$LBXBCO >= 0.15 & data$LBXBCO <= 0.18, "0.15-0.18",
-                         ifelse(data$LBXBCO >= 0.19, ">=1.9",
-                         NA)  )))
-data$pcobalt = pcobalt
 
 DBP = data |> group_by(pcobalt) |> summarise(mean=mean(DIASTOLIC, na.rm=TRUE),SD=sd(DIASTOLIC,na.rm=TRUE))
 DBP$stat = paste(round(DBP$mean,1),"±",round(DBP$SD,1))
