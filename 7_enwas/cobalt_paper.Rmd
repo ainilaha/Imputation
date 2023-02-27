@@ -71,10 +71,16 @@ In the code below, we start with the variable names, which we had obtained by se
 ##BP
 BPTabs = nhanesSearchVarName("BPQ050A", ystart="2015", ystop="2018")
 LDLTabs = nhanesSearchVarName('LBDLDL',ystart="2015", ystop="2018")
+##BPQ050A - currently taking meds for hypertension
+##BPQ080 - told by Dr. you have high cholesterol
+##BPQ100D - now taking meds for high cholesterol
 ##A1C
 A1C = nhanesSearchVarName("LBXGH",ystart="2015", ystop="2018")
 ##been told by Dr. has diabetes
 DrDiab = nhanesSearchVarName("DIQ010",ystart="2015", ystop="2018")
+##DIQ050 - taking insulin now
+##DIQ070 - taking pills for blood sugar
+
 ##HDLTabs
 HDLTabs = nhanesSearchVarName("LBDHDD",ystart="2015", ystop="2018")
 BMITabs = nhanesSearchVarName("BMXBMI", ystart="2015", ystop="2018")
@@ -84,13 +90,34 @@ COBTabs = nhanesSearchVarName("LBXBCO",ystart="2015", ystop="2018" )
 
 cols = list(DEMO_I=c("RIDAGEYR","RIAGENDR","RIDRETH1","DMDEDUC2","years"), 
             DEMO_J=c("RIDAGEYR","RIAGENDR","RIDRETH1","DMDEDUC2","years"),
-            BPQ_I=c('BPQ050A','BPQ020'),BPQ_J=c('BPQ050A','BPQ020'), 
-            HDL_I=c("LBDHDD"),HDL_J=c("LBDHDD"),GHB_I="LBXGH",GHB_J="LBXGH",DIQ_I="DIQ010",
-            DIQ_J="DIQ010", BMX_I="BMXBMI", BMX_J="BMXBMI"
+            BPQ_I=c('BPQ050A','BPQ020','BPQ080','BPQ100D'),
+            BPQ_J=c('BPQ050A','BPQ020','BPQ080','BPQ100D'), 
+            HDL_I=c("LBDHDD"),HDL_J=c("LBDHDD"),
+            GHB_I="LBXGH",GHB_J="LBXGH",
+            DIQ_I=c("DIQ010","DIQ050","DIQ070","DIQ160"),
+            DIQ_J=c("DIQ010","DIQ050","DIQ070","DIQ160"), 
+            BMX_I="BMXBMI", BMX_J="BMXBMI"
             )
 var2Table = cols[c(1,3,5,7,9,11)]
 base_df <- jointQuery(cols)
 dim(base_df)
+
+```
+##FIXUP some vars
+```{r}
+cholMeds = base_df$BPQ100D
+cholMeds[base_df$BPQ080==2] = 2
+cholMeds = factor(cholMeds,levels=c("1","2"), labels=c("Yes","No"))
+table(cholMeds,useNA="always")
+base_df$cholMeds=cholMeds
+
+##now fixup the oral meds for diabetes
+##not counting insulin right now...might need it
+dontskip = base_df$DIQ010 == 1 | base_df$DIQ010 == 3 | base_df$DIQ160 == 1
+hypoglycemicMeds = base_df$DIQ070
+hypoglycemicMeds[!dontskip] = 2 #No
+table(hypoglycemicMeds,useNA="always")
+
 
 ```
 ##Smoking
@@ -113,7 +140,13 @@ smokingVar = ifelse(tdf$SMQ020==2, "Non-smoker", ifelse(tdf$SMQ040==3, "Ex-smoke
 table(smokingVar, useNA="always")
 ##from the paper n=6866, Ex=1950,Non=3744,Current=1165
 ```
-
+#Glucose
+```{r Glucose, warning=FALSE, message=FALSE}
+##fasting glucose
+Fastgluc = nhanesSearchVarName("LBXGLU", ystart="2015", ystop="2018")
+glucTab = unionQuery(c("GLU_I", "GLU_J"), cols="LBXGLU")
+base_df = merge(base_df, glucTab, all.x=TRUE)
+```
 The two variables that require additional lab work are LDLs and cobalt levels. As a result they were done on a much smaller set of people.  So instead of loading them simultaneously we extract them below and then use the `merge`
 ```{r load TRIGLY and CRCO}
 ldlTab = unionQuery(c("TRIGLY_I","TRIGLY_J"), cols=c("LBXTR","LBDLDL")) 
@@ -134,7 +167,7 @@ and reports what type of data it is, continuous or multi-level (ie factors). We 
 
 ```{r data,warning=FALSE,message=FALSE}
 
-data <- merge(blood_df,base_df,by="SEQN")
+data <- merge(base_df, blood_df, all.x=TRUE,by="SEQN")
 ##fix up our list linking variable names to the table they came from
 var2Table = c(var2Table, list("BPX_I"=c("BPXDI1","BPXDI2","BPXSY1","BPXSY2")))
 phs_dat = phesant(data)
@@ -199,20 +232,31 @@ AgeGp = data |> group_by(pcobalt) |> summarise(mean=mean(RIDAGEYR,na.rm=TRUE),SD
 
 ```
 
-## 2.4 Hypertension
-We follow the definition they described in the paper, using reported systolic and diastolic blood pressure measurements as well as self-reported statements regarding whether a physician had ever told them that they have high blood pressure.  
+## 2.4 Definitions
+Here we implement the definitions from Section 3.1 of the Cobalt paper. For hypertension they described using reported systolic and diastolic blood pressure measurements as well as self-reported statements regarding whether a physician had ever told them that they have high blood pressure.  
 
 Note that it is unclear whether the authors used averaged over 2 measurements for the systolic and diastolic blood pressure measurements. Still, we use average them because it would give us more accurate blood pressure measurements.
 
 One might also look at the use of prescribed hypertensives, as these will modulate the systolic and diastolic measures.  Data on self-report come from the BPQ tables in NHANES.
 https://wwwn.cdc.gov/nchs/nhanes/2011-2012/BPQ_G.htm
 
-```{r Hypertension,warning=FALSE,message=FALSE}
+```{r RiskFactors,warning=FALSE,message=FALSE}
 # "Hypertension was defined as systolic blood pressure (SBP) ≥140 mm Hg, diastolic blood pressure ≥90mm Hg, or the use of antihypertensive medication. "
 data$hypertension <- data$DIASTOLIC >= 90 | data$SYSTOLIC >= 140 |  data$BPQ050A=="Yes"
 barplot(table(data$hypertension))
 ```
+```{r Diabetes, warning=FALSE, message=FALSE}
+data$diabetes = data$DIQ010 == "Yes" | data$LBXGLU > 110 | data$LBXGH > 6.5
+barplot(table(data$diabetes))
 
+data$HighLDL = data$LBDLDL > 130
+barplot(table(data$HighLDL))
+ 
+data$LowHDL = (data$RIAGENDR=="Male" & data$LBDHDD < 40) |    (data$RIAGENDR=="Female" & data$LBDHDD < 50) 
+barplot(table(data$LowHDL))
+
+```
+Note that some of our groupings are very similar to those reported in the Cobalt paper, but some, notably Elevated LDLs are quite different. This discrepency should be explored (it may have to do with incorrect subsetting by age).
 ## 2.5 Compare with Table-2
 ```{r, message=FALSE,warning=FALSE}
 
