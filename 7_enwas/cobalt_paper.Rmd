@@ -116,8 +116,9 @@ base_df$cholMeds=cholMeds
 dontskip = base_df$DIQ010 == 1 | base_df$DIQ010 == 3 | base_df$DIQ160 == 1
 hypoglycemicMeds = base_df$DIQ070
 hypoglycemicMeds[!dontskip] = 2 #No
+hypoglycemicMeds = factor(hypoglycemicMeds,levels=c(1,2,7,9), labels=c("Yes", "No",NA,NA))
 table(hypoglycemicMeds,useNA="always")
-
+base_df$hypoglycemicMeds = hypoglycemicMeds
 
 ```
 ##Smoking
