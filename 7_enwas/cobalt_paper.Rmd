@@ -87,6 +87,7 @@ BMITabs = nhanesSearchVarName("BMXBMI", ystart="2015", ystop="2018")
 BMXTabs = nhanesSearchVarName("BMXBMI",ystart="2015", ystop="2018")
 DIQTabs = nhanesSearchVarName("DIQ010",ystart="2015", ystop="2018")
 COBTabs = nhanesSearchVarName("LBXBCO",ystart="2015", ystop="2018" )
+TotChol = nhanesSearchVarName("LBXTC",ystart="2015", ystop="2018" )
 
 cols = list(DEMO_I=c("RIDAGEYR","RIAGENDR","RIDRETH1","DMDEDUC2","years"), 
             DEMO_J=c("RIDAGEYR","RIAGENDR","RIDRETH1","DMDEDUC2","years"),
@@ -96,9 +97,10 @@ cols = list(DEMO_I=c("RIDAGEYR","RIAGENDR","RIDRETH1","DMDEDUC2","years"),
             GHB_I="LBXGH",GHB_J="LBXGH",
             DIQ_I=c("DIQ010","DIQ050","DIQ070","DIQ160"),
             DIQ_J=c("DIQ010","DIQ050","DIQ070","DIQ160"), 
-            BMX_I="BMXBMI", BMX_J="BMXBMI"
+            BMX_I="BMXBMI", BMX_J="BMXBMI",
+            TCHOL_I="LBXTC", TCHOL_J="LBXTC"
             )
-var2Table = cols[c(1,3,5,7,9,11)]
+var2Table = cols[c(1,3,5,7,9,11,13)]
 base_df <- jointQuery(cols)
 dim(base_df)
 
@@ -212,7 +214,6 @@ data <- data[data$RIDAGEYR>=40,]
 dim(data)
 
 ```
-
 At this point we have `r nrow(data)` individuals left. 
 
 ## Replication of Table 1
@@ -257,6 +258,13 @@ data$LowHDL = (data$RIAGENDR=="Male" & data$LBDHDD < 40) |    (data$RIAGENDR=="F
 barplot(table(data$LowHDL))
 
 ```
+Now lets define the elevated total cholesterol variable.
+
+```{r Dyslipidemia}
+elevatedTC = data$LBXTC>200
+data$elevatedTC = elevatedTC
+```
+
 Note that some of our groupings are very similar to those reported in the Cobalt paper, but some, notably Elevated LDLs are quite different. This discrepency should be explored (it may have to do with incorrect subsetting by age).
 ## 2.5 Compare with Table-2
 ```{r, message=FALSE,warning=FALSE}
@@ -295,10 +303,25 @@ kbl(table2) |>
 
 
 
-## 3.Base Models and QA/QC
+## 3.Regression Models
 
-In the following section, we run the logistic regression models as Generalized Linear Models (GLM). In the models, the outcome of the hypertension indicator and the adjusted variables are age(RIDAGEYR), gender(RIAGENDR), BMI(BMXBMI), education(DMDEDUC2), and ethnicity (RIDRETH1). The first GLM is with linear terms, and the second GLM also adds terms linearly together but applies a natural spline to the continuous variables.      
+In Section 3.2 of the Cobalt paper the authors describe their use of binary logistic regression models.  They use dyslipidemia as the outcome and adjust for age, sex and BMI (their model 1).  They split cobalt levels into the groupings described above and then fit logistic models that were linear in the covariates.  Here we provide the tools to replicate that analysis and also explore the use of regression splines to fit the continuous variables in the model, namely age, BMI and cobalt levels.
 
+In the following section, we run the logistic regression models as generalized linear models (GLMs). In the models, the outcome of the hypertension indicator and the adjusted variables are age (RIDAGEYR), gender (RIAGENDR), BMI (BMXBMI), educationm(DMDEDUC2), and ethnicity (RIDRETH1). The first GLM is with linear terms, and the second GLM also adds terms linearly together but applies a natural spline to the continuous variables.      
+
+```{r Model1, warnings=FALSE, message=FALSE}
+subSet = data[, c("hypertension","RIDAGEYR", "RIAGENDR", "BMXBMI","DMDEDUC2", "RIDRETH1")]
+subSet = na.omit(subSet)
+
+lm_logit <- glm(hypertension ~ RIDAGEYR + RIAGENDR + BMXBMI+DMDEDUC2+RIDRETH1, data = subSet, family = "binomial",na.action=na.omit)
+
+##spline covariates
+ns_logit <- glm(hypertension ~ ns(RIDAGEYR,df=7)+RIAGENDR + ns(BMXBMI,df=7) + DMDEDUC2 + RIDRETH1, 
+                   data = subSet, family = "binomial",na.action=na.omit)
+
+```
+###Model 2
+In the code below we fit model two.
 ```{r QA/QC, warnings=FALSE, message=FALSE}
 ## glm linear in the covariates
 ##we first want to reduce to those that have values for these covariates
