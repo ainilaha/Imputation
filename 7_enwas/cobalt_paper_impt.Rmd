@@ -338,12 +338,38 @@ corrplot(correlation, type = "upper", order = "hclust",
 
 
 #### Imputing Data with MICE
+In the following code, we use Classification and Regression Tree (CART) base on MICE, with 1 time inpuation with 5 iteration.  The we can save the imputed data into variable `impt_data`.
 
 ```{r mice,warning=FALSE}
-imp =  mice(data[,2:ncol(data)], method='cart',m=1,maxit=1) # exclude SEQN
+imp =  mice(data[,2:ncol(data)], method='cart',m=1,maxit=5) # exclude SEQN
 impt_data = mice::complete(imp,action=1) # imputed data
 
 ```
 
 
+## 3.Regression Models
 
+In Section 3.2 of the Cobalt paper the authors describe their use of binary logistic regression models.  They use dyslipidemia as the outcome and adjust for age, sex and BMI (their model 1).  They split cobalt levels into the groupings described above and then fit logistic models that were linear in the covariates.  Here we provide the tools to replicate that analysis and also explore the use of regression splines to fit the continuous variables in the model, namely age, BMI and cobalt levels.
+
+In the following section, we run the logistic regression models as generalized linear models (GLMs). In the models, the outcome of the hypertension indicator and the adjusted variables are age (RIDAGEYR), gender (RIAGENDR), BMI (BMXBMI), educationm(DMDEDUC2), and ethnicity (RIDRETH1). The first GLM is with linear terms, and the second GLM also adds terms linearly together but applies a natural spline to the continuous variables.      
+
+```{r Model1, warnings=FALSE, message=FALSE}
+subSet = data[, c("hypertension","RIDAGEYR", "RIAGENDR", "BMXBMI","DMDEDUC2", "RIDRETH1")]
+
+lm_logit <- glm(hypertension ~ RIDAGEYR + RIAGENDR + BMXBMI+DMDEDUC2+RIDRETH1, data = subSet, family = "binomial",na.action=na.omit)
+
+
+subSetImpt = impt_data[, c("hypertension","RIDAGEYR", "RIAGENDR", "BMXBMI","DMDEDUC2", "RIDRETH1")]
+# subSetImpt = na.omit(subSetImpt)
+
+lm_logit_impt <- glm(hypertension ~ RIDAGEYR + RIAGENDR + BMXBMI+DMDEDUC2+RIDRETH1, data = subSetImpt, family = "binomial",na.action=na.omit)
+
+```
+
+### 3.1) QA/QC
+```{r}
+sjPlot::tab_model(lm_logit,lm_logit_impt,
+                  dv.labels = c("Raw (Hypertension)", "Imputed (Hypertension)"),
+                  show.ci = FALSE,show.stat = TRUE,show.se = TRUE,p.style = "scientific", digits.p = 2)
+
+```

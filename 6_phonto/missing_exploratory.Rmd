@@ -72,8 +72,7 @@ vis_miss(demo,warn_large_data=FALSE)
 
 ## Missing Correlation
 
-##FIXME: just want to say, please pick one or two visualizations, that you think do the best job of showing missingness and joint missingness and have those. Please don't put in plots without text describing what you are doing, why you 
-are doing it, and what the reader should see, or maybe how they should interpret the plots.
+##FIXME: just want to say, please pick one or two visualizations, that you think do the best job of showing missingness and joint missingness and have those. Please don't put in plots without text describing what you are doing, why you are doing it, and what the reader should see, or maybe how they should interpret the plots.
 ```{r}
 
 missing_cols = sapply(demo, function(x)sum(is.na(x)))
