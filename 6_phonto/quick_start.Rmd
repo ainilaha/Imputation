@@ -25,37 +25,44 @@ library(DT)
 
 ### NHANES 
 
-The [National Health and Nutrition Examination Survey （NHANES)](https://www.cdc.gov/nchs/nhanes/index.htm) datasets are collected from the Centers for Disease Control and Prevention in the USA, including demographics, dietary, laboratory, examination, and questionnaire data. The five publicly available data categories are: - Demographics (DEMO) - Dietary (DIET) - Examination (EXAM) - Laboratory (LAB) - Questionnaire (Q). The abbreviated forms in parentheses may be substituted for the long form in nhanesA commands. There is also limited access data, eg. genetics, that requires written justification and prior approval before users are granted access. We restrict our tools to the publicly available data.
+The [National Health and Nutrition Examination Survey (NHANES)](https://www.cdc.gov/nchs/nhanes/index.htm) datasets are collected from the Centers for Disease Control and Prevention in the USA, including demographics, dietary, laboratory, examination, and questionnaire data. The five publicly available data categories are: - Demographics (DEMO) - Dietary (DIET) - Examination (EXAM) - Laboratory (LAB) - Questionnaire (Q). The abbreviated forms in parentheses may be substituted for the long form in nhanesA commands. There is also limited access data, eg. genetics, that requires written justification and prior approval before users are granted access. We restrict our tools to the publicly available data.
 
-The survey is carried out in two year "epochs" from 1999-2000 to 2017-2018, and that within an epoch a set of people are surveyed. However, not all of the participants are surveyed for all of the components. Within each of the data categories NHANES has organized the data in Questionnaires and provides web interfaces to descriptions of the contents of each questionnaire.  We do not replicate the web interface, users can browse that information using standard tools, but we have constructed an integrated SQL database representation of much of the publicly available NHANES data.  There are many advantages to placing all the data into one database as that facilitates searching and extraction of relevant values.
+The survey is carried out in two year "epochs" from 1999-2000. Within each epoch, a set of people are surveyed, however not all of the participants are surveyed across all of the components. Within each of the data categories NHANES has organized the data into Questionnaires and provides web interfaces for descriptions of the contents of each questionnaire.  We do not replicate the web interface as users can browse that information using standard tools, but we have constructed an integrated SQL database representation of much of the publicly available NHANES data.  Placing all of the data into a single database facilitates searching and extraction of relevant values, and this provide many advantages to the individual researcher, as well as the research world at large.
 
-Each participant is assigned a unique ID and that is stored in the database as \texttt{SEQN} which is then used as a primary key. Any merging of data extracted from different tables should be based on \texttt{SEQN}. 
-Within each of the two-year epochs NHANES has produced a set of tables, or data files. One example is the [Body Measures](https://wwwn.cdc.gov/nchs/nhanes/2001-2002/BMX_B.htm)
-table, which provides data from the 2001-2002 surveys. The web page provides details on the measurements and how they are recorded.
+Each NHANES participant is assigned a unique ID that is stored in the database as <tt>SEQN</tt>. This is used as the primary key and merging of data extracted from different tables should be based on this variable (<tt>SEQN</tt>). 
+For each two-year epoch, NHANES provides a set of data, documentation and code books, organized by each of the five publicly available categories mentioned above.  Users can explore the available data a high level, by searching within epoch, category, and measure. One example is the [Body Measures](https://wwwn.cdc.gov/nchs/nhanes/2001-2002/BMX_B.htm) table which provides data from the 2001-2002 examination data. The web page provides details on the measurements and how they are recorded.
 Here are two examples:
 ![SEQN](seqn.png){width=80%}
 ![weight](weight.png){width=80%}
 
-Users familiar with SQL can connect and explore the data with database client tools such as HeidiSQL and DataGrip, or programming languages. In the [example](https://github.com/ccb-hms/NHANES/blob/main/Code/R/regressionExample.R), we show using R connect to the database and get access to data and sample analysis. In addition, we also wrapped some functions for users to get access to the data easily, the function can be see in [phonto package](https://github.com/ccb-hms/phonto/tree/main/vignettes).
+
+There are many ways to access and utilize the NHANES data. Users familiar with SQL can connect and explore the data with database client tools such as HeidiSQL and DataGrip, or other programming languages. 
+
+<FONT COLOR="RED"> README(TJFS): Not sure how/why this fits in here: </FONT>
+*In the [example](https://github.com/ccb-hms/NHANES/blob/main/Code/R/regressionExample.R), we show, using R, how one can connect to the database and perform a simple sample analysis. In addition, we also wrapped some functions for users to get access to the data easily, the function can be see in [phonto package](https://github.com/ccb-hms/phonto/tree/main/vignettes).*
 
 
+Others may utilize [web-based tools](https://www.cdc.gov/nchs/nhanes/index.htm) provided by the CDC for investigating the data and metadata. In addition there are two existing R packages called [nhanesA](https://cran.r-project.org/web/packages/nhanesA/index.html) (Endres) and [RNHANES](https://cran.r-project.org/web/packages/RNHANES/index.html) (Susman). While most of the data collected can easily be downloaded from the CDC website, accessing the data in that way can be problematic and error prone. The [nhanesA](https://cran.r-project.org/web/packages/nhanesA/index.html) package provides a set of tools to search and download the NHANES data and metadata, making the data more accessible to user. However, one drawback is that the tool must access the NHANES website every time the user calls the R function, which leads slow getting of the data and raises errors occasionally due to network issues.
 
+In the spirit of producing more easily reproduced and shared analyses we have created a SQL database in a Docker (cite Docker) container that contains most of the currently available NHANES data. Around that SQL database we have constructed a number of R packages and other tools that help scientists analyze the data. Since all of the code and data are under version control, anyone can obtain the same version of the data and code and produce identical results.  
 
-The CDC provides substantial [web-based tools](https://www.cdc.gov/nchs/nhanes/index.htm) for investigating the data and metadata. In addition there are two existing R packages  called nhanesA([Endres](https://cran.r-project.org/web/packages/nhanesA/index.html)) and RNHANES([Susmann]https://cran.r-project.org/web/packages/RNHANES/index.html). Most of the data collected can easily be downloaded from the CDC website, however accessing the data in that way can be problematic and error prone. nhanesA package provides a set of tools to search and download the data and metadata, which makes the data more accessible to the users. However, the function needs to access the NHANES website every time the user calls the R function, which leads to slow getting data and raises errors occasionally due to network issues.
+### 1. Searching the NHANES database
 
-In the spirit of producing more easily reproduced and shared analyses we have created a SQL database in a Docker (cite Docker) container that contains most of the available data.  Around that SQL database we have constructed a number of R packages and other tools that help scientists analyze the data. Since all of the code and data are under version control, anyone can obtain the same version of the data and code and get identical results.  
+Comprehensive lists of NHANES variables are maintained for each data group. For example, the demographics variables are available at https://wwwn.cdc.gov/nchs/nhanes/search/variablelist.aspx?Component=Demographics. The `nhanesSearch` function allows the investigator to input search terms, match against the comprehensive variable descriptions, and retrieve the list of matching variables.
 
-### 0.Finding the data you want.
-Comprehensive lists of NHANES variables are maintained for each data group. For example, the demographics variables are available at https://wwwn.cdc.gov/nchs/nhanes/search/variablelist.aspx?Component=Demographics. The nhanesSearch function allows the investigator to input search terms, match against the comprehensive variable descriptions, and retrieve the list of matching variables.
+<FONT COLOR="RED">README(TJFS): This function would be much more useful if it could search AND and not just OR </FONT>
 
-
-### 1. nhanesTables()
-  This function wil list all the tables
+  
+#### 1.1  nhanesSearch()
+This function will list all the tables
+   <FONT COLOR="RED"> README(TJFS): arguments are required for this to run, will search all tables.(i.e. cannot run nhanesTables() and get all tables) would be good if empty arguments would produce all available tables (like nhanesSearch()). Would be great to be able to search across multiple years (i.e. specify a start and stop year nhanesSearch())
+  
+   </FONT>
  
-### 1.1 nhanesSearchTableNames
+#### 1.1 nhanesSearchTableNames
 
 This function lets users search for tables in the database by the table name, which can be either the short names used by NHANES or the 
-longer descriptive names.  For our Dockerized container no restricted data can be accessed (ie the RDC tables are excluded) and the includerdc option is not supported.
+longer descriptive names.  For our Dockerized container no restricted data can be accessed (ie the RDC tables are excluded) and the `includerdc` option is not supported.
 
  <FONT COLOR="RED"> FIXME: is this correct Laha? If so can you add something to the man page to show this and an example of using
 the long descriptive names - also the man page says: includerdc: If TRUE then RDC only tables are included (default=FALSE).
