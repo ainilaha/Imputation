@@ -1,5 +1,5 @@
 ---
-title: "Cobalt Paper"
+title: "A vignette that outlines a strategy to replicate a published analysis"
 date: "Updated on : `r date()`"
 output: html_document
 ---
@@ -12,11 +12,10 @@ knitr::opts_chunk$set(
 
 ## 0. Goal
 
-The goal of this vignette is to replicate the analysis presented in ``Association of blood cobalt concentrations with dyslipidemia, hypertension, and diabetes in a US population
-A cross-sectional study; Hongxin Wang, MD, Feng Li, MD, Jianghua Xue, MD, Yanshuang Li, MD, Jiyu Li, MD''
+The goal of this vignette is to provide some details that will help understand the analysis presented in ``Association of blood cobalt concentrations with dyslipidemia, hypertension, and diabetes in a US population
+A cross-sectional study; Hongxin Wang, MD, Feng Li, MD, Jianghua Xue, MD, Yanshuang Li, MD, Jiyu Li, MD''.  This vignette is incomplete and is not attempting to get identical results of the published paper. Our goal is to demonstrate how one might attempt a replication, but to leave some important details to the reader, who will be able to extend the analysis and if they want to make an attempt to obtain identical results.
 
- The authors report using data for the years 2015 to 2018 which cover two of the two-year reporting epochs in NHANES.
-The Questionnaires we want will have the suffixes _I and _J. 
+ The authors report using data for the years 2015-2016 and 2017-2018 which cover two of the two-year reporting epochs in NHANES. The Questionnaires we want will have the suffixes _I and _J. 
 
 ## 1. Load libs
 
@@ -300,14 +299,14 @@ kbl(table2) |>
 ```
 
 
-
+The authors don't seem to explore the relationship between taking medications (eg. insulin and oral hypoglycemic drugs) and disease (eg diabetes, or fasting glucose rate).  For hypertension, hypoglycemia and dislipemia it seems like these would be interesting relationships to explore.
 
 
 ## 3.Regression Models
 
 In Section 3.2 of the Cobalt paper the authors describe their use of binary logistic regression models.  They use dyslipidemia as the outcome and adjust for age, sex and BMI (their model 1).  They split cobalt levels into the groupings described above and then fit logistic models that were linear in the covariates.  Here we provide the tools to replicate that analysis and also explore the use of regression splines to fit the continuous variables in the model, namely age, BMI and cobalt levels.
 
-In the following section, we run the logistic regression models as generalized linear models (GLMs). In the models, the outcome of the hypertension indicator and the adjusted variables are age (RIDAGEYR), gender (RIAGENDR), BMI (BMXBMI), educationm(DMDEDUC2), and ethnicity (RIDRETH1). The first GLM is with linear terms, and the second GLM also adds terms linearly together but applies a natural spline to the continuous variables.      
+In the following section, we run the logistic regression models as generalized linear models (GLMs). In the models, the outcome of the hypertension indicator and the adjusted variables are age (RIDAGEYR), gender (RIAGENDR), BMI (BMXBMI), education (DMDEDUC2), and ethnicity (RIDRETH1). The first GLM is with linear terms, and the second GLM also adds terms linearly together but applies a natural spline to the continuous variables.      
 
 ```{r Model1, warnings=FALSE, message=FALSE}
 subSet = data[, c("hypertension","RIDAGEYR", "RIAGENDR", "BMXBMI","DMDEDUC2", "RIDRETH1")]
@@ -388,7 +387,7 @@ ggpubr::ggarrange(age_fitt,bmi_fit,nrow = 1,ncol = 2,labels = c('a)','b)'))
 
 
 ## 4. Their findings
-As the authors pointed out, the blood cobalt concentrations have not associated with the risk of hypertension based on the following summary table. The cobalt concentration does not significantly impact hypertension.
+As the authors pointed out, the blood cobalt concentrations are not associated with the risk of hypertension based on the following summary table. The cobalt concentration does not significantly impact hypertension.
 FIXME: but they have a bunch of other features in their table 2 - and it would be good if we can start to look at them.
 
 ```{r model1,warning=FALSE,message=FALSE}
@@ -408,10 +407,6 @@ sjPlot::tab_model(lm_logit,ns_logit,
 to the data.  To do that, we pick a covariate, say Age, where we want to compute the spline.  Then we pick a set of Age values that cover the range of ages in the model.  
 To get predictions from the model for a specific age we also need to specify values for all the other covariates in the model.  
 Our suggestion is that for categorical variables choose the most common category and for continuous variables use the median value.
-
-  FIXME: below is code from RG - we probably want to be using spline functions for AGE and BMI - and then checking those functions.
-  We are missing a bunch of the covariates in the Cobalt paper - specifically things like triglycerides etc from Table 2 in that paper.
-Those would be interesting to look at, as they seem to have an unusual pattern of association.
 
 *** Robert, you only keep one base model in the end, do you want to me plot or compare somethings***
 FIXME: yes the point here is to develop a better summary of the comparison of models with spline terms. I really don't like the R output that shows each term individually, as you can't really interpret them and they take up a lot of room.  I think we should instead, create one line for each spline term, and in it only put the value of the LRT comparing the model with the spline to the model without it.  From that comparison you can get the chi-squared statistic, the p-value and the df and those could be put into the table.  I think that would be a better thing.
