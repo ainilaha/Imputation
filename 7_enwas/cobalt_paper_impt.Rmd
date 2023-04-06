@@ -168,6 +168,7 @@ base_df = merge(bdf, cobaltTab, all.x=TRUE)
 dim(base_df)
 ```
 If we were to remove all records with missing values at this point we would be left with a very small number of cases.  So we will try to be careful not to loose too many data points.
+
 ### 2.3)  merge and PHESANT-like process
 
 Now you have a dataframe with the data, but you will need to better understand the variables, exposures and responses.  To help with that we have created some tools, based on related work in the UK Biobank called PHESANT  (cite PHESANT)).  The process takes each variable (column)
@@ -185,7 +186,7 @@ DT::datatable(phs_dat$phs_res)
 ```
 
 In the next code chunk we will convert the multilevel variables into R factors. To do this we make use of the nhanesTranslate function. While that function does most of the work, there are some variables we need to deal with manually to replicate the analysis. First, the years variable is something we added, so we need to deal with it manually.  Then we use `nhanesTranslate` to transform all of the internal values.  Then we need to do a little more work on modifying levels of the education variable.  The authors decided to group education into three levels, less than high school (<HS), high school (HS), and more than school-school(>HS).  We also need to address some issues around the hypertension variables.
-Particpants were asked (BPQ020) whether they had ever been told by a doctor or health care professional that they had high blood pressure.  The survey was designed to then skip over a number of questions about their hypertension if they said they did not have hypertension. However this then introduces missing values in the question BPQ050A, which was whether or not they were currently taking a prescription for hypertension. Presumably only people who had been told by their doctor they have hypertension would be taking a perscription and we will need to manually adjust the data so that these are answered No, rather than missing.
+Participants were asked (BPQ020) whether they had ever been told by a doctor or health care professional that they had high blood pressure.  The survey was designed to then skip over a number of questions about their hypertension if they said they did not have hypertension. However this then introduces missing values in the question BPQ050A, which was whether or not they were currently taking a prescription for hypertension. Presumably only people who had been told by their doctor they have hypertension would be taking a prescription and we will need to manually adjust the data so that these are answered No, rather than missing.
 
 In the next code chunk we modify the data accordingly, drop out everyone who is under 40 and remove any individuals that have missing data in any row.
 
@@ -263,6 +264,7 @@ data$LowHDL = (data$RIAGENDR=="Male" & data$LBDHDD < 40) |    (data$RIAGENDR=="F
 barplot(table(data$LowHDL))
 
 ```
+
 Now lets define the elevated total cholesterol variable.
 
 ```{r Dyslipidemia}

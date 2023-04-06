@@ -1,0 +1,179 @@
+---
+title: "An Example of Imputation"
+output: html_document
+author: "Laha Ale, Robert Gentleman"
+date: "Updated on : `r date()`"
+
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(splines)
+library(ggplot2)
+library(ggpubr)
+library(phonto)
+library(EnWAS)
+library(knitr)
+library(mice)
+
+library(naniar)
+library(visdat)
+library(corrplot)
+
+library(DT)
+
+```
+
+
+### Load data
+
+#### search the targeted variable (LBDLDL)
+
+The questionnaires from 1999 to 2004 are named different from the rest of the years, but the variable LBDLDL represents LDL-cholesterol (mg/dL) across all the years, which can be verified on the nhanes documents on there website; therefore, we can merge the data together.
+
+```{r data}
+nhanesSearchVarName('LBDLDL') |> DT::datatable()
+```
+
+#### merge and PHESANT-like process
+
+```{r}
+cholesterol_tables = nhanesSearchVarName('LBDLDL')$Questionnaire
+dlblbl_df = unionQuery(cholesterol_tables,cols =c("LBXTR","LBDLDL","LBDTRSI","LBDLDLSI"))
+demo_tables = nhanesSearchTableNames('DEMO')
+demo_df = unionQuery(demo_tables,cols =c("RIDAGEYR","RIAGENDR","RIDRETH1","DMDEDUC2","years"))
+demo_df = na.omit(demo_df)
+data = merge(demo_df,dlblbl_df,by="SEQN")
+phs_dat = phesant(data)
+data = phs_dat$data
+DT::datatable(phs_dat$phs_res)
+```
+preprocessing the above data by remove exceptional values and translate gender and enthnicity variables.
+
+```{r}
+data = data[!data$LBDLDL==629,] # remove an exceptional value LBDLDL(9 ~ 375)
+data = phonto::nhanesTranslate('DEMO_I', c('RIAGENDR', 'RIDRETH1'), data=data) # convert gender and ethnicity to factors
+```
+
+
+
+#### Choose the covariates
+
+Cykert et al [1] used 
+`gender, race, age, hypertension, diabetes, smoking, and systolic blood pressure` to impute HDL and total cholesterol, and Gao et al [2] `race, education, and health insurance type` with adjusted variables, `gender and age`.
+
+[1] Cykert S, DeWalt DA, Weiner BJ, Pignone M, Fine J, Kim JI. A population approach using cholesterol imputation to identify adults with high cardiovascular risk: a report from AHRQ's EvidenceNow initiative. J Am Med Inform Assoc. 2019 Feb 1;26(2):155-158. doi: 10.1093/jamia/ocy151. PMID: 30496426; PMCID: PMC6373981.
+
+[2] Gao Y, Shah LM, Ding J, Martin SS. US Trends in Cholesterol Screening, Lipid Levels, and Lipid-Lowering Medication Use in US Adults, 1999 to 2018. J Am Heart Assoc. 2023 Feb 7;12(3):e028205. doi: 10.1161/JAHA.122.028205. Epub 2023 Jan 10. PMID: 36625302; PMCID: PMC9973640.
+
+
+#### diabetes data
+
+```{r}
+diab_tables = nhanesSearchVarName("DIQ010")$Questionnaire
+dia_df = unionQuery(diab_tables,cols = "DIQ010")
+
+## fasting glucose
+fastgluc = nhanesSearchVarName("LBXGLU")$Questionnaire
+gluc_df = unionQuery(fastgluc, cols="LBXGLU")
+dia_df = merge(dia_df,gluc_df,by="SEQN")
+# Glycohemoglobin
+gly_tables = nhanesSearchVarName("LBXGH")$Questionnaire
+gly_df = unionQuery(gly_tables, cols="LBXGH")
+dia_df = merge(dia_df,gly_df,by="SEQN")
+
+dia_df$diabetes = dia_df$DIQ010 == "Yes" | dia_df$LBXGLU > 110 | dia_df$LBXGH > 6.5
+barplot(table(dia_df$diabetes))
+```
+
+
+#### Hypertension data
+
+```{r}
+# "Hypertension was defined as systolic blood pressure (SBP) ≥140 mm Hg, diastolic blood pressure ≥90mm Hg, or the use of antihypertensive medication. "
+bpq_tables = nhanesSearchVarName('BPQ050A')$Questionnaire
+bpq_df = unionQuery(bpq_tables,cols = "BPQ050A")
+
+bpx_tables = nhanesSearchVarName('BPXSY1')$Questionnaire
+bpx_df = unionQuery(bpx_tables,cols = c("BPXSY1","BPXSY2","BPXDI1","BPXDI2"))
+bpx_df$DIASTOLIC <- rowMeans(bpx_df[, c("BPXDI1", "BPXDI2")], na.rm=TRUE)
+bpx_df$DIASTOLIC[is.na(bpx_df$BPXDI1) & is.na(bpx_df$BPXDI2)] = NA
+bpx_df$SYSTOLIC <- rowMeans(bpx_df[, c("BPXSY1", "BPXSY2")], na.rm=TRUE)
+bpx_df$SYSTOLIC[is.na(bpx_df$BPXSY1) & is.na(bpx_df$BPXSY2)] = NA
+
+
+bpx_df = merge(bpx_df,bpq_df,by="SEQN")
+
+bpx_df$hypertension <- bpx_df$DIASTOLIC >= 90 | bpx_df$SYSTOLIC >= 140 |  bpx_df$BPQ050A=="Yes"
+barplot(table(bpx_df$hypertension))
+```
+
+
+#### smoking data
+
+In the code chunk below we extract the smoking data, and then try to create the groupings
+used in the paper.  They have three groups, non-smokers, current smokers and ex-smokers. We use the `SMQ_I` and `SMQ_J` tables. We will define non-smoker as someone who as never smoked more than 100 cigarettes (`SMQ020`), anyone who has smoked more will be either
+a current smoker or an ex-smoker (`SMQ040`)
+
+```{r}
+smoke_tables = nhanesSearchVarName('SMQ020')$Questionnaire
+smoke_df = unionQuery(smoke_tables,cols = c("SMQ020","SMQ040"))
+
+nhanesTranslate("SMQ_J", colnames=c("SMQ020","SMQ040"))
+smokingVar = ifelse(smoke_df$SMQ020==2, "Non-smoker", ifelse(smoke_df$SMQ040==3, "Ex-smoker",
+                    "Smoker"))
+smoke_df$smoking = smokingVar
+barplot(table(smokingVar, useNA="always"))
+```
+
+
+
+#### merge data and show the missingness
+
+
+```{r}
+data = merge(data,dia_df[,c('SEQN','diabetes')], by="SEQN")
+data = merge(data,bpx_df[,c('SEQN','hypertension','SYSTOLIC')], by="SEQN")
+data = merge(data,smoke_df[,c('SEQN','smoking')], by="SEQN")
+sapply(data, function(x) sum(is.na(x)))
+```
+
+
+```{r}
+gg_miss_fct(data,fct = RIDAGEYR)
+```
+
+```{r}
+vis_miss(data,warn_large_data=FALSE)
+```
+
+```{r}
+
+missing_cols = sapply(data, function(x)sum(is.na(x)))
+missing_cols = missing_cols[missing_cols>0] # select the data with missing values
+
+correlation = cor(is.na(data[,names(missing_cols)]))
+corrplot(correlation, type = "upper", order = "hclust",
+         tl.col = "black", tl.srt = 45)
+
+lm_reg = lm(formula = LBDLDL ~ ns(RIDAGEYR) + RIAGENDR + RIDRETH1, data = data)
+```
+
+### add missingness 
+
+```{r}
+test_ix = sample(x = 1:nrow(data), size = 2000) # about 10%
+train_ix = sample(x = setdiff(1:nrow(data), test_ix), 20000)
+
+train_data = data[train_ix, ]
+test_data = data[test_ix, ]
+
+miss_data = data
+miss_data[test_ix,"LBDLDL"]=NA
+```
