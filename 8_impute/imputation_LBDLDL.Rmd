@@ -135,7 +135,7 @@ barplot(table(smokingVar, useNA="always"))
 
 
 #### merge data and show the missingness
-
+We merged the demographic data with information on diabetes, hypertension, and smoking data. Additionally, we demonstrate the missingness of the data by columns.
 
 ```{r}
 data = merge(data,dia_df[,c('SEQN','diabetes')], by="SEQN")
@@ -144,14 +144,12 @@ data = merge(data,smoke_df[,c('SEQN','smoking')], by="SEQN")
 sapply(data, function(x) sum(is.na(x)))
 ```
 
+The plot below illustrates the missingness pattern, indicating that the hypertension column has a considerable number of missing values, with a higher proportion of missing values among the younger age population.
 
 ```{r}
 gg_miss_fct(data,fct = RIDAGEYR)
 ```
-
-```{r}
-vis_miss(data,warn_large_data=FALSE)
-```
+The plot below shows the correlation among the missing values, and it indicates that there is no significant correlation between the missingness of hypertension and the other columns.
 
 ```{r}
 
@@ -162,18 +160,71 @@ correlation = cor(is.na(data[,names(missing_cols)]))
 corrplot(correlation, type = "upper", order = "hclust",
          tl.col = "black", tl.srt = 45)
 
-lm_reg = lm(formula = LBDLDL ~ ns(RIDAGEYR) + RIAGENDR + RIDRETH1, data = data)
 ```
 
-### add missingness 
+### split traning and testing data
+
+At this point, we have excluded hypertension from our analysis due to the excessive amount of missing values it contains. Additionally, to validate the regression or imputation models, we have eliminated the records that contain missing values.
 
 ```{r}
-test_ix = sample(x = 1:nrow(data), size = 2000) # about 10%
-train_ix = sample(x = setdiff(1:nrow(data), test_ix), 20000)
+data = data[,c("SEQN","RIDAGEYR","RIAGENDR" , "RIDRETH1" , "DMDEDUC2" ,"LBDLDL" ,"diabetes" ,"SYSTOLIC" ,"smoking")]
+data = na.omit(data)
+
+# split training and testing data set
+test_ix = sample(x = 1:nrow(data), size = 1500) # about 10%
+train_ix = sample(x = setdiff(1:nrow(data), test_ix), size=20000)
 
 train_data = data[train_ix, ]
 test_data = data[test_ix, ]
 
-miss_data = data
-miss_data[test_ix,"LBDLDL"]=NA
+MSE <- function(y_true, y_pred){
+    mean((y_true - y_pred)^2)
+}
+```
+
+## Imputation
+To apply EnWAS methods for uncovering new covariates, it is necessary to confirm that the covariates introduced in the previous papers are suitable for predicting or imputing the target values. However, the imputation results were not satisfactory, as evaluated by mean square error. We also present a scatter plot to visualize the predicted values in relation to the true values.
+
+
+#### regression model
+
+```{r}
+lm_reg = lm(formula = LBDLDL ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10), Boundary.knots=c(20,90))*RIAGENDR + RIDRETH1+DMDEDUC2+smoking+SYSTOLIC, data = train_data)
+
+pred_data = predict(lm_reg, newdata = test_data)
+mse = MSE(test_data$LBDLDL,pred_data)
+qplot(test_data$LBDLDL,pred_data) +labs(title=paste("MSE=",round(mse,2)),
+        x ="True Values", y = "Predicted Values")
+```
+
+
+#### nnet model
+```{r}
+library(nnet)
+nn <- nnet(LBDLDL ~ RIDAGEYR+RIAGENDR + RIDRETH1+DMDEDUC2+smoking+SYSTOLIC, 
+                data = train_data, size=3,hidden = c(8, 8,4), 
+                linear.output = TRUE)
+  
+pred_data = predict(nn, newdata = test_data)
+mse = MSE(test_data$LBDLDL,pred_data)
+qplot(test_data$LBDLDL,pred_data) +labs(title=paste("MSE=",round(mse,2)),
+        x ="True Values", y = "Predicted Values")
+```
+
+
+#### MICE
+
+```{r}
+library(mice)
+data[test_ix,"LBDLDL"]=NA
+data$SEQN=NULL
+imp <-  mice(data, print=F)
+meth <- imp$meth
+meth[c("RIDAGEYR","RIAGENDR" , "RIDRETH1" , "DMDEDUC2" ,"LBDLDL" ,"diabetes" ,"SYSTOLIC" ,"smoking")]="cart"
+imp <- mice(data, m=1, method = meth, print=F)
+imp20  <-  mice.mids(imp, maxit=15, print=F)
+
+complete_data <- mice::complete(imp20,action=1)
+qplot(test_data$LBDLDL,complete_data[test_ix,"LBDLDL"]) +labs(title=paste("MSE=",round(mse,2)),
+        x ="True Values", y = "Predicted Values")
 ```
