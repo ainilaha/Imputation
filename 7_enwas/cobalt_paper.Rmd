@@ -13,7 +13,7 @@ knitr::opts_chunk$set(
 ## 0. Goal
 
 The goal of this vignette is to provide some details that will help understand the analysis presented in ``Association of blood cobalt concentrations with dyslipidemia, hypertension, and diabetes in a US population
-A cross-sectional study; Hongxin Wang, MD, Feng Li, MD, Jianghua Xue, MD, Yanshuang Li, MD, Jiyu Li, MD''.  This vignette is incomplete and is not attempting to get identical results of the published paper. Our goal is to demonstrate how one might attempt a replication, but to leave some important details to the reader, who will be able to extend the analysis and if they want to make an attempt to obtain identical results.
+A cross-sectional study; Hongxin Wang, MD, Feng Li, MD, Jianghua Xue, MD, Yanshuang Li, MD, Jiyu Li, MD''.  For the remainder of this vignette we will refer to this as the "Cobalt paper", This vignette is incomplete and is not attempting to get identical results of the published paper. Our goal is to demonstrate how one might attempt a replication, but to leave some important details to the reader, who will be able to extend the analysis and if they want to make an attempt to obtain identical results.
 
  The authors report using data for the years 2015-2016 and 2017-2018 which cover two of the two-year reporting epochs in NHANES. The Questionnaires we want will have the suffixes _I and _J. 
 
@@ -32,32 +32,8 @@ library(knitr)
 
 
 ## 2. Data and Preprocessiing
-#### 2.1) Blood Pressure Data
-
- In the next code segment we show how to obtain blood pressure measurements from NHANES tables.  We have already ascertained that these measurements are contained in Questionnaires that are named BPX_I and BPX_J and that there were replicate measurements taken.  Both systolic (BPXS) and diastolic (BPXD) measurements were taken
-on each occassion.  We will use the average of these two measurements.
-```{r data_blood,warning=FALSE,message=FALSE}
-bptablenames = nhanesSearchTableNames('BPX[_]')
-bptablenames |> kable()
-```
-We can see that blood pressure data was collected for other years as well, but for now we will just extract the data for the 2015-2016 and 2017-2018 years. We combine these into a single dataframe.
-
-```{r extract_data, warning=FALSE, message=FALSE}
-blood_df <- unionQuery(c("BPX_I", "BPX_J"), cols =c("BPXDI1","BPXDI2","BPXSY1","BPXSY2"))
-dim(blood_df)
-# Average the the first and second reads
-# taking some care to keep one measurement if the other is missing
-blood_df$DIASTOLIC <- rowMeans(blood_df[, c("BPXDI1", "BPXDI2")], na.rm=TRUE)
-blood_df$DIASTOLIC[is.na(blood_df$BPXDI1) & is.na(blood_df$BPXDI2)] = NA
-blood_df$SYSTOLIC <- rowMeans(blood_df[, c("BPXSY1", "BPXSY2")], na.rm=TRUE)
-blood_df$SYSTOLIC[is.na(blood_df$BPXSY1) & is.na(blood_df$BPXSY2)] = NA
-dim(blood_df)
-blood_df[1:10,] |> kable()
-```
-  In our analysis we can then look at the average of the measurements across the two different time points as a way to
-better estimate the actual blood pressure for each participant.
-
-#### 2.2 Loading the Demographic, Body Measures, and Cholesterol data into R
+In the next few sections we attempt to load data from NHANES in a manner that is consistent with the description provided in Section 2 of the Cobalt paper.
+#### 2.1 Loading the Demographic, Body Measures, and Cholesterol data into R
 
 The authors state: 
 Participants with cobalt and lipid data were included (n = 6866). Demographic characteristics of the participants, including age, gender, body mass index (BMI), education level, race, family poverty-income ratio and smoking status, were collected. Clinical data, such as blood pressure, total cholesterol (TC), low-density lipoprotein cholesterol (LDL-C), HDL-C, triglycerides (TGs), hypertension, diabetes and history of medication use, including antihypertensive drugs, hypoglycemic drugs, and lipid-lowering drugs, were extracted.
@@ -162,6 +138,32 @@ base_df = merge(bdf, cobaltTab, all.x=TRUE)
 dim(base_df)
 ```
 If we were to remove all records with missing values at this point we would be left with a very small number of cases.  So we will try to be careful not to loose too many data points.
+
+#### 2.2) Blood Pressure Data
+
+ In the next code segment we show how to obtain blood pressure measurements from NHANES tables.  We have already ascertained that these measurements are contained in Questionnaires that are named BPX_I and BPX_J and that there were replicate measurements taken.  Both systolic (BPXS) and diastolic (BPXD) measurements were taken
+on each of two occassions.  We will use the average of these two measurements for individuals with two measurements, and in the case where only one measurement is available we will use it. The authors of the Cobalt paper don't specify which values they used, so this is one of the places where our analysis may differ from theirs.
+```{r data_blood,warning=FALSE,message=FALSE}
+bptablenames = nhanesSearchTableNames('BPX[_]')
+bptablenames |> kable()
+```
+We can see that blood pressure data was collected for other years as well, but for now we will just extract the data for the 2015-2016 and 2017-2018 years. We combine these into a single dataframe.
+
+```{r extract_data, warning=FALSE, message=FALSE}
+blood_df <- unionQuery(c("BPX_I", "BPX_J"), cols =c("BPXDI1","BPXDI2","BPXSY1","BPXSY2"))
+dim(blood_df)
+# Average the the first and second reads
+# taking some care to keep one measurement if the other is missing
+blood_df$DIASTOLIC <- rowMeans(blood_df[, c("BPXDI1", "BPXDI2")], na.rm=TRUE)
+blood_df$DIASTOLIC[is.na(blood_df$BPXDI1) & is.na(blood_df$BPXDI2)] = NA
+blood_df$SYSTOLIC <- rowMeans(blood_df[, c("BPXSY1", "BPXSY2")], na.rm=TRUE)
+blood_df$SYSTOLIC[is.na(blood_df$BPXSY1) & is.na(blood_df$BPXSY2)] = NA
+dim(blood_df)
+blood_df[1:10,] |> kable()
+```
+  In our analysis we can then look at the average of the measurements across the two different time points as a way to estimate the actual blood pressure for each participant.
+
+
 ### 2.3)  merge and PHESANT-like process
 
 Now you have a dataframe with the data, but you will need to better understand the variables, exposures and responses.  To help with that we have created some tools, based on related work in the UK Biobank called PHESANT  (cite PHESANT)).  The process takes each variable (column)

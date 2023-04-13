@@ -50,6 +50,9 @@ demo_tables = nhanesSearchTableNames('DEMO')
 demo_df = unionQuery(demo_tables,cols =c("RIDAGEYR","RIAGENDR","RIDRETH1","DMDEDUC2","years"))
 demo_df = na.omit(demo_df)
 data = merge(demo_df,dlblbl_df,by="SEQN")
+BMItabs = nhanesSearchVarName('BMXBMI')$Questionnaire
+tdf = unionQuery(BMItabs, cols="BMXBMI")
+data = merge(data, tdf, by="SEQN")
 phs_dat = phesant(data)
 data = phs_dat$data
 DT::datatable(phs_dat$phs_res)
@@ -58,7 +61,11 @@ preprocessing the above data by remove exceptional values and translate gender a
 
 ```{r}
 data = data[!data$LBDLDL==629,] # remove an exceptional value LBDLDL(9 ~ 375)
-data = phonto::nhanesTranslate('DEMO_I', c('RIAGENDR', 'RIDRETH1'), data=data) # convert gender and ethnicity to factors
+data = phonto::nhanesTranslate('DEMO_I', c('RIAGENDR', 'RIDRETH1', 'DMDEDUC2'), data=data) # convert gender and ethnicity to factors
+levsED = levels(data$DMDEDUC2)
+##examine them and then put into groupings <HS, HS and > HS
+levels(data$DMDEDUC2) <- c(">HS","HS",">HS","<HS","<HS","DK","R")
+levels(data$DMDEDUC2) <- c(">HS", "HS", "<HS",NA, NA)
 ```
 
 
@@ -67,6 +74,8 @@ data = phonto::nhanesTranslate('DEMO_I', c('RIAGENDR', 'RIDRETH1'), data=data) #
 
 Cykert et al [1] used 
 `gender, race, age, hypertension, diabetes, smoking, and systolic blood pressure` to impute HDL and total cholesterol, and Gao et al [2] `race, education, and health insurance type` with adjusted variables, `gender and age`.
+
+In our data the hypertension variable is missing and we want to impute it. For that we probably want to consider good models for hypertension. Somehow it seems odd that BMI was not in their model, and we will include it as it will likely be an important predictor for both hypertension and cholesterol.  What was the age range for the paper? We may want to do 40+, just because that is where high cholesterol and hypertension become more prevalent.
 
 [1] Cykert S, DeWalt DA, Weiner BJ, Pignone M, Fine J, Kim JI. A population approach using cholesterol imputation to identify adults with high cardiovascular risk: a report from AHRQ's EvidenceNow initiative. J Am Med Inform Assoc. 2019 Feb 1;26(2):155-158. doi: 10.1093/jamia/ocy151. PMID: 30496426; PMCID: PMC6373981.
 
@@ -189,7 +198,7 @@ To apply EnWAS methods for uncovering new covariates, it is necessary to confirm
 #### regression model
 
 ```{r}
-lm_reg = lm(formula = LBDLDL ~ ns(RIDAGEYR, knots = seq(40, 80, by = 10), Boundary.knots=c(30,90))*RIAGENDR + RIDRETH1+DMDEDUC2+smoking+SYSTOLIC, data = train_data)
+lm_reg = lm(formula = LBDLDL ~ ns(RIDAGEYR, knots = seq(40, 80, by = 10), Boundary.knots=c(30,90))+RIAGENDR + RIDRETH1+DMDEDUC2+smoking+SYSTOLIC, data = train_data)
 
 pred_data = predict(lm_reg, newdata = test_data)
 mse = MSE(test_data$LBDLDL,pred_data)
