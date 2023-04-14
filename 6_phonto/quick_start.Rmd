@@ -55,9 +55,13 @@ In the spirit of producing more easily reproduced and shared analyses we have cr
 
 
 ### 1. Quick check NHANES data
-We can efficiently access NHANES data using the phonto::nhanes... functions, which are implemented at the SQL level. By simply knowing the name of the data file or table, we can quickly check for information. Let's take a body measure table as an example.
+
+We can efficiently access NHANES data using the `phonto::nhanes...` set of functions, which are implemented at the SQL level. By simply knowing the name of the data file or table, one can very quickly and efficiently obtain basic information, e.g. column names, dimensions, etc. 
+
+Let's take a body measure table as an example, (<tt>BMX_I</tt>).
 
 - show column names of an NHANES table. 
+
 ```{r}
 nhanesColnames("BMX_I")
 ```
@@ -76,29 +80,17 @@ nhanesHead("BMX_I")
 nhanesTail("BMX_I")
 ```
 
+----
 
 ### 2. Searching the NHANES database
 
-<<<<<<< HEAD
+
 Comprehensive lists of NHANES variables are maintained for each data group. For example, the demographics variables are available at https://wwwn.cdc.gov/nchs/nhanes/search/variablelist.aspx?Component=Demographics. This section provide descriptions with examples of functions designed to facilitate searching the NHANES database.
-  
 
-#### 1.1 nhanesSearchTableNames
-=======
-Comprehensive lists of NHANES variables are maintained for each data group. For example, the demographics variables are available at https://wwwn.cdc.gov/nchs/nhanes/search/variablelist.aspx?Component=Demographics. The `nhanesSearch` function allows the investigator to input search terms, match against the comprehensive variable descriptions, and retrieve the list of matching variables.
-
-<FONT COLOR="RED">README(TJFS): This function would be much more useful if it could search AND and not just OR </FONT>
-
+----
   
-#### 2.1  nhanesSearch()
-This function will list all the tables
-   <FONT COLOR="RED"> README(TJFS): arguments are required for this to run, will search all tables.(i.e. cannot run nhanesTables() and get all tables) would be good if empty arguments would produce all available tables (like nhanesSearch()). Would be great to be able to search across multiple years (i.e. specify a start and stop year nhanesSearch())
+#### 2.1 nhanesSearchTableNames
   
-   </FONT>
-  ##FIXME: somehow we need to figure out a search strategy that puts some of the output into an HTML page, or a searchable datatable
-  
-#### 2.2 nhanesSearchTableNames
->>>>>>> 177bd192ddcbd954e91e4bb19fa624cf8d9d40b5
 
 This function lets users search for tables in the database by the table name, which can be either the short names used by NHANES or the 
 longer descriptive names.  For our Dockerized container no restricted data can be accessed (i.e. the RDC tables are excluded) and the `includerdc` option is not supported.
@@ -119,19 +111,22 @@ res = nhanesSearchTableNames("BPX[_]", details=TRUE)
 datatable(res)
 ```
 
-<<<<<<< HEAD
-#### 1.2 nhanesSearch
+----  
+
+#### 2.2 nhanesSearch
   
   ##FIXME: somehow we need to figure out a search strategy that puts some of the output into an HTML page, or a searchable datatable
   ##FIXME (TJFS): I am not sure what you mean by this
   
  One of the main challenges in using the NHANES data set is finding the tables that contain the data you want to analyze. The `nhanesSearch` function allows the investigator to input search terms, match against the comprehensive variable descriptions, and retrieve the list of matching variables. In this section we outline some of the basic methods you can use to do the searching. The returned value can be put into a searchable data table that you can use to further filter, sort and search for specific variables. 
  
-=======
+----
+
 #### 2.3 Searching for Variables
  One of the main challenges in using the NHANES data set is finding the tables that contain 
  the data you want to analyze.  In this section we outline some of the basic methods you can use to do the searching. The returned value can be put into a searchable data table that you can use to further filter, sort and search for specific variables.
->>>>>>> 177bd192ddcbd954e91e4bb19fa624cf8d9d40b5
+
+
 ```{r}
 # nhanesSearch use examples
 #
@@ -163,9 +158,9 @@ datatable(sttooth)
 ```
 
 
-#### nhanesSearchVarName
+#### 2.4 nhanesSearchVarName
 
-Now suppose we wanted to find variables names that contain information about (low density lipoproteins).  To do that one can first use the `nhanesSearch` function to retrieve a master list of any and all questions matching this search term in it's *Description*. One can then use the output of this search to identify variable names of interest. The variable name can then be search for using the `nhanesSearchVarName` function.  In the code below we find a variable names corresponding to LDLs and then find all the tables that contain a variable with that name.
+Now suppose we wanted to find variables names that contain information about (low density lipoproteins).  To do that one can first use the `nhanesSearch` function to retrieve a master list of any and all questions matching this search term in it's *Description*. One can then use the output of this search to identify variable names of interest. The variable name can then be searched for using the `nhanesSearchVarName` function.  In the code below we find a variable names corresponding to LDLs and then find all the tables that contain a variable with that name.
 
 ```{r}
 s1 = nhanesSearch("LDL")
@@ -175,28 +170,34 @@ LDLTabs = nhanesSearchVarName('LBDLDL')
 datatable(LDLTabs)
 ```
 
-#### nhanesCodebook
+### 3 nhanesCodebook
 
-Information about variables are stored in the NHANES code book. We use the `nhanesCodebook` function to get that information. This function returns a list of values that tells you all about the variable. The `Target` tells you which participants were eligible to be asked. The `SasLabel` is the variable label, the `Description` is the actual text of the question (sort of, or a description of the lab value).  And the `Codebook` tells you which values the variable can take.  When you want to combine variables across study years you will need to be careful to ensure that the `Codebooks` are compatible.  NHANES has changed variables, added or removed possible answers, and done many other things as the questionnaires have evolved.  It is **not safe** to assume that an identical variable name will have an identical interpretation.
+Information about each variable is stored in the NHANES code book. To access the NHANES code book one can use the `nhanesCodebook` function. The function returns a list of length 5 that provides pertinent information about the variable. The first four elements provide basic descriptor information, i.e. `Variable` is the variable name, `Description` is the actual text of the question (or a description of the lab value), `Target` tells you which participants were eligible to be asked and `SasLabel` is the variable label.
+The 5th element, the `Codebook`, is a data frame providing information about the structure of the variable, such as which values the variable can take on. When you want to combine variables across study years you will need to be careful to ensure that the `Codebooks` are compatible.  NHANES has changed variables, added or removed possible answers, and done many other things as the questionnaires have evolved.  It is **not safe** to assume that an identical variable name will have an identical interpretation.
  
 ```{r}
   cb1 = nhanesCodebook(nh_table = LDLTabs[1,2], colname = LDLTabs[1,1]) ## argument names are confusing, if its easy enough lets make them consistent with the columns names from nhanesSearchVarname() 
   cb1
 ```
-  The alert reader will have noticed the column labeld Cumulative.  The values in this column are provided by NHANES and can be used to check whether the data extraction you carried out aligns with their reported values.  The column labeled SkipToItem will be non-missing if there was some complex logic in how the survey was performed. In some cases a set of questions will be skipped for a subset of the participants, depending on their answer to the *current* question.  For example, if the current question was ``Have you ever been told by your doctor you have Diabetes?``, and then there say 10 follow-up questions asking about symptoms, someone who answered ``No`` would not want to answer those questions, and so the interviewer will skip over them, to the next relevant question for anyone who says ``No``. This makes for a good survey experience for the participants but it also makes the data analysis a bit messier.  The analyst will have to examine all the questions that can be skipped and assess how to deal with the values recorded.
+  The alert reader will have noticed the column labeled Cumulative.  The values in this column are provided by NHANES and can be used to check whether the data extraction you carried out aligns with their reported values.  The column labeled SkipToItem will be non-missing if there was some complex logic in how the survey was performed. In some cases a set of questions will be skipped for a subset of the participants, depending on their answer to the *current* question.  For example, if the current question was ``Have you ever been told by your doctor you have Diabetes?``, and then there say 10 follow-up questions asking about symptoms, someone who answered ``No`` would not want to answer those questions, and so the interviewer will skip over them, to the next relevant question for anyone who says ``No``. This makes for a good survey experience for the participants but it also makes the data analysis a bit messier.  The analyst will have to examine all the questions that can be skipped and assess how to deal with the values recorded.
   While we are on the subject of messy data, the `Target` information can also introduce structured missingness into your data. Some questions are only relevant to certain age groups, and in those cases the `Target` field will indicate who is going to be asked. Everyone outside of the `Target` range will have a missing value for that question.
 
-# 3. unionQuery()
+### 4. Data manipulations
 
-The `unionQuery()` function is designed to aggregate data across the years for a fixed Questionaire. Thus we are assuming all the inputs have essentially the same columns and that all variables are measuring the same thing across years. This function then aggregates by appending rows and returns the results as a data frame. If there are columns that are unique to one (or a few) questionaires then these will be filled in as NA in any questionaires that don't have that column.  Currently there is no checking of the Codebooks across years, analysts will need to do that themselves. For example, the blood pressure tables in CDC are BPX, BPX_B,...BPX_J from years 1999-2000 to 2017-2018. The users can aggregate some or all of the data.  And while have shown this example without carefully checking the Codebook, we encourage you to take the time and ensure that Codebooks are compatible.
+#### 4.1 unionQuery()
+
+The `unionQuery()` function is designed to aggregate data across the years for a fixed Questionnaire. Thus we are assuming all the inputs have essentially the same columns and that all variables are measuring the same concept across years. This function then aggregates by appending rows and returns the results as a data frame. If there are columns that are unique to one (or a few) questionnaires then these will be filled in as NA in any questionnaires that don't have that column.  Currently this function does not check the code books for consistency of inputs across years; analysts will need to do that for themselves. 
+
+For an example of how to utilize this function, we use the blood pressure tables BPX, BPX_B,...BPX_J from years 1999-2000 to 2017-2018. User can aggregate some or all of the data contained in relevant tables.  Note: we are showing this example for illustrative purposes and have not carefully checking the code book. We encourage you to take the time to always ensure that code book entries are compatible.
 
 ```{r search_union,warning=FALSE,message=FALSE}
 tablenames = nhanesSearchTableNames('BPX[_]')
-blood_df <- unionQuery(tablenames,cols =c("BPXDI1","BPXDI2","BPXSY1","BPXSY2"))
+
+blood_df <- unionQuery(tablenames)#,cols =c("BPXDI1","BPXDI2","BPXSY1","BPXSY2"))
 DT::datatable(blood_df[1:400,])
 ```
 
-## 4. jointQuery()
+#### 4.2 jointQuery()
 The `jointQuery()` function, table list of table name and a set of column names, it merges the researched results and returns the results as a data frame. The data are joined using SEQN which is the unique identifier for individuals.
 
 The example below is much more complex than our previous examples, but it is also a more realistic query example. We are collecting data across 4 tables, DEMO, BPQ, HDL and TRIGLY. And also across data collection epochs I and J.  We first construct our query string, note that it is important that every table appears twice, once with an **_I** and once with an **_J**. In addition the variables being selected must be the same for each epoch and each table.
