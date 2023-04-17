@@ -51,7 +51,7 @@ demo_df = unionQuery(demo_tables,cols =c("RIDAGEYR","RIAGENDR","RIDRETH1","DMDED
 demo_df = na.omit(demo_df)
 data = merge(demo_df,dlblbl_df,by="SEQN")
 BMItabs = nhanesSearchVarName('BMXBMI')$Questionnaire
-tdf = unionQuery(BMItabs, cols="BMXBMI")
+tdf = unionQuery(BMItabs, cols=c("BMXBMI","BMXWT"))
 data = merge(data, tdf, by="SEQN")
 phs_dat = phesant(data)
 data = phs_dat$data
@@ -176,15 +176,15 @@ corrplot(correlation, type = "upper", order = "hclust",
 At this point, we have excluded hypertension from our analysis due to the excessive amount of missing values it contains. Additionally, to validate the regression or imputation models, we have eliminated the records that contain missing values.
 
 ```{r}
-data = data[,c("SEQN","RIDAGEYR","RIAGENDR" , "RIDRETH1" , "DMDEDUC2" ,"LBDLDL" ,"diabetes" ,"SYSTOLIC" ,"smoking")]
-data = na.omit(data)
+data = data[,c("SEQN","RIDAGEYR","RIAGENDR" , "RIDRETH1" , "DMDEDUC2" ,"LBDLDL" ,"diabetes" ,"SYSTOLIC" ,"smoking","BMXBMI","BMXWT")]
+data_clean = na.omit(data)
 # data = data[data$RIDAGEYR>40,] # remove age below 40 
 # split training and testing data set
-test_ix = sample(x = 1:nrow(data), size = 1500) # about 10%
-train_ix = sample(x = setdiff(1:nrow(data), test_ix), size=11000)
+test_ix = sample(x = 1:nrow(data_clean), size = 1500) # about 10%
+train_ix = sample(x = setdiff(1:nrow(data_clean), test_ix), size=11000)
 
-train_data = data[train_ix, ]
-test_data = data[test_ix, ]
+train_data = data_clean[train_ix, ]
+test_data = data_clean[test_ix, ]
 
 MSE <- function(y_true, y_pred){
     mean((y_true - y_pred)^2)
@@ -195,45 +195,85 @@ MSE <- function(y_true, y_pred){
 To apply EnWAS methods for uncovering new covariates, it is necessary to confirm that the covariates introduced in the previous papers are suitable for predicting or imputing the target values. However, the imputation results were not satisfactory, as evaluated by mean square error. We also present a scatter plot to visualize the predicted values in relation to the true values.
 
 
+
+## chatGPT-4
+
+As we tested none of the abovementioned variable shows strong association or indicate to predict/impute LDL-cholesterol levels. So, we turn to chatgpt, and it gives us the following.
+
+"
+There are several factors that may be associated with LDL-cholesterol levels. Some of these factors include:
+
+- Age: LDL-cholesterol levels tend to increase as people get older.
+- Sex: Men often have higher LDL-cholesterol levels than women until about age 50, after which women's LDL-cholesterol levels may surpass men's.
+- Genetics: A family history of high cholesterol can predispose individuals to elevated LDL-cholesterol levels.
+- Diet: Diets high in saturated fat, trans fat, and cholesterol can contribute to increased LDL-cholesterol levels.
+- Body weight: Overweight and obesity are associated with higher LDL-cholesterol levels.
+- Physical activity: Regular exercise can help lower LDL-cholesterol levels.
+- Smoking: Cigarette smoking can negatively impact LDL-cholesterol levels.
+- Alcohol consumption: Moderate alcohol intake may have a protective effect on LDL-cholesterol, while excessive consumption can have the opposite effect.
+- Medical conditions: Certain medical conditions, such as diabetes, hypothyroidism, and kidney disease, can contribute to elevated LDL-cholesterol levels.
+- Medication use: Some medications, like certain Medication use: Some medications, like certain diuretics and beta-blockers, can adversely affect LDL-cholesterol levels."
+```{r}
+mod = lm(formula = LBDLDL ~ RIDAGEYR, data=data[data$RIDAGEYR>50,]) # Multiple R-squared:  0.02315,	Adjusted R-squared:  0.02306 
+mod = lm(formula = LBDLDL ~ BMXBMI, data=data[data$RIDAGEYR>50,])  # Multiple R-squared:  0.001888,	Adjusted R-squared:  0.001795 
+mod = lm(formula = LBDLDL ~ DMDEDUC2, data=data[data$RIDAGEYR>50,])  # Multiple R-squared:  0.00026,	Adjusted R-squared:  7.686e-05 
+mod = lm(formula = LBDLDL ~ BMXWT, data=data[data$RIDAGEYR>50,]) # Multiple R-squared:  0.00026,	Adjusted R-squared:  7.686e-05 
+mod = lm(formula = LBDLDL ~ smoking, data=data[data$RIDAGEYR>50,]) # Multiple R-squared:  0.001968,	Adjusted R-squared:  0.001751 
+```
+#### Diet
+Let's try to add diet as ChatGPT suggestion
+```{r}
+# saturated fat
+fat_tb = nhanesSearchVarName("DR1TSFAT")$Questionnaire
+fat_df = unionQuery(fat_tb, cols="DR1TSFAT")
+data = merge(data,fat_df,by="SEQN")
+mod = lm(formula = LBDLDL ~ smoking, data=data[data$RIDAGEYR>50,])
+summary(mod)
+```
+
+
+
+
 #### regression model
 
 ```{r}
-lm_reg = lm(formula = LBDLDL ~ ns(RIDAGEYR, knots = seq(40, 80, by = 10), Boundary.knots=c(30,90))+RIAGENDR + RIDRETH1+DMDEDUC2+smoking+SYSTOLIC, data = train_data)
-
-pred_data = predict(lm_reg, newdata = test_data)
-mse = MSE(test_data$LBDLDL,pred_data)
-qplot(test_data$LBDLDL,pred_data) +labs(title=paste("MSE=",round(mse,2)),
-        x ="True Values", y = "Predicted Values")
+# lm_reg = lm(formula = LBDLDL ~ ns(RIDAGEYR, knots = seq(40, 80, by = 10), Boundary.knots=c(30,90))+RIAGENDR + RIDRETH1+DMDEDUC2+smoking+SYSTOLIC, data = train_data)
+# 
+# pred_data = predict(lm_reg, newdata = test_data)
+# mse = MSE(test_data$LBDLDL,pred_data)
+# qplot(test_data$LBDLDL,pred_data) +labs(title=paste("MSE=",round(mse,2)),
+#         x ="True Values", y = "Predicted Values")
 ```
 
 
 #### nnet model
 ```{r}
-library(nnet)
-nn <- nnet(LBDLDL ~ RIDAGEYR+RIAGENDR + RIDRETH1+DMDEDUC2+smoking+SYSTOLIC, 
-                data = train_data, size=3,hidden = c(8, 8,4), 
-                linear.output = TRUE)
-  
-pred_data = predict(nn, newdata = test_data)
-mse = MSE(test_data$LBDLDL,pred_data)
-qplot(test_data$LBDLDL,pred_data) +labs(title=paste("MSE=",round(mse,2)),
-        x ="True Values", y = "Predicted Values")
+# library(nnet)
+# nn <- nnet(LBDLDL ~ RIDAGEYR+RIAGENDR + RIDRETH1+DMDEDUC2+smoking+SYSTOLIC, 
+#                 data = train_data, size=3,hidden = c(8, 8,4), 
+#                 linear.output = TRUE)
+#   
+# pred_data = predict(nn, newdata = test_data)
+# mse = MSE(test_data$LBDLDL,pred_data)
+# qplot(test_data$LBDLDL,pred_data) +labs(title=paste("MSE=",round(mse,2)),
+#         x ="True Values", y = "Predicted Values")
 ```
 
 
 #### MICE
 
 ```{r}
-library(mice)
-data[test_ix,"LBDLDL"]=NA
-data$SEQN=NULL
-imp <-  mice(data, print=F)
-meth <- imp$meth
-meth[c("RIDAGEYR","RIAGENDR" , "RIDRETH1" , "DMDEDUC2" ,"LBDLDL" ,"diabetes" ,"SYSTOLIC" ,"smoking")]="cart"
-imp <- mice(data, m=1, method = meth, print=F)
-imp20  <-  mice.mids(imp, maxit=15, print=F)
-
-complete_data <- mice::complete(imp20,action=1)
-qplot(test_data$LBDLDL,complete_data[test_ix,"LBDLDL"]) +labs(title=paste("MSE=",round(mse,2)),
-        x ="True Values", y = "Predicted Values")
+# train_data[test_ix,"LBDLDL"]=NA
+# train_data$SEQN=NULL
+# imp <-  mice(train_data, print=F)
+# meth <- imp$meth
+# meth[c("RIDAGEYR","RIAGENDR" , "RIDRETH1" , "DMDEDUC2" ,"LBDLDL" ,"diabetes" ,"SYSTOLIC" ,"smoking")]="cart"
+# imp <- mice(train_data, m=1, method = meth, print=F)
+# imp20  <-  mice.mids(imp, maxit=15, print=F)
+# 
+# complete_data <- mice::complete(imp20,action=1)
+# qplot(test_data$LBDLDL,complete_data[test_ix,"LBDLDL"]) +labs(title=paste("MSE=",round(mse,2)),
+#         x ="True Values", y = "Predicted Values")
 ```
+
+
