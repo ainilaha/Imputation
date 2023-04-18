@@ -52,9 +52,22 @@ demo_df = na.omit(demo_df)
 data = merge(demo_df,dlblbl_df,by="SEQN")
 BMItabs = nhanesSearchVarName('BMXBMI')$Questionnaire
 tdf = unionQuery(BMItabs, cols=c("BMXBMI","BMXWT"))
+
 data = merge(data, tdf, by="SEQN")
 phs_dat = phesant(data)
 data = phs_dat$data
+
+##get whether or not they are using cholesterol lowering drugs
+BPQtabs = nhanesSearchVarName("BPQ100D")$Questionnaire
+tBPQ = unionQuery(BPQtabs, cols = c('BPQ080','BPQ100D'))
+cholMeds = tBPQ$BPQ100D
+cholMeds[tBPQ$BPQ080==2] = 2
+cholMeds = factor(cholMeds,levels=c("1","2"), labels=c("Yes","No"))
+table(cholMeds,useNA="always")
+tBPQ$cholMeds = cholMeds
+tBPQ = tBPQ[,c("SEQN", "cholMeds")]
+data = merge(data, tBPQ, by="SEQN")
+
 DT::datatable(phs_dat$phs_res)
 ```
 preprocessing the above data by remove exceptional values and translate gender and enthnicity variables.
@@ -176,7 +189,7 @@ corrplot(correlation, type = "upper", order = "hclust",
 At this point, we have excluded hypertension from our analysis due to the excessive amount of missing values it contains. Additionally, to validate the regression or imputation models, we have eliminated the records that contain missing values.
 
 ```{r}
-data = data[,c("SEQN","RIDAGEYR","RIAGENDR" , "RIDRETH1" , "DMDEDUC2" ,"LBDLDL" ,"diabetes" ,"SYSTOLIC" ,"smoking","BMXBMI","BMXWT")]
+data = data[,c("SEQN","RIDAGEYR","RIAGENDR" , "RIDRETH1" , "DMDEDUC2" ,"LBDLDL" ,"diabetes" ,"SYSTOLIC" ,"smoking","BMXBMI","BMXWT", "cholMeds")]
 data_clean = na.omit(data)
 # data = data[data$RIDAGEYR>40,] # remove age below 40 
 # split training and testing data set
@@ -214,10 +227,10 @@ There are several factors that may be associated with LDL-cholesterol levels. So
 - Medical conditions: Certain medical conditions, such as diabetes, hypothyroidism, and kidney disease, can contribute to elevated LDL-cholesterol levels.
 - Medication use: Some medications, like certain Medication use: Some medications, like certain diuretics and beta-blockers, can adversely affect LDL-cholesterol levels."
 ```{r}
-mod = lm(formula = LBDLDL ~ RIDAGEYR, data=data[data$RIDAGEYR>50,]) # Multiple R-squared:  0.02315,	Adjusted R-squared:  0.02306 
-mod = lm(formula = LBDLDL ~ BMXBMI, data=data[data$RIDAGEYR>50,])  # Multiple R-squared:  0.001888,	Adjusted R-squared:  0.001795 
-mod = lm(formula = LBDLDL ~ DMDEDUC2, data=data[data$RIDAGEYR>50,])  # Multiple R-squared:  0.00026,	Adjusted R-squared:  7.686e-05 
-mod = lm(formula = LBDLDL ~ BMXWT, data=data[data$RIDAGEYR>50,]) # Multiple R-squared:  0.00026,	Adjusted R-squared:  7.686e-05 
+mod = lm(formula = LBDLDL ~ ns(RIDAGEYR, df=7) + cholMeds + RIAGENDR, data=data[data$RIDAGEYR>50,]) # Multiple R-squared:  0.02315,	Adjusted R-squared:  0.02306 
+mod = lm(formula = LBDLDL ~ ns(BMXBMI, df=7) + cholMeds + RIAGENDR, data=data[data$RIDAGEYR>50,])  # Multiple R-squared:  0.001888,	Adjusted R-squared:  0.001795 
+mod = lm(formula = LBDLDL ~ DMDEDUC2 + cholMeds, data=data[data$RIDAGEYR>50,])  # Multiple R-squared:  0.00026,	Adjusted R-squared:  7.686e-05 
+mod = lm(formula = LBDLDL ~ ns(BMXWT, df=7) + cholMeds, data=data[data$RIDAGEYR>50,]) # Multiple R-squared:  0.00026,	Adjusted R-squared:  7.686e-05 
 mod = lm(formula = LBDLDL ~ smoking, data=data[data$RIDAGEYR>50,]) # Multiple R-squared:  0.001968,	Adjusted R-squared:  0.001751 
 ```
 #### Diet
