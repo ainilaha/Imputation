@@ -99,7 +99,7 @@ In our data the hypertension variable is missing and we want to impute it. For t
 
 ```{r}
 diab_tables = nhanesSearchVarName("DIQ010")$Questionnaire
-dia_df = unionQuery(diab_tables,cols = "DIQ010")
+dia_df = unionQuery(diab_tables,cols = c("DIQ010", "DIQ160","DIQ070"))
 
 ## fasting glucose
 fastgluc = nhanesSearchVarName("LBXGLU")$Questionnaire
@@ -109,6 +109,14 @@ dia_df = merge(dia_df,gluc_df,by="SEQN")
 gly_tables = nhanesSearchVarName("LBXGH")$Questionnaire
 gly_df = unionQuery(gly_tables, cols="LBXGH")
 dia_df = merge(dia_df,gly_df,by="SEQN")
+
+##on meds
+dontskip = dia_df$DIQ010 == 1 | dia_df$DIQ010 == 3 | dia_df$DIQ160 == 1
+hypoglycemicMeds = dia_df$DIQ070
+hypoglycemicMeds[!dontskip] = 2 #No
+hypoglycemicMeds = factor(hypoglycemicMeds,levels=c(1,2,7,9), labels=c("Yes", "No",NA,NA))
+table(hypoglycemicMeds,useNA="always")
+dia_df$hypoglycemicMeds = hypoglycemicMeds
 
 dia_df$diabetes = dia_df$DIQ010 == "Yes" | dia_df$LBXGLU > 110 | dia_df$LBXGH > 6.5
 barplot(table(dia_df$diabetes))
@@ -120,7 +128,17 @@ barplot(table(dia_df$diabetes))
 ```{r}
 # "Hypertension was defined as systolic blood pressure (SBP) ≥140 mm Hg, diastolic blood pressure ≥90mm Hg, or the use of antihypertensive medication. "
 bpq_tables = nhanesSearchVarName('BPQ050A')$Questionnaire
-bpq_df = unionQuery(bpq_tables,cols = "BPQ050A")
+bpq_df = unionQuery(bpq_tables,cols = c('BPQ050A','BPQ020','BPQ060','BPQ080','BPQ100D'))
+
+##need to fix up the hypertension variable or we get lots of missing values
+#set up a dummy for the ones we want to change - also turn "Don't know" from BPQ020 into NA
+  gg = is.na(bpq_df$BPQ050A) & bpq_df$BPQ020==2
+  bpq50A = bpq_df$BPQ050A
+  bpq50A[gg] = 2
+ #check it worked
+ # table(bpq50A, bpq_df$BPQ050A, useNA="always")
+  
+bpq_df$BPQ050A = bpq50A
 
 bpx_tables = nhanesSearchVarName('BPXSY1')$Questionnaire
 bpx_df = unionQuery(bpx_tables,cols = c("BPXSY1","BPXSY2","BPXDI1","BPXDI2"))
@@ -132,7 +150,7 @@ bpx_df$SYSTOLIC[is.na(bpx_df$BPXSY1) & is.na(bpx_df$BPXSY2)] = NA
 
 bpx_df = merge(bpx_df,bpq_df,by="SEQN")
 
-bpx_df$hypertension <- bpx_df$DIASTOLIC >= 90 | bpx_df$SYSTOLIC >= 140 |  bpx_df$BPQ050A=="Yes"
+bpx_df$hypertension <- bpx_df$DIASTOLIC >= 90 | bpx_df$SYSTOLIC >= 140 |  bpx_df$BPQ050A==1
 barplot(table(bpx_df$hypertension))
 ```
 
