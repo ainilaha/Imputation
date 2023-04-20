@@ -112,7 +112,7 @@ gly_tables = nhanesSearchVarName("LBXGH")$Questionnaire
 gly_df = unionQuery(gly_tables, cols="LBXGH")
 dia_df = merge(dia_df,gly_df,by="SEQN")
 
-##on meds
+##on meds - 
 dontskip = dia_df$DIQ010 == 1 | dia_df$DIQ010 == 3 | dia_df$DIQ160 == 1
 hypoglycemicMeds = dia_df$DIQ070
 hypoglycemicMeds[!dontskip] = 2 #No
@@ -130,17 +130,20 @@ barplot(table(dia_df$diabetes, useNA="always"))
 ```{r}
 # "Hypertension was defined as systolic blood pressure (SBP) ≥140 mm Hg, diastolic blood pressure ≥90mm Hg, or the use of antihypertensive medication. "
 bpq_tables = nhanesSearchVarName('BPQ050A')$Questionnaire
-bpq_df = unionQuery(bpq_tables,cols = c('BPQ050A','BPQ020','BPQ060','BPQ080','BPQ100D'))
+bpq_df = unionQuery(bpq_tables,cols = c('BPQ050A','BPQ020','BPQ040A', 'BPQ060','BPQ080','BPQ100D'))
 
+hypertensiveMeds = bpq_df$BPQ050A
+hypertensiveMeds[bpq_df$BPQ020==2] = 2
+hypertensiveMeds[bpq_df$BPQ040A==2] = 2
 ##need to fix up the hypertension variable or we get lots of missing values
 #set up a dummy for the ones we want to change - also turn "Don't know" from BPQ020 into NA
-  gg = is.na(bpq_df$BPQ050A) & bpq_df$BPQ020==2
-  bpq50A = bpq_df$BPQ050A
-  bpq50A[gg] = 2
+#  gg = is.na(bpq_df$BPQ050A) & bpq_df$BPQ020==2
+#  bpq50A = bpq_df$BPQ050A
+#  bpq50A[gg] = 2
  #check it worked
  # table(bpq50A, bpq_df$BPQ050A, useNA="always")
-  
-bpq_df$BPQ050A = bpq50A
+table(hypertensiveMeds, useNA="always")  
+bpq_df$hypertensiveMeds = hypertensiveMeds
 
 bpx_tables = nhanesSearchVarName('BPXSY1')$Questionnaire
 bpx_df = unionQuery(bpx_tables,cols = c("BPXSY1","BPXSY2","BPXDI1","BPXDI2"))
@@ -152,7 +155,7 @@ bpx_df$SYSTOLIC[is.na(bpx_df$BPXSY1) & is.na(bpx_df$BPXSY2)] = NA
 
 bpx_df = merge(bpx_df,bpq_df,by="SEQN")
 
-bpx_df$hypertension <- bpx_df$DIASTOLIC >= 90 | bpx_df$SYSTOLIC >= 140 |  bpx_df$BPQ050A==1
+bpx_df$hypertension <- bpx_df$DIASTOLIC >= 90 | bpx_df$SYSTOLIC >= 140 |  bpx_df$hypertensiveMeds==1
 barplot(table(bpx_df$hypertension, useNA="always"))
 ```
 
