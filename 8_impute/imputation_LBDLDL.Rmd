@@ -59,9 +59,11 @@ data = phs_dat$data
 
 ##get whether or not they are using cholesterol lowering drugs
 BPQtabs = nhanesSearchVarName("BPQ100D")$Questionnaire
-tBPQ = unionQuery(BPQtabs, cols = c('BPQ080','BPQ100D'))
+tBPQ = unionQuery(BPQtabs, cols = c('BPQ080','BPQ060', 'BPQ090D','BPQ100D','Questionnaire'))
 cholMeds = tBPQ$BPQ100D
 cholMeds[tBPQ$BPQ080==2] = 2
+cholMeds[tBPQ$BPQ060==2] = 2
+cholMeds[tBPQ$BPQ090D==2] = 2
 cholMeds = factor(cholMeds,levels=c("1","2"), labels=c("Yes","No"))
 table(cholMeds,useNA="always")
 tBPQ$cholMeds = cholMeds
@@ -119,7 +121,7 @@ table(hypoglycemicMeds,useNA="always")
 dia_df$hypoglycemicMeds = hypoglycemicMeds
 
 dia_df$diabetes = dia_df$DIQ010 == "Yes" | dia_df$LBXGLU > 110 | dia_df$LBXGH > 6.5
-barplot(table(dia_df$diabetes))
+barplot(table(dia_df$diabetes, useNA="always"))
 ```
 
 
@@ -151,7 +153,7 @@ bpx_df$SYSTOLIC[is.na(bpx_df$BPXSY1) & is.na(bpx_df$BPXSY2)] = NA
 bpx_df = merge(bpx_df,bpq_df,by="SEQN")
 
 bpx_df$hypertension <- bpx_df$DIASTOLIC >= 90 | bpx_df$SYSTOLIC >= 140 |  bpx_df$BPQ050A==1
-barplot(table(bpx_df$hypertension))
+barplot(table(bpx_df$hypertension, useNA="always"))
 ```
 
 
