@@ -214,10 +214,11 @@ At this point, we have excluded hypertension from our analysis due to the excess
 ```{r}
 data = data[,c("SEQN","RIDAGEYR","RIAGENDR" , "RIDRETH1" , "DMDEDUC2" ,"LBDLDL" ,"diabetes" ,"SYSTOLIC" ,"smoking","BMXBMI","BMXWT", "cholMeds")]
 data_clean = na.omit(data)
+data_clean = data_clean[data_clean$RIDAGEYR>49,]
 # data = data[data$RIDAGEYR>40,] # remove age below 40 
 # split training and testing data set
-test_ix = sample(x = 1:nrow(data_clean), size = 1500) # about 10%
-train_ix = sample(x = setdiff(1:nrow(data_clean), test_ix), size=11000)
+test_ix = sample(x = 1:nrow(data_clean), size = 15000) # about 10%
+train_ix = sample(x = setdiff(1:nrow(data_clean), test_ix), size=110000)
 
 train_data = data_clean[train_ix, ]
 test_data = data_clean[test_ix, ]
@@ -250,21 +251,21 @@ There are several factors that may be associated with LDL-cholesterol levels. So
 - Medical conditions: Certain medical conditions, such as diabetes, hypothyroidism, and kidney disease, can contribute to elevated LDL-cholesterol levels.
 - Medication use: Some medications, like certain Medication use: Some medications, like certain diuretics and beta-blockers, can adversely affect LDL-cholesterol levels."
 ```{r}
-mod = lm(formula = LBDLDL ~ ns(RIDAGEYR, df=7) + cholMeds + RIAGENDR, data=data[data$RIDAGEYR>50,]) # Multiple R-squared:  0.02315,	Adjusted R-squared:  0.02306 
-mod = lm(formula = LBDLDL ~ ns(BMXBMI, df=7) + cholMeds + RIAGENDR, data=data[data$RIDAGEYR>50,])  # Multiple R-squared:  0.001888,	Adjusted R-squared:  0.001795 
-mod = lm(formula = LBDLDL ~ DMDEDUC2 + cholMeds, data=data[data$RIDAGEYR>50,])  # Multiple R-squared:  0.00026,	Adjusted R-squared:  7.686e-05 
-mod = lm(formula = LBDLDL ~ ns(BMXWT, df=7) + cholMeds, data=data[data$RIDAGEYR>50,]) # Multiple R-squared:  0.00026,	Adjusted R-squared:  7.686e-05 
-mod = lm(formula = LBDLDL ~ smoking, data=data[data$RIDAGEYR>50,]) # Multiple R-squared:  0.001968,	Adjusted R-squared:  0.001751 
+mod = lm(formula = LBDLDL ~ ns(RIDAGEYR, df=7) + cholMeds + RIAGENDR, data=data_clean) 
+mod = lm(formula = LBDLDL ~ ns(BMXBMI, df=7) + cholMeds + RIAGENDR, data=data_clean)  
+mod = lm(formula = LBDLDL ~ DMDEDUC2 + cholMeds, data=data_clean)  
+mod = lm(formula = LBDLDL ~ ns(BMXWT, df=7) + cholMeds, data=data_clean) 
+mod = lm(formula = LBDLDL ~ smoking, data=data_clean) 
 ```
 #### Diet
 Let's try to add diet as ChatGPT suggestion
 ```{r}
 # saturated fat
-fat_tb = nhanesSearchVarName("DR1TSFAT")$Questionnaire
-fat_df = unionQuery(fat_tb, cols="DR1TSFAT")
-data = merge(data,fat_df,by="SEQN")
-mod = lm(formula = LBDLDL ~ smoking, data=data[data$RIDAGEYR>50,])
-summary(mod)
+# fat_tb = nhanesSearchVarName("DR1TSFAT")$Questionnaire
+# fat_df = unionQuery(fat_tb, cols="DR1TSFAT")
+# data = merge(data,fat_df,by="SEQN")
+# mod = lm(formula = LBDLDL ~ ns(BMXWT, df=7) + cholMeds+smoking, data=data[data$RIDAGEYR>50,])
+# summary(mod)
 ```
 
 
@@ -273,42 +274,44 @@ summary(mod)
 #### regression model
 
 ```{r}
-# lm_reg = lm(formula = LBDLDL ~ ns(RIDAGEYR, knots = seq(40, 80, by = 10), Boundary.knots=c(30,90))+RIAGENDR + RIDRETH1+DMDEDUC2+smoking+SYSTOLIC, data = train_data)
-# 
-# pred_data = predict(lm_reg, newdata = test_data)
-# mse = MSE(test_data$LBDLDL,pred_data)
-# qplot(test_data$LBDLDL,pred_data) +labs(title=paste("MSE=",round(mse,2)),
-#         x ="True Values", y = "Predicted Values")
+lm_reg = lm(formula = LBDLDL ~ ns(RIDAGEYR, df=7) + cholMeds +RIAGENDR + RIDRETH1+DMDEDUC2+smoking+SYSTOLIC, data = train_data)
+
+pred_data = predict(lm_reg, newdata = test_data)
+mse = MSE(test_data$LBDLDL,pred_data)
+qplot(test_data$LBDLDL,pred_data) +labs(title=paste("MSE=",round(mse,2)),
+        x ="True Values", y = "Predicted Values")
 ```
 
 
 #### nnet model
 ```{r}
-# library(nnet)
-# nn <- nnet(LBDLDL ~ RIDAGEYR+RIAGENDR + RIDRETH1+DMDEDUC2+smoking+SYSTOLIC, 
-#                 data = train_data, size=3,hidden = c(8, 8,4), 
-#                 linear.output = TRUE)
-#   
-# pred_data = predict(nn, newdata = test_data)
-# mse = MSE(test_data$LBDLDL,pred_data)
-# qplot(test_data$LBDLDL,pred_data) +labs(title=paste("MSE=",round(mse,2)),
-#         x ="True Values", y = "Predicted Values")
+library(nnet)
+nn <- nnet(LBDLDL ~ RIDAGEYR+ cholMeds +RIAGENDR + RIDRETH1+DMDEDUC2+smoking+SYSTOLIC,
+                data = train_data, size=3,hidden = c(8, 8,4),
+                linear.output = TRUE)
+
+pred_data = predict(nn, newdata = test_data) 
+mse = MSE(test_data$LBDLDL,pred_data)
+qplot(test_data$LBDLDL,pred_data) +labs(title=paste("MSE=",round(mse,2)),
+        x ="True Values", y = "Predicted Values")
 ```
 
 
 #### MICE
 
 ```{r}
-# train_data[test_ix,"LBDLDL"]=NA
+# train_data = head(train_data,3000)
+# train_data[test_ix[1:3000],"LBDLDL"]=NA
 # train_data$SEQN=NULL
+# 
 # imp <-  mice(train_data, print=F)
 # meth <- imp$meth
-# meth[c("RIDAGEYR","RIAGENDR" , "RIDRETH1" , "DMDEDUC2" ,"LBDLDL" ,"diabetes" ,"SYSTOLIC" ,"smoking")]="cart"
+# meth[c("RIDAGEYR","RIAGENDR" ,"cholMeds", "RIDRETH1" , "DMDEDUC2" ,"LBDLDL" ,"diabetes" ,"SYSTOLIC" ,"smoking")]="cart"
 # imp <- mice(train_data, m=1, method = meth, print=F)
-# imp20  <-  mice.mids(imp, maxit=15, print=F)
+# imp20  <-  mice.mids(imp, maxit=10, print=F)
 # 
 # complete_data <- mice::complete(imp20,action=1)
-# qplot(test_data$LBDLDL,complete_data[test_ix,"LBDLDL"]) +labs(title=paste("MSE=",round(mse,2)),
+# qplot(test_data$LBDLDL,complete_data[test_ix[1:3000],"LBDLDL"]) +labs(title=paste("MSE=",round(mse,2)),
 #         x ="True Values", y = "Predicted Values")
 ```
 

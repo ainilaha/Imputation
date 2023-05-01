@@ -221,6 +221,7 @@ The NHANES project provides thousands of phenotypes and exposures. Navigating th
 
 We can run a PHESANT-like process to convert each column into data types. It also provides the ratio of unique values (`r_unique`), the proportion of zeros (`r_zeros`), and the ratio of NAs (`r_NAs`), which is calculated by the number of unique values, zeros, and NAs divided by total records. The categorical data types (ordered or unordered) are represented by integers, and we categorize them as multilevel. For example, education (DMDEDUC2) is labeled as Multilevel(7) which means it has 7 levels. Information on whether or not the levels are ordered would have to be obtain from the on-line NHANES documentation.
 
+
 ```{r}
 phs_dat = phesant(data)
 data = phs_dat$data
@@ -228,6 +229,7 @@ DT::datatable(phs_dat$phs_res)
 categoricalVars = rownames(phs_dat$phs_res)[grep("^Multilevel", phs_dat$phs_res$types)]
 categoricalVars
 ```
+
 
 ### 6.Setup factor levels for categorical variables
 
