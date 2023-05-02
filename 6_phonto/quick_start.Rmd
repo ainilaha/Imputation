@@ -1,6 +1,6 @@
 ---
 title: "Quick Start"
-author: "Laha Ale, Christopher Endres, Robert Gentleman, and Teresa Filshstein-Sonmez"
+author: "Laha Ale, Robert Gentleman, and Teresa Filshstein-Sonmez"
 output: html_document
 # output: rmarkdown::html_vignette
 # vignette: >
@@ -102,7 +102,7 @@ res = nhanesSearchTableNames("BPX", details=TRUE)
 datatable(res)
 ```
 ##FIXME: we need to rationalize this to not use long descriptive names in public
-In the research data frame, Questionnaire present CDC tables, and TableName present long descriptive names which hold the data across the years.
+In the research data frame, Questionnaire present CDC tables.
 
 
 In the code chunk below we exploit the fact that the data are stored in a SQLServer database. We can provide access to some of the special functions within that database for matching strings. In the example below the string "BPX[_]" string is passed to the database engine directly.  This string matches only tables containing the string "BPX_"; therefore, the table named "BPXO_J" will not match the search string. We note that the table named "BPX" also has no underscore and it also will not match. Readers familiar with regular expressions may want to explore on-line documentation for SQL Server that helps them identify ways of creating more specialized search expressions.
