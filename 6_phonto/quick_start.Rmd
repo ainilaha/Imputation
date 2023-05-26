@@ -167,7 +167,7 @@ s1 = nhanesSearch("LDL")
 ##from this one can obtain Variable names
 s1[1,c(2:3)]
 LDLTabs = nhanesSearchVarName('LBDLDL')
-datatable(LDLTabs)
+LDLTabs
 ```
 
 ### 3 nhanesCodebook
@@ -176,7 +176,7 @@ Information about each variable is stored in the NHANES code book. To access the
 The 5th element, the `Codebook`, is a data frame providing information about the structure of the variable, such as which values the variable can take on. When you want to combine variables across study years you will need to be careful to ensure that the `Codebooks` are compatible.  NHANES has changed variables, added or removed possible answers, and done many other things as the questionnaires have evolved.  It is **not safe** to assume that an identical variable name will have an identical interpretation.
  
 ```{r}
-  cb1 = nhanesCodebook(nh_table = LDLTabs[1,2], colname = LDLTabs[1,1]) ## argument names are confusing, if its easy enough lets make them consistent with the columns names from nhanesSearchVarname() 
+  cb1 = nhanesCodebook(nh_table = LDLTabs[1], colname = "LBDLDL") ## argument names are confusing, if its easy enough lets make them consistent with the columns names from nhanesSearchVarname() 
   cb1
 ```
   The alert reader will have noticed the column labeled Cumulative.  The values in this column are provided by NHANES and can be used to check whether the data extraction you carried out aligns with their reported values.  The column labeled SkipToItem will be non-missing if there was some complex logic in how the survey was performed. In some cases a set of questions will be skipped for a subset of the participants, depending on their answer to the *current* question.  For example, if the current question was ``Have you ever been told by your doctor you have Diabetes?``, and then there say 10 follow-up questions asking about symptoms, someone who answered ``No`` would not want to answer those questions, and so the interviewer will skip over them, to the next relevant question for anyone who says ``No``. This makes for a good survey experience for the participants but it also makes the data analysis a bit messier.  The analyst will have to examine all the questions that can be skipped and assess how to deal with the values recorded.
