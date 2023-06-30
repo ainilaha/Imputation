@@ -64,9 +64,9 @@ In addition, the `phesant()` function allows the user to check the data inspired
 
 RG wants to also look at SES, so it has been added.  Also for now just cut this down to one epoch (_I).
 ```{r phonto}
-cols = list(DEMO_I=c("RIDAGEYR","RIAGENDR","RIDRETH1","DMDEDUC2","years","INDFMPIR"), 
+cols = list(DEMO_I=c("RIDAGEYR","RIAGENDR","RIDRETH1","DMDEDUC2","INDFMPIR"), 
             BPX_I=c('BPXDI1','BPXDI2',"BPXSY1","BPXSY2"),
-            BPQ_I=c('BPQ050A','BPQ020','BPQ080','BPQ100D'),
+            BPQ_I=c('BPQ050A','BPQ040A', 'BPQ020','BPQ080','BPQ100D'),
             BMX_I="BMXBMI"
             )
 base_df <- jointQuery(cols)
@@ -77,7 +77,7 @@ phs_res$phs_res |> kbl(caption = "PHESANT-like Process Results",align='c') |>
 Table \@ref(tab:phonto) shows variables names, the ratio of unique values (`r_unique`), the proportion of zeros (`r_zeros`), and the ratio of NAs (`r_NAs`), which is calculated by the number of unique values, zeros, and NAs divided by total records. The categorical data types (ordered or unrecorded) are presented by integers, and the PHESANT function category them as multilevel. The data are categorized as continuous (doubles, integers) and multilevel(characters, integers with unique values less than 20), as shown type column. For example, education (DMDEDUC2) is category as Multilevel(8) means the PHESANT process considers it multilevel and has 8 levels; moreover, `r_NAs` shows that almost 50% of education data is missing, and we recommend users check data in the cases like this. `r_zeros` shows that about 0.8% blood pressure measurements are filled as 0s. We may want to remove those data records because blood pressure with 0s is for dead people.
 
 We remove missing values (shown with NAs in R data frame) and blood pressure filled with 0s, which indicates.
-In NHANES database, the gender(`RIAGENDR`) encode as 1 for male and 2 for female. Similarly, ethnicity (`RIDRETH1`) are also encode as integers (1 to 5); We need to convert those as variables as factors.
+In the NHANES database gender(`RIAGENDR`) encode as 1 for male and 2 for female. Similarly, ethnicity (`RIDRETH1`) are also encode as integers (1 to 5); We need to convert those as variables as factors.
 
 ```{r}
 # remove age under 20 and diastolic with 0s
@@ -104,7 +104,7 @@ base_df$SYSTOLIC[is.na(base_df$BPXSY1) & is.na(base_df$BPXSY2)] = NA
  #set up a dummy for the ones we want to change - also turn "Don't know" from BPQ020 into NA
 hypertensiveMeds = base_df$BPQ050A
 hypertensiveMeds[base_df$BPQ020==2] = 2
-hypertensiveMeds[data$BPQ040A==2] = 2
+hypertensiveMeds[base_df$BPQ040A==2] = 2
 hypertensiveMeds = factor(hypertensiveMeds, levels=c(1,2), labels=c("Yes","No"))
 # The current study included 6866 US adults aged 40 years or older. 
 base_df$hypertensiveMeds = hypertensiveMeds
@@ -116,7 +116,7 @@ Perhaps try to study the univariate relationship between DIASTOLIC (SYSTOLIC?) a
 ```{r EDA}
   ##make_bins seems to need some help dealing with missing
  
-  plot_bins(base_df$DIASTOLIC,base_df$INDFMPIR,nbin =400, title="Diastolic vs Poverty")
+  plot_bins(x="DIASTOLIC",y="INDFMPIR", data=base_df, nobsperbin =400, title="Diastolic vs Poverty")
   boxplot(base_df$INDFMPIR~base_df$hypertensiveMeds)
          
 ```

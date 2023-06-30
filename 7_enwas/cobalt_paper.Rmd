@@ -64,8 +64,8 @@ DIQTabs = nhanesSearchVarName("DIQ010",ystart="2015", ystop="2018")
 COBTabs = nhanesSearchVarName("LBXBCO",ystart="2015", ystop="2018" )
 TotChol = nhanesSearchVarName("LBXTC",ystart="2015", ystop="2018" )
 
-cols = list(DEMO_I=c("RIDAGEYR","RIAGENDR","RIDRETH1","DMDEDUC2","years"), 
-            DEMO_J=c("RIDAGEYR","RIAGENDR","RIDRETH1","DMDEDUC2","years"),
+cols = list(DEMO_I=c("RIDAGEYR","RIAGENDR","RIDRETH1","DMDEDUC2"), 
+            DEMO_J=c("RIDAGEYR","RIAGENDR","RIDRETH1","DMDEDUC2"),
             BPQ_I=c('BPQ050A','BPQ020','BPQ080','BPQ100D'),
             BPQ_J=c('BPQ050A','BPQ020','BPQ080','BPQ100D'), 
             HDL_I=c("LBDHDD"),HDL_J=c("LBDHDD"),
@@ -83,17 +83,18 @@ dim(base_df)
 ##FIXUP some vars
 ```{r}
 cholMeds = base_df$BPQ100D
-cholMeds[base_df$BPQ080==2] = 2
-cholMeds = factor(cholMeds,levels=c("1","2"), labels=c("Yes","No"))
+cholMeds[base_df$BPQ080=="No"] = "No"
+cholMeds[cholMeds=="Don't know"] = NA
+cholMeds = factor(cholMeds)
 table(cholMeds,useNA="always")
 base_df$cholMeds=cholMeds
 
 ##now fixup the oral meds for diabetes
 ##not counting insulin right now...might need it
-dontskip = base_df$DIQ010 == 1 | base_df$DIQ010 == 3 | base_df$DIQ160 == 1
+dontskip = base_df$DIQ010 == "Yes" | base_df$DIQ010 == "Borderline" | base_df$DIQ160 == "Yes"
 hypoglycemicMeds = base_df$DIQ070
-hypoglycemicMeds[!dontskip] = 2 #No
-hypoglycemicMeds = factor(hypoglycemicMeds,levels=c(1,2,7,9), labels=c("Yes", "No",NA,NA))
+hypoglycemicMeds[!dontskip] = "No" 
+hypoglycemicMeds = factor(hypoglycemicMeds,levels=c("Yes", "No", "Don't know","Refused"), labels=c("Yes", "No",NA,NA))
 table(hypoglycemicMeds,useNA="always")
 base_df$hypoglycemicMeds = hypoglycemicMeds
 
@@ -103,17 +104,19 @@ In the code chunk below we extract the smoking data, and then try to create the 
 used in the paper.  They have three groups, non-smokers, current smokers and ex-smokers. We use the `SMQ_I` and `SMQ_J` tables. We will define non-smoker as someone who as never smoked more than 100 cigarettes (`SMQ020`), anyone who has smoked more will be either
 a current smoker or an ex-smoker (`SMQ040`)
 ```{r Smoking }
-smokingTab= unionQuery(c("SMQ_I", "SMQ_J"),cols = c("SMQ020","SMQ040"))
+cols = list(SMQ_I=c("SMQ020","SMQ040"), SMQ_J=c("SMQ020","SMQ040"))
+smokingTab= unionQuery(cols)
 tdf = merge(base_df, smokingTab, all.x=TRUE)  
 tdf = tdf[tdf$RIDAGEYR>=40,]
-nn = nhanesTranslate("SMQ_J", colnames=c("SMQ020","SMQ040"))
+##nn = nhanesTranslate("SMQ_J", colnames=c("SMQ020","SMQ040"))
 ##have a look at the coding for SMQ020
-nn[[1]]
+##nn[[1]]
 ##check to see what values are in the data
 table(tdf$SMQ020, useNA="always")
 ##for SMQ040 too
 table(tdf$SMQ040, useNA="always")
-smokingVar = ifelse(tdf$SMQ020==2, "Non-smoker", ifelse(tdf$SMQ040==3, "Ex-smoker",
+smokingVar = ifelse(tdf$SMQ020=="No", "Non-smoker", 
+                    ifelse(tdf$SMQ040=="Not at all", "Ex-smoker",
                     "Smoker"))
 table(smokingVar, useNA="always")
 ##from the paper n=6866, Ex=1950,Non=3744,Current=1165
@@ -122,14 +125,14 @@ table(smokingVar, useNA="always")
 ```{r Glucose, warning=FALSE, message=FALSE}
 ##fasting glucose
 Fastgluc = nhanesSearchVarName("LBXGLU", ystart="2015", ystop="2018")
-glucTab = unionQuery(c("GLU_I", "GLU_J"), cols="LBXGLU")
+glucTab = unionQuery(list(GLU_I="LBXGLU", GLU_J="LBXGLU"))
 base_df = merge(base_df, glucTab, all.x=TRUE)
 ```
 The two variables that require additional lab work are LDLs and cobalt levels. As a result they were done on a much smaller set of people.  So instead of loading them simultaneously we extract them below and then use the `merge`
 ```{r load TRIGLY and CRCO}
-ldlTab = unionQuery(c("TRIGLY_I","TRIGLY_J"), cols=c("LBXTR","LBDLDL")) 
+ldlTab = unionQuery(list(TRIGLY_I=c("LBXTR","LBDLDL"),TRIGLY_J=c("LBXTR","LBDLDL"))) 
 dim(ldlTab)
-cobaltTab = unionQuery(c("CRCO_I", "CRCO_J"), cols= "LBXBCO")
+cobaltTab = unionQuery(list(CRCO_I="LBXBCO", CRCO_J="LBXBCO"))
 dim(cobaltTab)
 var2Table = c(var2Table, list("TRIGLY_I"=c("LBXTR","LBDLDL"), CRCO_I="LBXBCO"))
 ##we merge keeping as many records as we can, the all.x argument is important
@@ -150,7 +153,8 @@ bptablenames |> kable()
 We can see that blood pressure data was collected for other years as well, but for now we will just extract the data for the 2015-2016 and 2017-2018 years. We combine these into a single dataframe.
 
 ```{r extract_data, warning=FALSE, message=FALSE}
-blood_df <- unionQuery(c("BPX_I", "BPX_J"), cols =c("BPXDI1","BPXDI2","BPXSY1","BPXSY2"))
+blood_df <- unionQuery(list(BPX_I=c("BPXDI1","BPXDI2","BPXSY1","BPXSY2"), 
+                            BPX_J=c("BPXDI1","BPXDI2","BPXSY1","BPXSY2")))
 dim(blood_df)
 # Average the the first and second reads
 # taking some care to keep one measurement if the other is missing
@@ -171,7 +175,8 @@ and reports what type of data it is, continuous or multi-level (ie factors). We 
 
 ```{r data,warning=FALSE,message=FALSE}
 
-data <- merge(base_df, blood_df, all.x=TRUE,by="SEQN")
+data <- merge(base_df, blood_df, all.x=TRUE,by=c("SEQN", "Begin.Year", "EndYear"))
+data$years = as.factor(paste0(data$Begin.Year,"-", data$EndYear))
 ##fix up our list linking variable names to the table they came from
 var2Table = c(var2Table, list("BPX_I"=c("BPXDI1","BPXDI2","BPXSY1","BPXSY2")))
 phs_dat = phesant(data)
@@ -183,32 +188,20 @@ DT::datatable(phs_dat$phs_res)
 In the next code chunk we will convert the multilevel variables into R factors. To do this we make use of the nhanesTranslate function. While that function does most of the work, there are some variables we need to deal with manually to replicate the analysis. First, the years variable is something we added, so we need to deal with it manually.  Then we use `nhanesTranslate` to transform all of the internal values.  Then we need to do a little more work on modifying levels of the education variable.  The authors decided to group education into three levels, less than high school (<HS), high school (HS), and more than school-school(>HS).  We also need to address some issues around the hypertension variables.
 Particpants were asked (BPQ020) whether they had ever been told by a doctor or health care professional that they had high blood pressure.  The survey was designed to then skip over a number of questions about their hypertension if they said they did not have hypertension. However this then introduces missing values in the question BPQ050A, which was whether or not they were currently taking a prescription for hypertension. Presumably only people who had been told by their doctor they have hypertension would be taking a perscription and we will need to manually adjust the data so that these are answered No, rather than missing.
 
-In the next code chunk we modify the data accordingly, drop out everyone who is under 40 and remove any individuals that have missing data in any row.
 
 ```{r}
-##years is something we have added so we need to translate it directly
-data$years <- as.factor(data$years)
-##almost surely not the most efficient way
-for(tabname in names(var2Table)) {
-  data = nhanesTranslate(tabname, var2Table[[tabname]], data)
-}
-levsED = levels(data$DMDEDUC2)
-##examine them and then put into groupings <HS, HS and > HS
-levels(data$DMDEDUC2) <- c(">HS","HS",">HS","<HS","<HS","DK","R")
-levels(data$DMDEDUC2) <- c(">HS", "HS", "<HS",NA, NA)
+
+data$DMDEDUC2 = factor(data$DMDEDUC2)
+
+levels(data$DMDEDUC2) <- c("<HS",">HS",NA,"HS","<HS",NA,">HS")
+
 ##
-#the variables BPQ050A and BPQ040A are taken conditionally so they have missing values put in
-# for anyone who answered no to BPQ020 - and we need to fix that - since there answer to 50A 
- # had they been asked, would have been no (one presumes)
- #set up a dummy for the ones we want to change - also turn "Don't know" from BPQ020 into NA
-  gg = is.na(data$BPQ050A) & data$BPQ020=="No"
-  bpq50A = data$BPQ050A
-  bpq50A[gg] = "No"
- #check it worked
- # table(bpq50A, data$BPQ050A, useNA="always")
-  
-# The current study included 6866 US adults aged 40 years or older. 
-data$BPQ050A = bpq50A
+## fixup the data for a skipped question
+hypertensiveMeds = data$BPQ050A
+hypertensiveMeds[data$BPQ020=="No"] = "No"
+hypertensiveMeds[data$BPQ040A=="No"] = "No"
+
+data$BPQ050A = hypertensiveMeds
 ##remove any record with at least one NA and then subset to those over 40
 ##data <- na.omit(data)
 data <- data[data$RIDAGEYR>=40,]
