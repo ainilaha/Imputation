@@ -70,14 +70,9 @@ cols = list(DEMO=c("RIDAGEYR","RIAGENDR","RIDRETH1","DMDEDUC2","years"),
             BMX="BMXBMI"
             )
 base_df <- jointQuery(cols)
-phs_res = phesant(base_df)
-phs_res$phs_res |> kbl(caption = "PHESANT-like Process Results",align='c') |>
-  kable_classic(full_width = T, html_font = "Cambria")
-```
-Table \@ref(tab:phonto) shows variables names, the ratio of unique values (`r_unique`), the proportion of zeros (`r_zeros`), and the ratio of NAs (`r_NAs`), which is calculated by the number of unique values, zeros, and NAs divided by total records. The categorical data types (ordered or unrecorded) are presented by integers, and the PHESANT function category them as multilevel. The data are categorized as continuous (doubles, integers) and multilevel(characters, integers with unique values less than 20), as shown type column. For example, education (DMDEDUC2) is category as Multilevel(8) means the PHESANT process considers it multilevel and has 8 levels; moreover, `r_NAs` shows that almost 50% of education data is missing, and we recommend users check data in the cases like this. `r_zeros` shows that about 0.8% blood pressure measurements are filled as 0s. We may want to remove those data records because blood pressure with 0s is for dead people.
 
-We remove missing values (shown with NAs in R data frame) and blood pressure filled with 0s, which indicates.
-In NHANES database, the gender(`RIAGENDR`) encode as 1 for male and 2 for female. Similarly, ethnicity (`RIDRETH1`) are also encode as integers (1 to 5); We need to convert those as variables as factors.
+base_df |> DT::datatable()
+```
 
 ```{r}
 # remove age under 20 and diastolic with 0s
@@ -101,9 +96,12 @@ base_df$DIASTOLIC <- (base_df$BPXDI1+base_df$BPXDI2)/2
 To find plausible models, we should build models and perform QA/QC process iteratively. In the following demonstrations, we built a linear regression model and another linear model with apply natural spline function on the continuous variables. The outcome is diastolic is the average of the diastolic first (`BPXDI1`) and second (`BPXDI2`) reads, gender(`RIAGENDR`), age (`RIDAGEYR`), ethnicity (`RIDRETH1`), BMI(`BMXBMI`) and education(`DMDEDUC2`).
 
 
-```{r build_base_model,echo=TRUE,results = "asis"}
+```{r lm_base_model,echo=FALSE,results = "asis"}
 lm_str <- 'DIASTOLIC ~ RIDAGEYR*RIAGENDR + BMXBMI + RIDRETH1+DMDEDUC2+years'
 lm_base <- lm(formula = as.formula(lm_str),base_df)
+```
+
+```{r build_base_model,echo=TRUE,results = "asis"}
 ns_str <-
   'DIASTOLIC ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10), Boundary.knots=c(20,90)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)),Boundary.knots=c(10,85)) + RIDRETH1+DMDEDUC2+years'
 ns_base <- lm(formula = as.formula(ns_str), base_df)
