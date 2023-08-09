@@ -65,30 +65,54 @@ We load the NHANES data using functions from [PHONTO package](https://github.com
 In addition, the `phesant()` function allows the user to check the data inspired by the [PHESANT package](https://github.com/MRCIEU/PHESANT).
 
 ```{r phonto}
-cols = list(DEMO=c("RIDAGEYR","RIAGENDR","RIDRETH1","DMDEDUC2","years"), 
-            BPX=c('BPXDI1','BPXDI2'),
-            BMX="BMXBMI"
+cols = list(DEMO_C=c("RIDAGEYR","RIAGENDR","RIDRETH1","DMDEDUC2"), 
+            DEMO_D=c("RIDAGEYR","RIAGENDR","RIDRETH1","DMDEDUC2"), 
+            DEMO_E=c("RIDAGEYR","RIAGENDR","RIDRETH1","DMDEDUC2"), 
+            BPX_C=c('BPXDI1','BPXDI2'),
+            BPX_D=c('BPXDI1','BPXDI2'),
+            BPX_E=c('BPXDI1','BPXDI2'),
+            BMX_C="BMXBMI",
+            BMX_D="BMXBMI",
+            BMX_E="BMXBMI"
             )
-base_df <- jointQuery(cols)
+base_df <- jointQuery(cols) 
 
-base_df |> DT::datatable()
+base_df |> DT::datatable(options=list(pageLength=5))
 ```
+Transform education and BMI according [CDC](https://www.cdc.gov/obesity/basics/adult-defining.html#:~:text=If%20your%20BMI%20is%20less,falls%20within%20the%20obesity%20range.)
 
 ```{r}
 # remove age under 20 and diastolic with 0s
 base_df = base_df |> subset(RIDAGEYR>20 & BPXDI1!=0 & BPXDI2!=0 )
 # assign the gender and ethnicity to the real levels
-base_df = phonto::nhanesTranslate('DEMO_I', c('RIAGENDR', 'RIDRETH1'), data=base_df)
 # Transform education to:
 #  < High School
 #   - High School
 #  > High School
-nDEDUC = ifelse(base_df$DMDEDUC2 < 3, "<HS", ifelse(base_df$DMDEDUC2 == 3, "HS", 
-                                                    ifelse(base_df$DMDEDUC2 < 6, ">HS", NA)))
-base_df$DMDEDUC2 <- as.factor(nDEDUC)
+trans_DEDUC = ifelse(stringr::str_detect(base_df$DMDEDUC2,"9"), "<HS",
+                
+                ifelse(stringr::str_detect(base_df$DMDEDUC2,"High School"), "HS", 
+                ifelse(stringr::str_detect(base_df$DMDEDUC2,'College'), ">HS", NA)))
+base_df$DMDEDUC2 <- as.factor(trans_DEDUC)
+
+# transform the BMI to:
+#  underweight range.
+#  healthy weight range.
+#  overweight range.
+#  obesity range.
+trans_BMI = ifelse(base_df$BMXBMI < 18.5, "underweight", 
+                   ifelse(base_df$BMXBMI < 25, "healthy", 
+                   ifelse(base_df$BMXBMI < 30, "overweight", 
+                   ifelse(base_df$BMXBMI >= 30, "obesity",     
+                          NA))))
+
+base_df$BMXBMI = as.factor(trans_BMI)
+base_df$years = as.factor(paste0(base_df$Begin.Year,"-",base_df$EndYear))
+
 base_df = na.omit(base_df)
 # Take average first and second read for the diastolic blood pressure.
 base_df$DIASTOLIC <- (base_df$BPXDI1+base_df$BPXDI2)/2
+
 ```
 
 # Build Baseline Model
@@ -103,7 +127,7 @@ lm_base <- lm(formula = as.formula(lm_str),base_df)
 
 ```{r build_base_model,echo=TRUE,results = "asis"}
 ns_str <-
-  'DIASTOLIC ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10), Boundary.knots=c(20,90)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)),Boundary.knots=c(10,85)) + RIDRETH1+DMDEDUC2+years'
+  'DIASTOLIC ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10), Boundary.knots=c(20,90)) * RIAGENDR + BMXBMI + RIDRETH1+DMDEDUC2+years'
 ns_base <- lm(formula = as.formula(ns_str), base_df)
 ```
 
@@ -208,7 +232,8 @@ Identify a set of phenotypes and exposures that we want to test for association 
 In this example, we choose phenotype from the dietary data, we identified the phenotypes and saved them into a built-in variable call `exposure_vars` in EnWAS package. "The objective of the dietary interview component is to obtain detailed dietary intake information from NHANES participants. The dietary intake data are used to estimate the types and amounts of foods and beverages (including all types of water) consumed during the 24-hour period prior to the interview (midnight to midnight), and to estimate intakes of energy, nutrients, and other food components from those foods and beverages." More detail can be found [code book](https://wwwn.cdc.gov/Nchs/Nhanes/2015-2016/DR1TOT_I.htm). 
 
 ```{r}
-diet_data = unionQuery('DR1TOT',exposure_vars)
+cols = list("DR1TOT_C"=exposure_vars,"DR1TOT_D"=exposure_vars,"DR1TOT_E"=exposure_vars)
+diet_data = unionQuery(cols)
 dim(diet_data)
 ```
 Once we load the dietary data, we should also check it with the PHESANT function and preprocess it if necessary.
