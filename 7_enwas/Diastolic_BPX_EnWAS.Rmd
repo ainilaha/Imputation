@@ -30,6 +30,16 @@ We will use the [NHANES](https://www.cdc.gov/nchs/nhanes/index.htm) as our data 
 
 
 ## Identify a response, or outcome of interest.
+## FIXME: you probably want to specify some "entry" criteria
+##  age and sex, what if any restrictions, what about comorbidities
+## what about people taking drugs to lower their blood pressure?
+## do we want to deal with obesity - would we just use "Normal BMI"
+## Most of this information might go into a Methods Section, and some of the
+## analytic details would go in to a Supplement.
+## describe the specifics of the processing in the methods section.
+## Something like - For individuals with two measurements we averaged the two,
+## for those with only one, we used the one, all others would be missing.
+## 
 In this demonstration, we choose diastolic [blood pressure](https://wwwn.cdc.gov/Nchs/Nhanes/2015-2016/BPX_I.htm#BPXDI1) as the outcome interest. These data are
 contained in tables in the NHANES database.
 
@@ -37,6 +47,8 @@ For each survey a number of people were chosen to provide blood pressure measure
 To get an more accurate measurement of the diastolic blood pressure, we average two times of measurements for each participants.
 
 ## Identify a set of confounders that will be adjusted for.  These are typically not of interest themselves, but are important established confounders such as age or sex that should be adjusted for.
+## FIXME: in the Methods section describe any transformations, or details of the data - ##especially which tables they come from, for example.
+## FIXME: here you need to put in citations for the literature you used - and use the papers ## to explain why you chose these variables.  We could also do univiariate model fitting to ## each of them and report it in the supplement just to show that they have some effect on BP ## on their own.  We also need to explain why we are using systolic or diastolic...
 
 Based on our literature review we feel that sex, age, ethnicity, education and BMI are likely to affect blood pressure, and we choose them as the confounders to adjust for.  In a more realistic analysis we would likely also want to find out who is taking medications that are intended to alter blood pressure, but for simplicity of the exposition we will ignore
 that issue in this analysis.
@@ -227,6 +239,8 @@ ggpubr::ggarrange(fitt_g,res_g,age_res,nrow = 3,ncol = 1,labels = c('a)','b)','c
 
 
 # Identify a set of phenotypes and exposures 
+##FIXME: again in the methods section you should give some explicit information
+## about these variables.
 
 Identify a set of phenotypes and exposures that we want to test for association with the response variable of interest.
 In this example, we choose phenotype from the dietary data, we identified the phenotypes and saved them into a built-in variable call `exposure_vars` in EnWAS package. "The objective of the dietary interview component is to obtain detailed dietary intake information from NHANES participants. The dietary intake data are used to estimate the types and amounts of foods and beverages (including all types of water) consumed during the 24-hour period prior to the interview (midnight to midnight), and to estimate intakes of energy, nutrients, and other food components from those foods and beverages." More detail can be found [code book](https://wwwn.cdc.gov/Nchs/Nhanes/2015-2016/DR1TOT_I.htm). 
