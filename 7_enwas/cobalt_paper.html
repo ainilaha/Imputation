@@ -3214,7 +3214,7 @@ display: none;
 
 <h1 class="title toc-ignore">A vignette that outlines a strategy to
 replicate a published analysis</h1>
-<h4 class="date">Updated on : Fri Jun 30 20:08:04 2023</h4>
+<h4 class="date">Updated on : Thu Nov 9 16:38:29 2023</h4>
 
 </div>
 
@@ -3242,7 +3242,7 @@ Questionnaires we want will have the suffixes _I and _J.</p>
 library(ggplot2)
 library(ggpubr)
 library(dplyr)
-#library(nhanesA)
+library(nhanesA)
 library(phonto)
 library(EnWAS)
 library(knitr)</code></pre>
@@ -3452,13 +3452,13 @@ dim(blood_df)
 blood_df[1:10,] |&gt; kable()</code></pre>
 <table>
 <colgroup>
-<col width="8%" />
+<col width="9%" />
 <col width="9%" />
 <col width="9%" />
 <col width="9%" />
 <col width="9%" />
 <col width="15%" />
-<col width="11%" />
+<col width="10%" />
 <col width="13%" />
 <col width="12%" />
 </colgroup>
@@ -3477,114 +3477,114 @@ blood_df[1:10,] |&gt; kable()</code></pre>
 </thead>
 <tbody>
 <tr class="odd">
-<td align="right">85541</td>
-<td align="right">62</td>
-<td align="right">64</td>
-<td align="right">124</td>
-<td align="right">128</td>
+<td align="right">85432</td>
+<td align="right">70</td>
+<td align="right">70</td>
+<td align="right">112</td>
+<td align="right">120</td>
 <td align="right">2015</td>
 <td align="right">2016</td>
-<td align="right">63</td>
-<td align="right">126</td>
+<td align="right">70</td>
+<td align="right">116</td>
 </tr>
 <tr class="even">
-<td align="right">87059</td>
-<td align="right">NA</td>
-<td align="right">NA</td>
-<td align="right">NA</td>
-<td align="right">NA</td>
-<td align="right">2015</td>
-<td align="right">2016</td>
-<td align="right">NA</td>
-<td align="right">NA</td>
-</tr>
-<tr class="odd">
-<td align="right">97945</td>
-<td align="right">62</td>
-<td align="right">54</td>
-<td align="right">92</td>
-<td align="right">88</td>
+<td align="right">98018</td>
+<td align="right">48</td>
+<td align="right">0</td>
+<td align="right">120</td>
+<td align="right">128</td>
 <td align="right">2017</td>
 <td align="right">2018</td>
-<td align="right">58</td>
-<td align="right">90</td>
+<td align="right">24</td>
+<td align="right">124</td>
+</tr>
+<tr class="odd">
+<td align="right">90883</td>
+<td align="right">56</td>
+<td align="right">52</td>
+<td align="right">108</td>
+<td align="right">118</td>
+<td align="right">2015</td>
+<td align="right">2016</td>
+<td align="right">54</td>
+<td align="right">113</td>
 </tr>
 <tr class="even">
-<td align="right">99427</td>
-<td align="right">72</td>
-<td align="right">72</td>
-<td align="right">140</td>
+<td align="right">92397</td>
+<td align="right">60</td>
+<td align="right">58</td>
+<td align="right">116</td>
+<td align="right">114</td>
+<td align="right">2015</td>
+<td align="right">2016</td>
+<td align="right">59</td>
+<td align="right">115</td>
+</tr>
+<tr class="odd">
+<td align="right">101919</td>
+<td align="right">66</td>
+<td align="right">64</td>
+<td align="right">112</td>
+<td align="right">116</td>
+<td align="right">2017</td>
+<td align="right">2018</td>
+<td align="right">65</td>
+<td align="right">114</td>
+</tr>
+<tr class="even">
+<td align="right">102725</td>
+<td align="right">78</td>
+<td align="right">74</td>
+<td align="right">110</td>
+<td align="right">114</td>
+<td align="right">2017</td>
+<td align="right">2018</td>
+<td align="right">76</td>
+<td align="right">112</td>
+</tr>
+<tr class="odd">
+<td align="right">102910</td>
+<td align="right">60</td>
+<td align="right">66</td>
+<td align="right">136</td>
 <td align="right">134</td>
 <td align="right">2017</td>
 <td align="right">2018</td>
-<td align="right">72</td>
-<td align="right">137</td>
-</tr>
-<tr class="odd">
-<td align="right">84953</td>
-<td align="right">NA</td>
-<td align="right">NA</td>
-<td align="right">NA</td>
-<td align="right">NA</td>
-<td align="right">2015</td>
-<td align="right">2016</td>
-<td align="right">NA</td>
-<td align="right">NA</td>
-</tr>
-<tr class="even">
-<td align="right">88955</td>
-<td align="right">54</td>
-<td align="right">56</td>
-<td align="right">132</td>
-<td align="right">130</td>
-<td align="right">2015</td>
-<td align="right">2016</td>
-<td align="right">55</td>
-<td align="right">131</td>
-</tr>
-<tr class="odd">
-<td align="right">92031</td>
-<td align="right">NA</td>
-<td align="right">NA</td>
-<td align="right">NA</td>
-<td align="right">NA</td>
-<td align="right">2015</td>
-<td align="right">2016</td>
-<td align="right">NA</td>
-<td align="right">NA</td>
-</tr>
-<tr class="even">
-<td align="right">93389</td>
-<td align="right">NA</td>
-<td align="right">NA</td>
-<td align="right">NA</td>
-<td align="right">NA</td>
-<td align="right">2015</td>
-<td align="right">2016</td>
-<td align="right">NA</td>
-<td align="right">NA</td>
-</tr>
-<tr class="odd">
-<td align="right">94287</td>
-<td align="right">64</td>
-<td align="right">62</td>
-<td align="right">114</td>
-<td align="right">110</td>
-<td align="right">2017</td>
-<td align="right">2018</td>
 <td align="right">63</td>
-<td align="right">112</td>
+<td align="right">135</td>
 </tr>
 <tr class="even">
-<td align="right">99812</td>
-<td align="right">62</td>
-<td align="right">60</td>
-<td align="right">100</td>
-<td align="right">100</td>
+<td align="right">100360</td>
+<td align="right">74</td>
+<td align="right">70</td>
+<td align="right">104</td>
+<td align="right">104</td>
 <td align="right">2017</td>
 <td align="right">2018</td>
-<td align="right">61</td>
-<td align="right">100</td>
+<td align="right">72</td>
+<td align="right">104</td>
+</tr>
+<tr class="odd">
+<td align="right">101817</td>
+<td align="right">74</td>
+<td align="right">70</td>
+<td align="right">122</td>
+<td align="right">118</td>
+<td align="right">2017</td>
+<td align="right">2018</td>
+<td align="right">72</td>
+<td align="right">120</td>
+</tr>
+<tr class="even">
+<td align="right">94417</td>
+<td align="right">NA</td>
+<td align="right">NA</td>
+<td align="right">NA</td>
+<td align="right">NA</td>
+<td align="right">2017</td>
+<td align="right">2018</td>
+<td align="right">NA</td>
+<td align="right">NA</td>
 </tr>
 </tbody>
 </table>
@@ -3616,8 +3616,8 @@ var2Table = c(var2Table, list(&quot;BPX_I&quot;=c(&quot;BPXDI1&quot;,&quot;BPXDI
 phs_dat = phesant(data)
 data = phs_dat$data
 DT::datatable(phs_dat$phs_res)</code></pre>
-<div id="htmlwidget-bb0c870c7d8739510cfe" style="width:100%;height:auto;" class="datatables html-widget"></div>
-<script type="application/json" data-for="htmlwidget-bb0c870c7d8739510cfe">{"x":{"filter":"none","vertical":false,"data":[["SEQN","Begin.Year","EndYear","RIDAGEYR","RIAGENDR","RIDRETH1","DMDEDUC2","BPQ050A","BPQ020","BPQ080","BPQ100D","LBDHDD","LBXGH","DIQ010","DIQ050","DIQ070","DIQ160","BMXBMI","LBXTC","cholMeds","hypoglycemicMeds","LBXGLU","LBXTR","LBDLDL","LBXBCO","BPXDI1","BPXDI2","BPXSY1","BPXSY2","DIASTOLIC","SYSTOLIC","years"],[1,0.000104,0.000104,0.004213,0.000104,0.00026,0.000416,0.000156,0.000208,0.00026,0.000208,0.006918,0.005722,0.00026,0.00026,0.00026,0.000208,0.024759,0.014772,0.000156,0.000208,0.013628,0.02039,0.011443,0.007646,0.003069,0.003381,0.004005,0.004109,0.006034,0.007542,0.000104],[0,0,0,0.039168,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0.009987,0.009883,0,0,0.006814,0,0],[0,0,0,0,0,0,0.412848,0.802705,0.350429,0.350429,0.834746,0.272094,0.356515,0.039168,0.039168,0.834122,0.389389,0.128166,0.272094,0.415449,0.281248,0.695033,0.710949,0.71355,0.637243,0.300546,0.278231,0.300546,0.278231,0.269961,0.269961,0],["Respondent sequence number","Multilevel(2)","Multilevel(2)","Continuous","unknown","Multilevel(5)","Multilevel(8)","Multilevel(3)","Multilevel(4)","Multilevel(5)","Multilevel(4)","Continuous","Continuous","Multilevel(5)","Multilevel(5)","Multilevel(5)","Multilevel(4)","Continuous","Continuous","Multilevel(3)","Multilevel(4)","Continuous","Continuous","Continuous","Continuous","Continuous","Continuous","Continuous","Continuous","Continuous","Continuous","unknown"]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th> <\/th>\n      <th>r_unique<\/th>\n      <th>r_zero<\/th>\n      <th>r_NAs<\/th>\n      <th>types<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"columnDefs":[{"className":"dt-right","targets":[1,2,3]},{"orderable":false,"targets":0}],"order":[],"autoWidth":false,"orderClasses":false}},"evals":[],"jsHooks":[]}</script>
+<div id="htmlwidget-c67d2438c7ce6dbfbfbe" style="width:100%;height:auto;" class="datatables html-widget"></div>
+<script type="application/json" data-for="htmlwidget-c67d2438c7ce6dbfbfbe">{"x":{"filter":"none","vertical":false,"data":[["SEQN","Begin.Year","EndYear","RIDAGEYR","RIAGENDR","RIDRETH1","DMDEDUC2","BPQ050A","BPQ020","BPQ080","BPQ100D","LBDHDD","LBXGH","DIQ010","DIQ050","DIQ070","DIQ160","BMXBMI","LBXTC","cholMeds","hypoglycemicMeds","LBXGLU","LBXTR","LBDLDL","LBXBCO","BPXDI1","BPXDI2","BPXSY1","BPXSY2","DIASTOLIC","SYSTOLIC","years"],[1,0.000104,0.000104,0.004213,0.000104,0.00026,0.000416,0.000156,0.000208,0.00026,0.000208,0.006918,0.005722,0.00026,0.00026,0.00026,0.000208,0.024759,0.014772,0.000156,0.000208,0.013628,0.02039,0.011443,0.007646,0.003069,0.003381,0.004005,0.004109,0.006034,0.007542,0.000104],[0,0,0,0.039168,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0.009987,0.009883,0,0,0.006814,0,0],[0,0,0,0,0,0,0.412848,0.802705,0.350429,0.350429,0.834746,0.272094,0.356515,0.039168,0.039168,0.834122,0.389389,0.128166,0.272094,0.415449,0.281248,0.695033,0.710949,0.71355,0.637243,0.300546,0.278231,0.300546,0.278231,0.269961,0.269961,0],["Respondent sequence number","Multilevel(2)","Multilevel(2)","Continuous","Multilevel(2)","Multilevel(5)","Multilevel(8)","Multilevel(3)","Multilevel(4)","Multilevel(5)","Multilevel(4)","Continuous","Continuous","Multilevel(5)","Multilevel(5)","Multilevel(5)","Multilevel(4)","Continuous","Continuous","Multilevel(3)","Multilevel(4)","Continuous","Continuous","Continuous","Continuous","Continuous","Continuous","Continuous","Continuous","Continuous","Continuous","Multilevel(2)"]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th> <\/th>\n      <th>r_unique<\/th>\n      <th>r_zero<\/th>\n      <th>r_NAs<\/th>\n      <th>types<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"columnDefs":[{"className":"dt-right","targets":[1,2,3]},{"orderable":false,"targets":0}],"order":[],"autoWidth":false,"orderClasses":false}},"evals":[],"jsHooks":[]}</script>
 <p>In the next code chunk we will convert the multilevel variables into
 R factors. To do this we make use of the nhanesTranslate function. While
 that function does most of the work, there are some variables we need to
@@ -4221,7 +4221,7 @@ RIDRETH1 [Other Hispanic]
 </tr>
 <tr>
 <td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">
-RIDRETH1 [Other Race -<br>Including Multi-R]
+RIDRETH1 [Other Race -<br>Including Multi-Racial]
 </td>
 <td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">
 1.69
