@@ -1,0 +1,116 @@
+---
+title: "Compare MICE with missForest"
+author: "Laha Ale"
+date: "2024-05-07"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Load Libs
+
+```{r libs,message=FALSE}
+library(mice)
+library(missForest)
+library(dplyr)
+library(naniar)
+library(gdata)
+library(ggplot2)
+```
+
+### Prepare a completed data
+
+```{r data}
+data = fdgs |> select(-c(id,wgt.z,hgt.z)) |> na.omit()
+```
+
+### Add Missingness
+
+```{r addmissingness, echo=T}
+AddMissingness = function(dataframe, ratio=0.1) {
+  # Calculate the total number of data points in the dataframe
+  total_elements <- nrow(dataframe) * ncol(dataframe)
+  
+  # Calculate the number of elements to set as NA
+  num_missing <- ceiling(total_elements * ratio)
+  
+  # Generate random indices to set as NA
+  missing_indices <- sample(total_elements, num_missing)
+  
+  # Convert matrix indices to array indices
+  array_indices <- arrayInd(missing_indices, dim(dataframe))
+  
+  # Assign NA to random elements in the dataframe
+  dataframe[array_indices] <- NA
+  
+  # Return a list containing both the modified dataframe and the random indices
+  return(list("missData" = dataframe, "missIndex" = array_indices))
+}
+
+missDataIndex = AddMissingness(data,0.15)
+```
+
+
+```{r plot}
+miss_data = missDataIndex$missData
+miss_idx = missDataIndex$missIndex
+vis_miss(miss_data)
+```
+
+### Impute data with MICE with random Forest
+```{r mice}
+imp <-  mice(miss_data, print=F)
+meth <- imp$method
+meth[c('sex','reg')] <- "rf"
+meth[c('age','hgt','wgt')] <- 'rf'
+
+imp = mice(miss_data, m=5, method = meth, print=F)
+imp15 = mice.mids(imp, maxit=15, print=F)
+impt_mice_data = list()
+
+for (i in 1:10){
+  impt_mice =  mice::complete(imp15,action=i)
+  impt_mice_data  = append(impt_mice_data,list(impt_mice))
+}
+
+```
+
+
+```{r cmp,echo=FALSE}
+qplot(impt_mice_data[[1]]$wgt[is.na(miss_data$wgt)],data$wgt[is.na(miss_data$wgt)],xlab = "Weight imputed by MICE",ylab="True Weight")
+qplot(impt_mice_data[[1]]$hgt[is.na(miss_data$hgt)],data$hgt[is.na(miss_data$hgt)],xlab = "Hight imputed by MICE",ylab="True Hight")
+```
+
+### Impute missForest
+```{r missForest}
+impt_mf_data = missForest(miss_data)
+```
+
+```{r cmmmf,echo=TRUE}
+qplot(impt_mf_data$ximp$wgt[is.na(miss_data$wgt)],data$wgt[is.na(miss_data$wgt)],xlab = "Weight imputed missForest",ylab="True Weight")
+qplot(impt_mf_data$ximp$hgt[is.na(miss_data$hgt)],data$hgt[is.na(miss_data$hgt)],xlab = "Hight imputed missForest",ylab="True Hight")
+
+qplot(data$age[is.na(miss_data$hgt)],impt_mf_data$ximp$hgt[is.na(miss_data$hgt)],xlab = "Age",ylab="Hight imputed missForest")
+```
+
+```{r mf_miss,echo=TRUE}
+hgt_idx = is.na(miss_data$hgt)
+mf_hgt = impt_mf_data$ximp[hgt_idx,]
+mf_hgt$age = data[hgt_idx,'age']
+ggplot(mf_hgt, aes(age,hgt, colour =sex))+geom_point(alpha=0.4)+stat_smooth()
+
+
+mf_hgt['label'] = "missForest"
+data['label'] = "True"
+ggplot(rbind.data.frame(mf_hgt,data), aes(age,hgt, colour =label))+geom_point(alpha=0.2)+stat_smooth()
+```
+
+
+
+
+
+
+
+
