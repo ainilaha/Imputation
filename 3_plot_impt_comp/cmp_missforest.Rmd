@@ -46,7 +46,8 @@ AddMissingness = function(dataframe, ratio=0.1) {
   dataframe[array_indices] <- NA
   
   # Return a list containing both the modified dataframe and the random indices
-  return(list("missData" = dataframe, "missIndex" = array_indices))
+  # return(list("missData" = dataframe, "missIndex" = array_indices))
+  dataframe
 }
 
 missDataIndex = AddMissingness(data,0.15)
@@ -70,7 +71,7 @@ imp = mice(miss_data, m=5, method = meth, print=F)
 imp15 = mice.mids(imp, maxit=15, print=F)
 impt_mice_data = list()
 
-for (i in 1:10){
+for (i in 1:5){
   impt_mice =  mice::complete(imp15,action=i)
   impt_mice_data  = append(impt_mice_data,list(impt_mice))
 }
@@ -99,8 +100,14 @@ qplot(data$age[is.na(miss_data$hgt)],impt_mf_data$ximp$hgt[is.na(miss_data$hgt)]
 hgt_idx = is.na(miss_data$hgt)
 mf_hgt = impt_mf_data$ximp[hgt_idx,]
 mf_hgt$age = data[hgt_idx,'age']
-ggplot(mf_hgt, aes(age,hgt, colour =sex))+geom_point(alpha=0.4)+stat_smooth()
+mf_hgt['miss_no'] = as.factor(apply(miss_data[hgt_idx,],1, function (x) sum(is.na(x))))
 
+ggplot(mf_hgt, aes(age,hgt, colour =sex))+geom_point(alpha=0.4)+stat_smooth()
+mf_hgt['true_hgt'] = data[hgt_idx,'hgt']
+
+ggplot(mf_hgt, aes(age,hgt, colour=miss_no))+geom_point(alpha=0.4)+stat_smooth()+ylab("missForest Imputed Hight")
+
+ggplot(mf_hgt, aes(true_hgt,hgt, colour=miss_no))+geom_point(alpha=0.4)+stat_smooth()+xlab("Hight")+ylab("missForest Imputed Hight")
 
 mf_hgt['label'] = "missForest"
 data['label'] = "True"

@@ -30,16 +30,9 @@ We will use the [NHANES](https://www.cdc.gov/nchs/nhanes/index.htm) as our data 
 
 
 ## Identify a response, or outcome of interest.
-## FIXME: you probably want to specify some "entry" criteria
-##  age and sex, what if any restrictions, what about comorbidities
-## what about people taking drugs to lower their blood pressure?
-## do we want to deal with obesity - would we just use "Normal BMI"
-## Most of this information might go into a Methods Section, and some of the
-## analytic details would go in to a Supplement.
-## describe the specifics of the processing in the methods section.
-## Something like - For individuals with two measurements we averaged the two,
-## for those with only one, we used the one, all others would be missing.
-## 
+ FIXME: you probably want to specify some "entry" criteria age and sex, what if any restrictions, what about comorbidities what about people taking drugs to lower their blood pressure? do we want to deal with obesity - would we just use "Normal BMI" Most of this information might go into a Methods Section, and some of the analytic details would go in to a Supplement. describe the specifics of the processing in the methods section. Something like - For individuals with two measurements we averaged the two, for those with only one, we used the one, all others would be missing.
+ 
+
 In this demonstration, we choose diastolic [blood pressure](https://wwwn.cdc.gov/Nchs/Nhanes/2015-2016/BPX_I.htm#BPXDI1) as the outcome interest. These data are
 contained in tables in the NHANES database.
 

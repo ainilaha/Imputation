@@ -1,0 +1,109 @@
+---
+title: "MissForest on Simulation Data"
+author: "Laha Ale"
+date: "2024-05-09"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Load Libs
+
+```{r libs,message=FALSE}
+library(mice)
+library(missForest)
+library(dplyr)
+library(naniar)
+library(gdata)
+library(ggplot2)
+```
+
+### Simulation data
+```{r data,message=FALSE}
+source("./simulation.R")
+data = simulateData(1500) # 15 columns
+```
+
+#### Quick Plot
+```{r plot}
+qplot(data[, 7],data[, 8])+geom_smooth()
+qplot(data[, 5],data[, 6])+geom_smooth()
+```
+
+#### Add Missingness
+```{r miss}
+miss_data = addMissingness(data,ratio = 0.15)
+vis_miss(miss_data)
+```
+
+### Impute with missForest
+```{r missForest}
+impt_mf_data = missForest(miss_data)
+```
+```{r cmmmf,echo=TRUE,warning=FALSE}
+v8_idx = is.na(miss_data$v8)
+v8_df = impt_mf_data$ximp[v8_idx,]
+v8_df$v7=data$v7[v8_idx]
+v8_df['True']=data$v8[v8_idx]
+v8_df['miss_no'] = as.factor(apply(miss_data[v8_idx,],1, function (x) sum(is.na(x))))
+
+
+ggplot(v8_df, aes(True,v8))+geom_point(alpha=0.5)+stat_smooth()+ylab("missForest Imputed v8")+xlab("True v8")
+
+ggplot(v8_df, aes(True,v8, colour=miss_no))+geom_point(alpha=0.5)+stat_smooth()+ylab("missForest Imputed v8")+xlab("True v8")
+
+ggplot(v8_df, aes(v7,v8))+geom_point(alpha=0.8)+stat_smooth()+ylab("missForest Imputed v8")
+
+ggplot(v8_df, aes(v7,v8, colour=miss_no))+geom_point(alpha=0.5)+stat_smooth()+ylab("missForest Imputed v8")
+```
+
+```{r cmmmf3,echo=TRUE,warning=FALSE}
+v6_idx = is.na(miss_data$v6)
+v6_df = impt_mf_data$ximp[v6_idx,]
+v6_df$v5=data$v5[v6_idx]
+v6_df['True']=data$v6[v6_idx]
+v6_df['miss_no'] = as.factor(apply(miss_data[v6_idx,],1, function (x) sum(is.na(x))))
+
+
+ggplot(v6_df, aes(True,v6))+geom_point(alpha=0.5)+stat_smooth()+ylab("missForest Imputed v6")+xlab("True v6")
+
+ggplot(v6_df, aes(True,v6, colour=miss_no))+geom_point(alpha=0.5)+stat_smooth()+ylab("missForest Imputed v6")+xlab("True v6")
+
+ggplot(v6_df, aes(v5,v6))+geom_point(alpha=0.8)+stat_smooth()+ylab("missForest Imputed v6")
+
+ggplot(v6_df, aes(v5,v6, colour=miss_no))+geom_point(alpha=0.5)+stat_smooth()+ylab("missForest Imputed v6")
+```
+
+### Impute with MICE
+```{r missMice}
+imp <-  mice(miss_data, print=F)
+meth <- imp$method
+
+imp = mice(miss_data, m=2, method = "rf", print=F)
+imp15 = mice.mids(imp, maxit=15, print=F)
+impt_mice_data = list()
+
+for (i in 1:2){
+  impt_mice =  mice::complete(imp15,action=i)
+  impt_mice_data  = append(impt_mice_data,list(impt_mice))
+}
+```
+
+```{r cmmice,echo=TRUE,warning=FALSE}
+v8_idx = is.na(miss_data$v8)
+v8_df = impt_mice_data[[1]][v8_idx,]
+v8_df$v7=data$v7[v8_idx]
+v8_df['True']=data$v8[v8_idx]
+v8_df['miss_no'] = as.factor(apply(miss_data[v8_idx,],1, function (x) sum(is.na(x))))
+
+
+ggplot(v8_df, aes(True,v8))+geom_point(alpha=0.5)+stat_smooth()+ylab("MICE Imputed v8")+xlab("True v8")
+
+ggplot(v8_df, aes(True,v8, colour=miss_no))+geom_point(alpha=0.5)+stat_smooth()+ylab("MICE Imputed v8")+xlab("True v8")
+
+ggplot(v8_df, aes(v7,v8))+geom_point(alpha=0.8)+stat_smooth()+ylab("MICE Imputed v8")
+
+ggplot(v8_df, aes(v7,v8, colour=miss_no))+geom_point(alpha=0.5)+stat_smooth()+ylab("MICE Imputed v8")
+```
