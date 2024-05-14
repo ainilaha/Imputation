@@ -18,6 +18,7 @@ library(dplyr)
 library(naniar)
 library(gdata)
 library(ggplot2)
+library(randomForest) # rfImpute()
 ```
 
 ### Prepare a completed data

@@ -1,0 +1,53 @@
+---
+title: 'Reproduce: Simulation study with interactions'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+### Load the library and simulation code
+```{r}
+library(CALIBERrfimpute)
+library(missForest)
+library(survival)
+library(xtable)
+library(parallel) # Use parallel processing on Unix
+source("9_simulation//simulation_interactions.R") # the code are copy from the the paper appendix
+```
+
+### Initialise constants
+```{r}
+kPmiss <- 0.2 # probability of missingness
+kLogHR <- 0.5 # true log hazard ratio
+kSampleSize <- 2000 # number of patients in simulated data sets
+```
+### Set number of samples
+```{r}
+N <- 1000
+```
+
+### Perform the simulation
+```{r}
+# it requires the following variable, but I am not sure the authors use the same one
+myformula <- as.formula(Surv(time, event) ~ x1 + x2 + x3)
+
+results <- mclapply(1:N, doanalysis)
+```
+
+### Show results
+```{r}
+showTable('x1'); showTable('x2'); showTable('x3')
+```
+
+### Names of the variables in the comparison
+```{r}
+variables <- c('x1', 'x2', 'x3')
+```
+### Show comparisons between methods
+```{r}
+maketable(compareBias)
+maketable(compareVariance)
+maketable(compareCIlength)
+maketable(compareCoverage)
+```
