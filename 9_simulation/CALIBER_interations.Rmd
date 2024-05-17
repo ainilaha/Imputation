@@ -1,51 +1,72 @@
 ---
 title: 'Reproduce: Simulation study with interactions'
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
-### Load the library and simulation code
 ```{r}
+# Load necessary library
+library(MASS)
+mu = rep(0, 3) 
+sigma = diag(3)  # Identity matrix as the covariance matrix (independent columns)
+
+set.seed(123)
+mydata = mvrnorm(n = 15000, mu = mu, Sigma = sigma)
+mydata = as.data.frame(mydata)
+colnames(mydata) = c("x1","x2","x3")
+
+mydata$x3 = 0.5*(mydata$x1+mydata$x2 - mydata$x1*mydata$x2)+rnorm(15000)
+pairs(mydata[1:500,])
+
+summary(lm(formula = x3 ~ x1 * x2, data = mydata))
+```
+### Load the library and simulation code
+```{r lib}
 library(CALIBERrfimpute)
 library(missForest)
+library(randomForest) # added by Laha
 library(survival)
 library(xtable)
 library(parallel) # Use parallel processing on Unix
-source("9_simulation//simulation_interactions.R") # the code are copy from the the paper appendix
+source("simulation_interactions.R") # the code are copy from the the paper appendix
 ```
 
 ### Initialise constants
-```{r}
+```{r setk}
 kPmiss <- 0.2 # probability of missingness
 kLogHR <- 0.5 # true log hazard ratio
 kSampleSize <- 2000 # number of patients in simulated data sets
 ```
 ### Set number of samples
-```{r}
-N <- 1000
+```{r setN}
+N <- 3
 ```
 
 ### Perform the simulation
-```{r}
+```{r simulation}
 # it requires the following variable, but I am not sure the authors use the same one
-myformula <- as.formula(Surv(time, event) ~ x1 + x2 + x3)
+myformula <- as.formula("Surv(time, event) ~ x1 + x2 + x3")
 
-results <- mclapply(1:N, doanalysis)
+results <- parallel::mclapply(1:N, doanalysis)
 ```
 
 ### Show results
-```{r}
-showTable('x1'); showTable('x2'); showTable('x3')
+```{r tables,results='asis'}
+showTable('x1')
+showTable('x2')
+showTable('x3')
 ```
 
 ### Names of the variables in the comparison
-```{r}
+```{r vs}
 variables <- c('x1', 'x2', 'x3')
 ```
 ### Show comparisons between methods
-```{r}
+```{r mtables,results='asis'}
 maketable(compareBias)
 maketable(compareVariance)
 maketable(compareCIlength)

@@ -72,7 +72,7 @@ coxfull <- function(data) {
   confint <- cbind(coefs[, 'coef'] - qnorm(0.975) * coefs[, 'se(coef)'], coefs[, 'coef'] + qnorm(0.975) * coefs[, 'se(coef)'])
   out <- cbind(coefs[, 'coef'], confint, kLogHR >= confint[, 1] &
                  kLogHR <= confint[, 2])
-  colnames(out) <- c('est', 'lo 95', 'hi 95', 'cover')
+  colnames(out) <- c('estimate', 'lo 95', 'hi 95', 'cover')
   out
 }
 
@@ -83,9 +83,18 @@ coximpute <- function(imputed_datasets){
   }
   mirafits <- as.mira(lapply(imputed_datasets, docoxmodel))
   out <- summary(pool(mirafits))
+  #--------added by Laha----------
+  out[, 'lo 95'] =  out$estimate - 1.96*out$std.error
+  out[, 'hi 95'] =  out$estimate + 1.96*out$std.error
+  #--------------------------
   out <- cbind(out, kLogHR >= out[, 'lo 95'] & kLogHR <= out[, 'hi 95'])
   # Whether this confidence interval contains the true hazard ratio
   colnames(out)[length(colnames(out))] <- 'cover'
+  
+  #----------Laha added-------
+  rownames(out) = out$term
+  out$term = NULL
+  #--------------------------
   out
 }
 
@@ -202,10 +211,10 @@ compareBias <- function(method1, method2) {
   compareBiasVar <- function(varname) {
     # All coefficients should be kLogHR
     bias1 <- sapply(results, function(x) {
-      x[[method1]][varname, 'est']
+      x[[method1]][varname, 'estimate']
     }) - kLogHR
     bias2 <- sapply(results, function(x) {
-      x[[method2]][varname, 'est']
+      x[[method2]][varname, 'estimate']
     }) - kLogHR
     if (sign(mean(bias1)) == -1) {
       bias1 <- -bias1
@@ -230,10 +239,10 @@ compareVariance <- function(method1, method2) {
   # (smaller means first method is better)
   compareVarianceVar <- function(varname) {
     e1 <- sapply(results, function(x) {
-      x[[method1]][varname, 'est']
+      x[[method1]][varname, 'estimate']
     })
     e2 <- sapply(results, function(x) {
-      x[[method2]][varname, 'est']
+      x[[method2]][varname, 'estimate']
     })
     paste(formatC(var(e1) / var(e2), format = 'fg', digits = 3),
           pstar(var.test(e1, e2)$p.value))
@@ -291,7 +300,7 @@ compareCoverage <- function(method1, method2) {
 
 getParams <- function(coef, method) {
   estimates <- sapply(results, function(x) {
-    x[[method]][coef, 'est']
+    x[[method]][coef, 'estimate'] # fixed 
   })
   bias <- mean(estimates) - kLogHR
   se_bias <- sd(estimates) / sqrt(length(estimates))
@@ -341,14 +350,44 @@ showTable <- function(coef) {
     out
   )
   out <- cbind(c('', '', methodnames), out)
-  print(
-    xtable(out),
-    floating = FALSE,
-    include.rownames = FALSE,
-    include.colnames = FALSE,
-    hline.after = c(0, 2, nrow(out))
-  )
+  # print(
+  #   xtable(out),
+  #   floating = FALSE,
+  #   include.rownames = FALSE,
+  #   include.colnames = FALSE,
+  #   hline.after = c(0, 2, nrow(out)),
+  #   
+    knitr::kable(out)
+    maketable <- function(comparison) {
+      # comparison is a function such as compareCoverage, compareBias
+      compare <- cbind(
+        comparison('rf10', 'mice'),
+        comparison('rf100', 'mice'),
+        comparison('rf100', 'rf10')
+      )
+      compare <- cbind(rownames(compare), compare)
+      compare <- rbind(
+        c('', 'MICE-RF 10', 'MICE-RF 100', 'MICE-RF 100'),
+        c(
+          'Coefficient',
+          'vs parametric MICE',
+          'vs parametric MICE',
+          'vs MICE-RF 10'
+        ),
+        compare
+      )
+      # print(
+      #   xtable(compare),
+      #   include.rownames = FALSE,
+      #   include.colnames = FALSE,
+      #   floating = FALSE,
+      #   hline.after = c(0, 2, nrow(compare))
+      # )
+      knitr::kable(compare,"html")
+    }
+  # )
 }
+
 maketable <- function(comparison) {
   # comparison is a function such as compareCoverage, compareBias
   compare <- cbind(
@@ -367,11 +406,13 @@ maketable <- function(comparison) {
     ),
     compare
   )
-  print(
-    xtable(compare),
-    include.rownames = FALSE,
-    include.colnames = FALSE,
-    floating = FALSE,
-    hline.after = c(0, 2, nrow(compare))
-  )
+  # print(
+  #   xtable(compare),
+  #   include.rownames = FALSE,
+  #   include.colnames = FALSE,
+  #   floating = FALSE,
+  #   hline.after = c(0, 2, nrow(compare))
+  # )
+  knitr::kable(compare,"html")
+
 }
