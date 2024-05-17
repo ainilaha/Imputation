@@ -44,7 +44,7 @@ kSampleSize <- 2000 # number of patients in simulated data sets
 ```
 ### Set number of samples
 ```{r setN}
-N <- 3
+N <- 3 # the paper set N=1000
 ```
 
 ### Perform the simulation
