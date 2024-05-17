@@ -1,8 +1,8 @@
 ---
 title: 'Reproduce: Simulation study with interactions'
 output:
-  pdf_document: default
   html_document: default
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -32,6 +32,7 @@ library(randomForest) # added by Laha
 library(survival)
 library(xtable)
 library(parallel) # Use parallel processing on Unix
+library(kableExtra)
 source("simulation_interactions.R") # the code are copy from the the paper appendix
 ```
 
@@ -54,21 +55,41 @@ myformula <- as.formula("Surv(time, event) ~ x1 + x2 + x3")
 results <- parallel::mclapply(1:N, doanalysis)
 ```
 
-### Show results
+### Show results:x1
 ```{r tables,results='asis'}
 showTable('x1')
 showTable('x2')
 showTable('x3')
 ```
+### Show results:x2
+```{r tablesx2,results='asis'}
+showTable('x2')
+```
+
+### Show results:x3
+```{r tablesx3,results='asis'}
+showTable('x3')
+```
+
 
 ### Names of the variables in the comparison
 ```{r vs}
 variables <- c('x1', 'x2', 'x3')
 ```
-### Show comparisons between methods
-```{r mtables,results='asis'}
+### Show comparisons between methods:compareBias
+```{r mtablescompareBias,results='asis'}
 maketable(compareBias)
+```
+### Show comparisons between methods:compareBias
+```{r compareVariance,results='asis'}
 maketable(compareVariance)
+```
+### Show comparisons between methods:compareCIlength
+```{r compareCIlength,results='asis'}
 maketable(compareCIlength)
+maketable(compareCoverage)
+```
+### Show comparisons between methods:compareCoverage
+```{r compareCoverage,results='asis'}
 maketable(compareCoverage)
 ```

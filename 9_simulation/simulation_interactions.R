@@ -316,6 +316,79 @@ getParams <- function(coef, method) {
   out
 }
 
+# showTable <- function(coef) {
+#   methods <- c('full',
+#                'rfimpute',
+#                'missf',
+#                'rf5',
+#                'rf10',
+#                'rf20',
+#                'rf50',
+#                'rf100',
+#                'mice')
+#   methodnames <- c(
+#     'Full data',
+#     'rfImpute',
+#     'missForest',
+#     paste('RF MICE with', c(5, 10, 20, 50, 100), 'trees'),
+#     'Parametric MICE'
+#   )
+#   out <- t(sapply(methods, function(x) {
+#     getParams(coef, x)
+#   }))
+#   out <- formatC(out, digits = 3, format = 'fg')
+#   out <- rbind(
+#     c('', 'Standard', 'Z-score ', 'SD of', 'Mean 95%', '95% CI'),
+#     c(
+#       'Bias',
+#       'error of bias',
+#       'for bias',
+#       'estimate',
+#       'CI length',
+#       'coverage'
+#     ),
+#     out
+#   )
+#   out <- cbind(c('', '', methodnames), out)
+#   print(
+#     xtable(out),
+#     floating = FALSE,
+#     include.rownames = FALSE,
+#     include.colnames = FALSE,
+#     hline.after = c(0, 2, nrow(out)),
+#   #   
+#     # knitr::kable(out)
+#     maketable <- function(comparison) {
+#       # comparison is a function such as compareCoverage, compareBias
+#       compare <- cbind(
+#         comparison('rf10', 'mice'),
+#         comparison('rf100', 'mice'),
+#         comparison('rf100', 'rf10')
+#       )
+#       compare <- cbind(rownames(compare), compare)
+#       compare <- rbind(
+#         c('', 'MICE-RF 10', 'MICE-RF 100', 'MICE-RF 100'),
+#         c(
+#           'Coefficient',
+#           'vs parametric MICE',
+#           'vs parametric MICE',
+#           'vs MICE-RF 10'
+#         ),
+#         compare
+#       )
+#       print(
+#         xtable(compare),
+#         include.rownames = FALSE,
+#         include.colnames = FALSE,
+#         floating = FALSE,
+#         hline.after = c(0, 2, nrow(compare))
+#       )
+#       # knitr::kable(compare,"html")
+#     }
+#   )
+# }
+
+
 showTable <- function(coef) {
   methods <- c('full',
                'rfimpute',
@@ -333,9 +406,11 @@ showTable <- function(coef) {
     paste('RF MICE with', c(5, 10, 20, 50, 100), 'trees'),
     'Parametric MICE'
   )
+  
   out <- t(sapply(methods, function(x) {
     getParams(coef, x)
   }))
+  
   out <- formatC(out, digits = 3, format = 'fg')
   out <- rbind(
     c('', 'Standard', 'Z-score ', 'SD of', 'Mean 95%', '95% CI'),
@@ -349,44 +424,20 @@ showTable <- function(coef) {
     ),
     out
   )
+  
   out <- cbind(c('', '', methodnames), out)
-  # print(
-  #   xtable(out),
-  #   floating = FALSE,
-  #   include.rownames = FALSE,
-  #   include.colnames = FALSE,
-  #   hline.after = c(0, 2, nrow(out)),
-  #   
-    knitr::kable(out)
-    maketable <- function(comparison) {
-      # comparison is a function such as compareCoverage, compareBias
-      compare <- cbind(
-        comparison('rf10', 'mice'),
-        comparison('rf100', 'mice'),
-        comparison('rf100', 'rf10')
-      )
-      compare <- cbind(rownames(compare), compare)
-      compare <- rbind(
-        c('', 'MICE-RF 10', 'MICE-RF 100', 'MICE-RF 100'),
-        c(
-          'Coefficient',
-          'vs parametric MICE',
-          'vs parametric MICE',
-          'vs MICE-RF 10'
-        ),
-        compare
-      )
-      # print(
-      #   xtable(compare),
-      #   include.rownames = FALSE,
-      #   include.colnames = FALSE,
-      #   floating = FALSE,
-      #   hline.after = c(0, 2, nrow(compare))
-      # )
-      knitr::kable(compare,"html")
-    }
-  # )
+  out <- cbind(c('', '', methods), out)
+  
+  # Convert to data frame for kable
+  out_df <- as.data.frame(out)
+  colnames(out_df) <- NULL
+  rownames(out_df) <- NULL
+  
+  kable(out_df, booktabs = TRUE) |>
+    kable_styling(font_size = 11)
 }
+
+
 
 maketable <- function(comparison) {
   # comparison is a function such as compareCoverage, compareBias
@@ -413,6 +464,7 @@ maketable <- function(comparison) {
   #   floating = FALSE,
   #   hline.after = c(0, 2, nrow(compare))
   # )
-  knitr::kable(compare,"html")
+  kable(compare, booktabs = TRUE) |>
+    kable_styling(font_size = 11)
 
 }
